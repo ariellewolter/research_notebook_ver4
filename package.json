@@ -1,0 +1,17 @@
+{
+    "name": "notebook-notion-app",
+    "private": true,
+    "version": "0.1.0",
+    "workspaces": [
+        "apps/*",
+        "packages/*"
+    ],
+    "scripts": {
+        "dev:frontend": "pnpm --filter @notebook-notion-app/frontend dev",
+        "dev:backend": "pnpm --filter @notebook-notion-app/backend dev",
+        "dev": "pnpm -r dev",
+        "build": "pnpm -r build",
+        "lint": "pnpm -r lint",
+        "format": "pnpm -r format"
+    }
+}

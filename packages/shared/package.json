@@ -1,0 +1,12 @@
+{
+    "name": "@notebook-notion-app/shared",
+    "version": "0.1.0",
+    "private": true,
+    "main": "index.ts",
+    "types": "index.ts",
+    "devDependencies": {
+        "typescript": "^5.4.5",
+        "eslint": "^8.57.0",
+        "prettier": "^3.2.5"
+    }
+}
