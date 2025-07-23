@@ -1,5 +1,56 @@
 # 🧪 Research Notebook App
 
+---
+
+## 🚀 Quick Start Guide
+
+### 1. **Install Required Dependencies**
+- **Node.js** (v18 or higher): [Download Node.js](https://nodejs.org/)
+- **pnpm** (recommended):
+  ```bash
+  npm install -g pnpm
+  ```
+- **Git**: [Download Git](https://git-scm.com/)
+
+### 2. **Clone the Repository**
+```bash
+git clone https://github.com/ariellewolter/research_notebook_ver4.git
+cd research_notebook_ver4
+```
+
+### 3. **Install Project Dependencies**
+```bash
+pnpm install
+```
+
+### 4. **Set Up the Database**
+```bash
+cd apps/backend
+pnpm exec prisma migrate dev --name init
+```
+
+### 5. **Start the App**
+- **Backend:**
+  ```bash
+  pnpm dev
+  ```
+- **Frontend:** (in a new terminal)
+  ```bash
+  cd apps/frontend
+  pnpm dev
+  ```
+- Open your browser to [http://localhost:5180](http://localhost:5180)
+
+### 6. **Environment Variables (Optional)**
+Create a `.env` file in `apps/backend/` for custom DB or Zotero integration (see below for details).
+
+### 7. **Data Storage**
+- All data is stored locally in `apps/backend/prisma/dev.db` (SQLite).
+- Uploaded files (PDFs, etc.) are stored in `apps/backend/uploads/`.
+- To move your data to another computer, copy these files/directories.
+
+---
+
 A modular, extensible research notebook built for PhD-level scientific workflows. Designed to unify experimental records, literature insights, protocols, biochemical entities, and cross-linked knowledge into one centralized platform.
 
 ---
