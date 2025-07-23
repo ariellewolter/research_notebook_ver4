@@ -23,6 +23,24 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Build frontend
+        run: |
+          cd apps/frontend
+          pnpm build
+          cd ../..
+
+      - name: Zip frontend build
+        run: |
+          cd apps/frontend/dist
+          zip -r ../../frontend-dist.zip .
+          cd ../..
+
+      - name: Zip backend source
+        run: |
+          cd apps/backend
+          zip -r ../../backend-src.zip src prisma package.json tsconfig.json
+          cd ../..
+
       - name: Generate Release Notes
         id: changelog
         run: |
@@ -34,5 +52,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           body: ${{ env.RELEASE_NOTES }}
+          files: |
+            frontend-dist.zip
+            backend-src.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

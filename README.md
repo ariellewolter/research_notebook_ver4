@@ -51,6 +51,35 @@ Create a `.env` file in `apps/backend/` for custom DB or Zotero integration (see
 
 ---
 
+## 📦 Downloading and Using Release Artifacts
+
+You can download pre-built frontend and backend artifacts from the [Releases page](https://github.com/ariellewolter/research_notebook_ver4/releases) for each version.
+
+### **How to Use Release Artifacts**
+
+1. **Download the latest release** from the [Releases page](https://github.com/ariellewolter/research_notebook_ver4/releases).
+2. **Unzip both files:**
+   - `frontend-dist.zip` (contains the production-ready frontend)
+   - `backend-src.zip` (contains backend source, migrations, and config)
+3. **Install dependencies:**
+   - For the backend, run:
+     ```bash
+     cd backend-src
+     pnpm install
+     pnpm exec prisma migrate dev --name init
+     pnpm dev
+     ```
+   - For the frontend, you can serve the static files in `dist/` using any static server (e.g., [serve](https://www.npmjs.com/package/serve)):
+     ```bash
+     npm install -g serve
+     serve dist
+     ```
+   - Or, for development, use the full source from the repo as described above.
+
+**Note:** The backend still requires Node.js, pnpm, and a database (SQLite by default). See the Quick Start Guide for details.
+
+---
+
 A modular, extensible research notebook built for PhD-level scientific workflows. Designed to unify experimental records, literature insights, protocols, biochemical entities, and cross-linked knowledge into one centralized platform.
 
 ---
