@@ -18,6 +18,9 @@ import Settings from './pages/Settings';
 import ResearchDashboard from './pages/ResearchDashboard';
 import Workspace from './pages/Workspace';
 import ExperimentsDashboard from './pages/ExperimentsDashboard';
+import Tasks from './pages/Tasks';
+import LiteratureNotes from './pages/LiteratureNotes';
+import Calculators from './pages/Calculators';
 import { ThemePaletteProvider, useThemePalette } from './services/ThemePaletteContext';
 import { WorkspaceTabsProvider } from './pages/WorkspaceTabsContext';
 
@@ -47,20 +50,22 @@ const ThemedApp: React.FC = () => {
             <Router>
                 <Routes>
                     <Route element={<Layout />}>
-                        <Route path="/" element={<Workspace />} />
+                        <Route path="/" element={<ResearchDashboard />} />
+                        <Route path="/dashboard" element={<ResearchDashboard />} />
                         <Route path="/calendar" element={<Calendar />} />
                         <Route path="/settings" element={<Settings />} />
                         <Route path="/old-dashboard" element={<OldDashboard />} />
-                        <Route path="/dashboard" element={<ResearchDashboard />} />
-                        {/* Redirect all old entity routes to workspace */}
-                        <Route path="/notes" element={<Navigate to="/" replace />} />
+                        <Route path="/notes" element={<Notes />} />
                         <Route path="/protocols" element={<Protocols />} />
-                        <Route path="/recipes" element={<Navigate to="/" replace />} />
-                        <Route path="/pdfs" element={<Navigate to="/" replace />} />
-                        <Route path="/projects" element={<Navigate to="/" replace />} />
-                        <Route path="/tables" element={<Navigate to="/" replace />} />
-                        <Route path="/database" element={<Navigate to="/" replace />} />
+                        <Route path="/recipes" element={<Recipes />} />
+                        <Route path="/pdfs" element={<PDFs />} />
+                        <Route path="/projects" element={<Projects />} />
+                        <Route path="/tables" element={<Tables />} />
+                        <Route path="/database" element={<Database />} />
                         <Route path="/experiments" element={<ExperimentsDashboard />} />
+                        <Route path="/tasks" element={<Tasks />} />
+                        <Route path="/literature" element={<LiteratureNotes />} />
+                        <Route path="/calculators" element={<Calculators />} />
                         {/* Fallback */}
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Route>

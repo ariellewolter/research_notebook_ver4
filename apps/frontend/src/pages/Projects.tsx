@@ -140,6 +140,7 @@ const Projects: React.FC = () => {
     const [editingProject, setEditingProject] = useState<Project | null>(null);
     const [editingExperiment, setEditingExperiment] = useState<Experiment | null>(null);
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+    const [editMode, setEditMode] = useState(false);
     const [saving, setSaving] = useState(false);
     const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
         open: false,
@@ -593,6 +594,44 @@ const Projects: React.FC = () => {
         }
     };
 
+    // 1. Implement handleLinkAllEntities to iterate over entityMentions and call linksApi.create for each, linking to the current project.
+    // 2. Enable the 'Link All' button in the Drawer, and call handleLinkAllEntities on click.
+    // 3. Show a snackbar notification when linking is complete.
+    const handleLinkAllEntities = async () => {
+        if (!editingProject) return;
+        const newLinkedNotes: any[] = [];
+        const newLinkedDatabaseEntries: any[] = [];
+        const newLinkedProtocols: any[] = [];
+        const newLinkedRecipes: any[] = [];
+        const newLinkedPDFs: any[] = [];
+
+        for (const mention of entityMentions) {
+            const entry = mention.entry;
+            if (entry.type === 'note') {
+                await handleLinkNote(entry.id);
+                newLinkedNotes.push(entry);
+            } else if (entry.type === 'databaseEntry') {
+                await handleLinkDatabaseEntry(entry.id);
+                newLinkedDatabaseEntries.push(entry);
+            } else if (entry.type === 'protocol') {
+                await handleLinkProtocol(entry.id);
+                newLinkedProtocols.push(entry);
+            } else if (entry.type === 'recipe') {
+                await handleLinkRecipe(entry.id);
+                newLinkedRecipes.push(entry);
+            } else if (entry.type === 'pdf') {
+                await handleLinkPDF(entry.id);
+                newLinkedPDFs.push(entry);
+            }
+        }
+
+        setSnackbar({
+            open: true,
+            message: `Linked ${newLinkedNotes.length} notes, ${newLinkedDatabaseEntries.length} database entries, ${newLinkedProtocols.length} protocols, ${newLinkedRecipes.length} recipes, ${newLinkedPDFs.length} PDFs.`,
+            severity: 'success',
+        });
+    };
+
     if (loading) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
@@ -603,6 +642,91 @@ const Projects: React.FC = () => {
 
     function handleOpenEntity(entity: any) {
         alert(`Open entity: ${entity.name} (type: ${entity.type})`);
+    }
+
+    let detailPane = null;
+    if (selectedProjectId) {
+        const project = projects.find(p => p.id === selectedProjectId);
+        if (project) {
+            const [editData, setEditData] = useState({ ...project });
+            const handleEditChange = (field: string, value: any) => setEditData(prev => ({ ...prev, [field]: value }));
+            const handleSaveEdit = async () => {
+                const updateData = {
+                    name: editData.name,
+                    description: editData.description,
+                    status: editData.status,
+                    startDate: editData.startDate || undefined,
+                    lastActivity: editData.lastActivity || undefined,
+                };
+                await projectsApi.update(project.id, updateData);
+                setEditMode(false);
+                loadProjects();
+                setSnackbar({ open: true, message: 'Project updated successfully', severity: 'success' });
+            };
+            if (!editMode) {
+                detailPane = (
+                    <Box sx={{ mb: 4, p: 2, border: '1px solid #ddd', borderRadius: 2 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                            <Typography variant="h5">{project.name}</Typography>
+                            <Button variant="outlined" startIcon={<EditIcon />} onClick={() => setEditMode(true)}>Edit</Button>
+                        </Box>
+                        <Typography variant="body2" color="text.secondary" mb={2}>{project.description}</Typography>
+                        <Typography variant="body2" color="text.secondary" mb={2}>Status: {project.status}</Typography>
+                        <Typography variant="body2" color="text.secondary" mb={2}>Start Date: {project.startDate}</Typography>
+                        {/* Add more fields as needed for display */}
+                    </Box>
+                );
+            } else {
+                detailPane = (
+                    <Box sx={{ mb: 4, p: 2, border: '1px solid #ddd', borderRadius: 2 }}>
+                        <TextField
+                            fullWidth
+                            label="Project Name"
+                            value={editData.name}
+                            onChange={e => handleEditChange('name', e.target.value)}
+                            sx={{ mb: 2 }}
+                        />
+                        <TextField
+                            fullWidth
+                            label="Description"
+                            value={editData.description}
+                            onChange={e => handleEditChange('description', e.target.value)}
+                            multiline
+                            rows={2}
+                            sx={{ mb: 2 }}
+                        />
+                        <FormControl fullWidth sx={{ mb: 2 }}>
+                            <InputLabel>Status</InputLabel>
+                            <Select
+                                value={editData.status}
+                                onChange={e => handleEditChange('status', e.target.value)}
+                                label="Status"
+                            >
+                                <MenuItem value="planning">Planning</MenuItem>
+                                <MenuItem value="active">Active</MenuItem>
+                                <MenuItem value="completed">Completed</MenuItem>
+                                <MenuItem value="on_hold">On Hold</MenuItem>
+                                <MenuItem value="cancelled">Cancelled</MenuItem>
+                            </Select>
+                        </FormControl>
+                        <TextField
+                            fullWidth
+                            label="Start Date"
+                            type="date"
+                            value={editData.startDate || ''}
+                            onChange={e => handleEditChange('startDate', e.target.value)}
+                            sx={{ mb: 2 }}
+                            InputLabelProps={{ shrink: true }}
+                        />
+                        {/* Add more editable fields as needed */}
+                        <Box sx={{ display: 'flex', gap: 2 }}>
+                            <Button variant="contained" onClick={handleSaveEdit}>Save</Button>
+                            <Button variant="outlined" onClick={() => setEditMode(false)}>Cancel</Button>
+                        </Box>
+                    </Box>
+                );
+            }
+        }
     }
 
     return (
@@ -637,6 +761,7 @@ const Projects: React.FC = () => {
                 </Box>
             ) : (
                 <Grid container spacing={3}>
+                    {detailPane}
                     {filteredProjects.map((project) => (
                         <Grid item xs={12} key={project.id}>
                             <Card sx={{ borderLeft: `8px solid ${palette[NOTE_TYPE_TO_PALETTE_ROLE['project']]}` }}>
@@ -1048,6 +1173,9 @@ const Projects: React.FC = () => {
                             </MUIListItem>
                         ))}
                         {entityMentions.length === 0 && <Typography>No suggestions found.</Typography>}
+                        <ListItem button onClick={handleLinkAllEntities}>
+                            <ListItemText primary="Link All Suggested Entities" />
+                        </ListItem>
                     </MUIList>
                 </Box>
             </Drawer>

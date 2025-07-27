@@ -28,6 +28,9 @@ import {
     List as MUIList,
     ListItem as MUIListItem,
     ListItemText as MUIListItemText,
+    Accordion,
+    AccordionSummary,
+    AccordionDetails,
 } from '@mui/material';
 import { Alert, Snackbar } from '@mui/material';
 import {
@@ -55,6 +58,11 @@ import { BibtexParser } from '@orcid/bibtex-parse-js';
 import ImportExportDialog from '../components/ImportExportDialog';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
+import { databaseApi } from '../services/api';
+import { projectsApi } from '../services/api';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { useWorkspaceTabs } from './WorkspaceTabsContext';
+import { createNoteTab } from '../services/tabUtils';
 
 interface Note {
     id: string;
@@ -110,56 +118,6 @@ function renderNoteContentWithLinks(content: string, notes: Note[], navigate: (i
         parts.push(<span key={key++}>{content.slice(lastIndex)}</span>);
     }
     return parts;
-}
-
-// TabbedWorkspace component
-interface TabData {
-    id: string;
-    title: string;
-    type: string; // 'note' | 'protocol'
-    content?: string;
-    protocol?: Protocol;
-}
-interface TabbedWorkspaceProps {
-    openTabs: TabData[];
-    activeTab: string | null;
-    onTabChange: (id: string) => void;
-    onTabClose: (id: string) => void;
-    renderTabContent: (id: string | null) => React.ReactNode;
-}
-function TabbedWorkspace({ openTabs, activeTab, onTabChange, onTabClose, renderTabContent }: TabbedWorkspaceProps) {
-    return (
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-            <Tabs
-                value={activeTab}
-                onChange={(_, v) => onTabChange(v as string)}
-                variant="scrollable"
-                scrollButtons="auto"
-            >
-                {openTabs.map((tab: TabData, idx: number) => (
-                    <Tab
-                        key={tab.id}
-                        label={
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                {tab.title}
-                                <MuiIconButton
-                                    size="small"
-                                    onClick={e => { e.stopPropagation(); onTabClose(tab.id); }}
-                                    sx={{ ml: 1 }}
-                                >
-                                    <CloseIcon fontSize="small" />
-                                </MuiIconButton>
-                            </Box>
-                        }
-                        value={tab.id}
-                    />
-                ))}
-            </Tabs>
-            <Box sx={{ mt: 2 }}>
-                {renderTabContent(activeTab)}
-            </Box>
-        </Box>
-    );
 }
 
 // Utility: Fuzzy match entity names in text and return match positions
@@ -223,80 +181,21 @@ const Notes: React.FC = () => {
     const [protocolsLoading, setProtocolsLoading] = useState(true);
     const [protocolsError, setProtocolsError] = useState<string | null>(null);
 
+    // 1. Add state for allEntities and fetch them on mount for use in entity suggestions.
+    const [allEntities, setAllEntities] = useState<any[]>([]);
+
     const navigate = useNavigate();
 
-    // Tabbed workspace state
-    const [openTabs, setOpenTabs] = useState<any[]>([]); // { id, title, type, content }
-    const [activeTab, setActiveTab] = useState<string | null>(null);
+    // Use the global tab system
+    const { openTab } = useWorkspaceTabs();
 
-    // Open a note in a tab
-    const openNoteTab = (noteId: string) => {
-        const note = notes.find(n => n.id === noteId);
-        if (!note) return;
-        if (!openTabs.some(tab => tab.id === noteId && tab.type === 'note')) {
-            setOpenTabs([...openTabs, { id: note.id, title: note.title, type: 'note', content: note.content }]);
-        }
-        setActiveTab(noteId);
+    // Open a note in the global tab system
+    const openNoteInTab = (note: Note) => {
+        const tabData = createNoteTab(note.id, note.title);
+        openTab(tabData);
     };
-    // Open a protocol in a tab
-    const openProtocolTab = (protocolId: string) => {
-        const protocol = protocols.find((p: any) => p.id === protocolId);
-        if (!protocol) return;
-        if (!openTabs.some(tab => tab.id === protocolId && tab.type === 'protocol')) {
-            setOpenTabs([...openTabs, { id: protocol.id, title: protocol.name, type: 'protocol', protocol }]);
-        }
-        setActiveTab(protocolId + ':protocol');
-    };
-    // Close a tab
-    const closeTab = (tabId: string) => {
-        const idx = openTabs.findIndex(tab => tab.id === tabId);
-        if (idx === -1) return;
-        const newTabs = openTabs.filter(tab => tab.id !== tabId);
-        setOpenTabs(newTabs);
-        if (activeTab === tabId) {
-            setActiveTab(newTabs.length > 0 ? newTabs[newTabs.length - 1].id : null);
-        }
-    };
-    // Render tab content
-    const renderTabContent = (tabId: string | null) => {
-        const tab = openTabs.find(t => (t.type === 'protocol' ? t.id + ':protocol' : t.id) === tabId);
-        if (!tab) return null;
-        if (tab.type === 'note') {
-            return (
-                <Box>
-                    <Typography variant="h5" sx={{ mb: 2 }}>{tab.title}</Typography>
-                    <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
-                        {renderNoteContentWithLinks(tab.content || '', notes, (id) => openNoteTab(id))}
-                    </Typography>
-                </Box>
-            );
-        } else if (tab.type === 'protocol') {
-            const protocol = tab.protocol;
-            if (!protocol) return null;
-            return (
-                <Box>
-                    <Typography variant="h5" sx={{ mb: 2 }}>{protocol.name}</Typography>
-                    <Typography variant="body2" sx={{ mb: 2 }}>{protocol.description}</Typography>
-                    <Typography variant="subtitle1" sx={{ mb: 1 }}>Category: {protocol.category}</Typography>
-                    <Typography variant="subtitle2" sx={{ mb: 1 }}>Version: {protocol.version}</Typography>
-                    <Typography variant="subtitle2" sx={{ mb: 1 }}>Difficulty: {protocol.difficulty}</Typography>
-                    <Typography variant="subtitle2" sx={{ mb: 1 }}>Expected Duration: {protocol.expectedDuration}</Typography>
-                    <Typography variant="subtitle2" sx={{ mb: 1 }}>Steps:</Typography>
-                    <List>
-                        {protocol.steps.map((step: any, idx: number) => (
-                            <ListItem key={step.id || idx}>
-                                <ListItemText
-                                    primary={step.title}
-                                    secondary={step.description}
-                                />
-                            </ListItem>
-                        ))}
-                    </List>
-                </Box>
-            );
-        }
-        return null;
-    };
+
+    // Remove the old tab system functions (openProtocolTab, closeTab, renderTabContent)
 
     const [formData, setFormData] = useState({
         title: '',
@@ -334,6 +233,21 @@ const Notes: React.FC = () => {
             }
         };
         loadProtocols();
+    }, []);
+
+    // 1. Add state for allEntities and fetch them on mount for use in entity suggestions.
+    useEffect(() => {
+        async function fetchEntities() {
+            const protocols = await protocolsApi.getAll().then(res => res.data.protocols || res.data || []);
+            const databaseEntries = await databaseApi.getAll().then(res => res.data.entries || res.data || []);
+            const projects = await projectsApi.getAll().then(res => res.data || []);
+            setAllEntities([
+                ...protocols.map((p: any) => ({ ...p, type: 'protocol' })),
+                ...databaseEntries.map((d: any) => ({ ...d, type: 'databaseEntry' })),
+                ...projects.map((pr: any) => ({ ...pr, type: 'project' })),
+            ]);
+        }
+        fetchEntities();
     }, []);
 
     const loadNotes = async () => {
@@ -641,297 +555,83 @@ const Notes: React.FC = () => {
     }
 
     return (
-        <Box sx={{ display: 'flex', height: 'calc(100vh - 64px)' }}>
-            {openTabs.length > 0 && (
-                <Box sx={{ width: 280, borderRight: 1, borderColor: 'divider', p: 2, bgcolor: 'background.paper', overflowY: 'auto' }}>
-                    <Typography variant="h6" sx={{ mb: 2 }}>Notes</Typography>
-                    {notes.map((note) => (
-                        <Box
-                            key={note.id}
-                            sx={{
-                                mb: 1,
-                                p: 1,
-                                borderRadius: 1,
-                                bgcolor: openTabs.some(tab => tab.id === note.id && tab.type === 'note') ? 'primary.light' : 'transparent',
-                                cursor: 'pointer',
-                                fontWeight: openTabs.some(tab => tab.id === note.id && tab.type === 'note') ? 600 : 400,
-                                '&:hover': { bgcolor: 'action.hover' },
-                            }}
-                            onClick={() => openNoteTab(note.id)}
-                        >
-                            {note.title}
-                        </Box>
-                    ))}
-                    <Typography variant="h6" sx={{ mt: 4, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <ScienceIcon fontSize="small" /> Protocols
-                    </Typography>
-                    {protocolsLoading ? (
-                        <CircularProgress size={20} />
-                    ) : protocolsError ? (
-                        <Alert severity="error">{protocolsError}</Alert>
-                    ) : protocols.length === 0 ? (
-                        <Typography variant="body2" color="text.secondary">No protocols</Typography>
-                    ) : (
-                        protocols.map((protocol) => (
-                            <Box
-                                key={protocol.id}
-                                sx={{
-                                    mb: 1,
-                                    p: 1,
-                                    borderRadius: 1,
-                                    bgcolor: openTabs.some(tab => tab.id === protocol.id && tab.type === 'protocol') ? 'primary.light' : 'transparent',
-                                    cursor: 'pointer',
-                                    fontWeight: openTabs.some(tab => tab.id === protocol.id && tab.type === 'protocol') ? 600 : 400,
-                                    '&:hover': { bgcolor: 'action.hover' },
-                                }}
-                                onClick={() => openProtocolTab(protocol.id)}
-                            >
-                                {protocol.name}
-                            </Box>
-                        ))
-                    )}
-                    <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        fullWidth
-                        sx={{ mt: 2 }}
-                        onClick={() => handleOpenDialog()}
-                    >
-                        New Note
-                    </Button>
-                </Box>
-            )}
-            <Box sx={{ flex: 1, p: openTabs.length > 0 ? 3 : 0, overflow: 'auto' }}>
-                {openTabs.length > 0 ? (
-                    <TabbedWorkspace
-                        openTabs={openTabs}
-                        activeTab={activeTab}
-                        onTabChange={setActiveTab}
-                        onTabClose={closeTab}
-                        renderTabContent={renderTabContent}
-                    />
-                ) : (
-                    <>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                            <Typography variant="h5">Notes</Typography>
-                            <Box>
-                                <Button variant="outlined" sx={{ mr: 1 }} onClick={() => setImportExportOpen(true)}>Import/Export</Button>
-                                <Button variant="outlined" sx={{ mr: 1 }} onClick={handleExportPDF}>Export PDF</Button>
-                                <Button variant="outlined" sx={{ mr: 1 }} onClick={handleExportWord}>Export Word</Button>
-                                <Button variant="outlined" sx={{ mr: 1 }} onClick={handleExportBibTeX}>Export BibTeX</Button>
-                                <Button variant="outlined" sx={{ mr: 1 }} onClick={handleExportMarkdown}>Export MD</Button>
-                                <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog()}>Add</Button>
-                            </Box>
-                        </Box>
-                        {error && (
-                            <Alert severity="error" sx={{ mb: 3 }}>
-                                {error}
-                            </Alert>
-                        )}
-                        {notes.length === 0 && !loading ? (
-                            <Box sx={{ textAlign: 'center', py: 4 }}>
-                                <Typography variant="h6" color="text.secondary" gutterBottom>
-                                    No notes yet
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                    Create your first note to get started
-                                </Typography>
-                            </Box>
-                        ) : (
-                            <Grid container spacing={3}>
-                                {notes.map((note) => (
-                                    <Grid item xs={12} md={6} lg={4} key={note.id}>
-                                        <Card>
-                                            <CardContent>
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                                                    <Typography variant="h6" component="div" sx={{ flexGrow: 1, mr: 1, cursor: 'pointer' }}
-                                                        onClick={() => openNoteTab(note.id)}
-                                                    >
-                                                        {note.title}
-                                                    </Typography>
-                                                    <Box>
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={() => {
-                                                                setSelectedNoteId(note.id);
-                                                                setOpenLinkManager(true);
-                                                            }}
-                                                            sx={{ mr: 1 }}
-                                                        >
-                                                            <LinkIcon />
-                                                        </IconButton>
-                                                        <IconButton size="small" onClick={() => handleOpenDialog(note)}>
-                                                            <EditIcon />
-                                                        </IconButton>
-                                                        <IconButton size="small" onClick={() => handleDelete(note.id)}>
-                                                            <DeleteIcon />
-                                                        </IconButton>
-                                                    </Box>
-                                                </Box>
-                                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                                    {renderNoteContentWithLinks(
-                                                        note.content.length > 100
-                                                            ? `${note.content.substring(0, 100)}...`
-                                                            : note.content,
-                                                        notes,
-                                                        (id) => openNoteTab(id)
-                                                    )}
-                                                </Typography>
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <Chip
-                                                        label={note.type}
-                                                        size="small"
-                                                        sx={{
-                                                            backgroundColor: getTypeColor(note.type),
-                                                            color: palette.text,
-                                                        }}
-                                                    />
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        {new Date(note.date).toLocaleDateString()}
-                                                    </Typography>
-                                                </Box>
-                                            </CardContent>
-                                        </Card>
-                                    </Grid>
+        <Box sx={{ p: 3 }}>
+            <Grid container spacing={3}>
+                {/* Left: Current Notes */}
+                <Grid item xs={12} md={8}>
+                    <Card>
+                        <CardContent>
+                            <Typography variant="h6" gutterBottom>Current Notes (Active Projects/Experiments)</Typography>
+                            {/* Placeholder: Expandable list grouped by project/experiment */}
+                            {[{ name: 'Project Alpha', notes: ['Note 1', 'Note 2'] }, { name: 'Experiment Beta', notes: ['Note 3'] }].map((group, idx) => (
+                                <Accordion key={group.name} defaultExpanded={idx === 0}>
+                                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                        <Typography>{group.name}</Typography>
+                                    </AccordionSummary>
+                                    <AccordionDetails>
+                                        <List>
+                                            {group.notes.map(note => (
+                                                <ListItem key={note} button>
+                                                    <ListItemText primary={note} secondary="Last edited: ... | Status: ..." />
+                                                </ListItem>
+                                            ))}
+                                        </List>
+                                    </AccordionDetails>
+                                </Accordion>
+                            ))}
+                        </CardContent>
+                    </Card>
+                </Grid>
+                {/* Right: Quick Actions */}
+                <Grid item xs={12} md={4}>
+                    <Card>
+                        <CardContent>
+                            <Typography variant="h6" gutterBottom>Quick Actions</Typography>
+                            <Button variant="contained" fullWidth sx={{ mb: 1 }} onClick={() => handleOpenDialog()}>New Note</Button>
+                            <Button variant="outlined" fullWidth sx={{ mb: 1 }}>Import</Button>
+                            <Button variant="outlined" fullWidth sx={{ mb: 1 }}>Export</Button>
+                            <Button variant="outlined" fullWidth sx={{ mb: 1 }}>Browse Tags</Button>
+                            <Button variant="outlined" fullWidth sx={{ mb: 1 }}>Create Project/Experiment</Button>
+                        </CardContent>
+                    </Card>
+                </Grid>
+            </Grid>
+            {/* Middle Section: Recents and Recent Activity */}
+            <Grid container spacing={3} sx={{ mt: 2 }}>
+                <Grid item xs={12} md={8}>
+                    <Card>
+                        <CardContent>
+                            <Typography variant="h6" gutterBottom>Recent Notes</Typography>
+                            {/* List of recent notes with click to open in tab */}
+                            <List>
+                                {notes.slice(0, 5).map(note => (
+                                    <ListItem key={note.id} button onClick={() => openNoteInTab(note)}>
+                                        <ListItemText 
+                                            primary={note.title} 
+                                            secondary={`Edited: ${new Date(note.createdAt).toLocaleDateString()} | Type: ${note.type}`} 
+                                        />
+                                    </ListItem>
                                 ))}
-                            </Grid>
-                        )}
-                    </>
-                )}
-            </Box>
-            {/* Add/Edit Dialog */}
-            <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-                <DialogTitle>
-                    {editingNote ? 'Edit Note' : 'Create New Note'}
-                </DialogTitle>
-                <DialogContent>
-                    <Box sx={{ pt: 1 }}>
-                        <TextField
-                            fullWidth
-                            label="Title"
-                            value={formData.title}
-                            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                            sx={{ mb: 2 }}
-                            disabled={saving}
-                        />
-                        <FormControl fullWidth sx={{ mb: 2 }}>
-                            <InputLabel>Type</InputLabel>
-                            <Select
-                                value={formData.type}
-                                label="Type"
-                                onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
-                                disabled={saving}
-                            >
-                                <MenuItem value="daily">Daily Note</MenuItem>
-                                <MenuItem value="experiment">Experiment Note</MenuItem>
-                                <MenuItem value="literature">Literature Note</MenuItem>
-                            </Select>
-                        </FormControl>
-                        <TextField
-                            fullWidth
-                            label="Date"
-                            type="date"
-                            value={formData.date}
-                            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                            sx={{ mb: 2 }}
-                            InputLabelProps={{ shrink: true }}
-                            disabled={saving}
-                        />
-                        {/* Zotero citation button */}
-                        <Button
-                            variant="outlined"
-                            startIcon={<ScienceIcon />}
-                            sx={{ mb: 2 }}
-                            onClick={() => setZoteroModalOpen(true)}
-                            disabled={saving}
-                        >
-                            Cite from Zotero
-                        </Button>
-                        <TextField
-                            fullWidth
-                            label="Content"
-                            multiline
-                            rows={6}
-                            value={formData.content}
-                            onChange={handleContentChange}
-                            onKeyDown={handleContentKeyDown}
-                            disabled={saving}
-                            inputRef={contentRef}
-                        />
-                        {showAutocomplete && autocompleteOptions.length > 0 && (
-                            <Paper
-                                style={{
-                                    position: 'absolute',
-                                    zIndex: 10,
-                                    top: autocompleteAnchor?.top || 200,
-                                    left: autocompleteAnchor?.left || 200,
-                                    minWidth: 240,
-                                    maxHeight: 200,
-                                    overflowY: 'auto',
-                                }}
-                                elevation={4}
-                            >
-                                {autocompleteOptions.map((option, idx) => (
-                                    <div
-                                        key={option.id}
-                                        style={{
-                                            padding: 8,
-                                            background: idx === autocompleteSelected ? '#e3f2fd' : 'white',
-                                            cursor: 'pointer',
-                                        }}
-                                        onMouseDown={() => handleAutocompleteSelect(option)}
-                                    >
-                                        {option.title} <span style={{ color: '#888', fontSize: 12 }}>({option.type})</span>
-                                    </div>
+                            </List>
+                        </CardContent>
+                    </Card>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                    <Card>
+                        <CardContent>
+                            <Typography variant="h6" gutterBottom>Recent Activity</Typography>
+                            {/* Placeholder: List of recent activity */}
+                            <List>
+                                {["Created Note 1", "Edited Note 2", "Favorited Note 3"].map(activity => (
+                                    <ListItem key={activity}>
+                                        <ListItemText primary={activity} secondary="Timestamp..." />
+                                    </ListItem>
                                 ))}
-                            </Paper>
-                        )}
-                    </Box>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseDialog} disabled={saving}>
-                        Cancel
-                    </Button>
-                    <Button
-                        onClick={handleSave}
-                        variant="contained"
-                        disabled={saving}
-                        startIcon={saving ? <CircularProgress size={16} /> : undefined}
-                    >
-                        {saving ? 'Saving...' : (editingNote ? 'Update' : 'Create')}
-                    </Button>
-                </DialogActions>
-            </Dialog>
-            {/* Snackbar for notifications */}
-            <Snackbar
-                open={snackbar.open}
-                autoHideDuration={6000}
-                onClose={() => setSnackbar({ ...snackbar, open: false })}
-            >
-                <Alert
-                    onClose={() => setSnackbar({ ...snackbar, open: false })}
-                    severity={snackbar.severity}
-                >
-                    {snackbar.message}
-                </Alert>
-            </Snackbar>
-            {/* Link Manager */}
-            <LinkManager
-                entityType="note"
-                entityId={selectedNoteId}
-                open={openLinkManager}
-                onClose={() => setOpenLinkManager(false)}
-            />
-            <ZoteroCitationModal open={zoteroModalOpen} onClose={() => setZoteroModalOpen(false)} onSelectCitation={handleInsertCitation} />
-            <ImportExportDialog
-                open={importExportOpen}
-                onClose={() => setImportExportOpen(false)}
-                entityType="Note"
-                fields={NOTE_FIELDS}
-                onImport={handleImport}
-                onExport={handleExport}
-                data={notes}
-            />
+                            </List>
+                        </CardContent>
+                    </Card>
+                </Grid>
+            </Grid>
         </Box>
     );
 };

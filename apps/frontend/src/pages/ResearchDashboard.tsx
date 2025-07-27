@@ -80,39 +80,6 @@ const ResearchDashboard: React.FC = () => {
     const [recentProjects, setRecentProjects] = useState<any[]>([]);
     const [experiments, setExperiments] = useState<any[]>([]);
 
-    // --- Mock Data for Option C ---
-    const productivity = {
-        tasksCompleted: 18,
-        notesCreated: 34,
-        averageDaily: 4.2,
-    };
-    const citationData = {
-        totalCitations: 247,
-        recentCitations: 12,
-        topCited: [
-            { title: 'CRISPR Gene Editing Review', citations: 34, type: 'review' },
-            { title: 'Protein Folding Mechanisms', citations: 28, type: 'research' },
-            { title: 'Cell Cycle Analysis', citations: 19, type: 'methodology' },
-        ],
-    };
-    const entityStats = {
-        genes: { total: 156, active: 42, linked: 89 },
-        chemicals: { total: 89, active: 23, linked: 67 },
-        pathways: { total: 34, active: 8, linked: 28 },
-        protocols: { total: 67, active: 12, linked: 45 },
-    };
-    const recentEntities = [
-        { name: 'BRCA1', type: 'gene', experiments: 3, lastUsed: '2 days ago' },
-        { name: 'Cisplatin', type: 'chemical', experiments: 2, lastUsed: '1 day ago' },
-        { name: 'p53 Pathway', type: 'pathway', experiments: 1, lastUsed: '3 days ago' },
-        { name: 'Western Blot', type: 'protocol', experiments: 4, lastUsed: '5 days ago' },
-    ];
-    const upcomingDeadlines = [
-        { title: 'Submit Grant Application', date: '2025-07-25', priority: 'high' },
-        { title: 'Conference Abstract Deadline', date: '2025-07-28', priority: 'medium' },
-        { title: 'Complete Pilot Study', date: '2025-08-02', priority: 'medium' },
-    ];
-
     useEffect(() => {
         loadDashboardData();
     }, []);
@@ -171,9 +138,6 @@ const ResearchDashboard: React.FC = () => {
         }
     };
 
-    // Mock progress for experiments (replace with real progress if available)
-    const getExperimentProgress = (exp: any) => Math.floor(Math.random() * 100);
-
     if (loading) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
@@ -220,15 +184,15 @@ const ResearchDashboard: React.FC = () => {
                 <Grid container spacing={2}>
                     <Grid item xs={12} sm={4}>
                         <Typography variant="subtitle2">Tasks Completed</Typography>
-                        <Typography variant="h5">{productivity.tasksCompleted}</Typography>
+                        <Typography variant="h5">{0}</Typography>
                     </Grid>
                     <Grid item xs={12} sm={4}>
                         <Typography variant="subtitle2">Notes Created</Typography>
-                        <Typography variant="h5">{productivity.notesCreated}</Typography>
+                        <Typography variant="h5">{0}</Typography>
                     </Grid>
                     <Grid item xs={12} sm={4}>
                         <Typography variant="subtitle2">Avg. Daily</Typography>
-                        <Typography variant="h5">{productivity.averageDaily}</Typography>
+                        <Typography variant="h5">{0}</Typography>
                     </Grid>
                 </Grid>
             </Paper>
@@ -239,17 +203,15 @@ const ResearchDashboard: React.FC = () => {
                     <Typography variant="h6">Citation Analytics</Typography>
                     <Chip label="Mock Data" size="small" color="warning" sx={{ ml: 2 }} />
                 </Box>
-                <Typography>Total Citations: <b>{citationData.totalCitations}</b></Typography>
-                <Typography>Recent: <b>+{citationData.recentCitations}</b></Typography>
+                <Typography>Total Citations: <b>0</b></Typography>
+                <Typography>Recent: <b>0</b></Typography>
                 <Box sx={{ mt: 2 }}>
                     <Typography variant="subtitle2">Top Cited:</Typography>
                     <List>
-                        {citationData.topCited.map((c, idx) => (
-                            <ListItem key={idx}>
-                                <ListItemIcon><StarIcon color="warning" /></ListItemIcon>
-                                <ListItemText primary={c.title} secondary={`Citations: ${c.citations}`} />
-                            </ListItem>
-                        ))}
+                        <ListItem>
+                            <ListItemIcon><StarIcon color="warning" /></ListItemIcon>
+                            <ListItemText primary="No data available." secondary="Citations: 0" />
+                        </ListItem>
                     </List>
                 </Box>
             </Paper>
@@ -265,36 +227,36 @@ const ResearchDashboard: React.FC = () => {
                         <Box sx={{ p: 2, background: '#e3f2fd', borderRadius: 2 }}>
                             <DnaIcon color="primary" />
                             <Typography variant="subtitle2">Genes</Typography>
-                            <Typography>{entityStats.genes.total} total</Typography>
-                            <Typography>{entityStats.genes.active} active</Typography>
-                            <Typography>{entityStats.genes.linked} linked</Typography>
+                            <Typography>{0} total</Typography>
+                            <Typography>{0} active</Typography>
+                            <Typography>{0} linked</Typography>
                         </Box>
                     </Grid>
                     <Grid item xs={12} sm={3}>
                         <Box sx={{ p: 2, background: '#fce4ec', borderRadius: 2 }}>
                             <ChemicalIcon color="secondary" />
                             <Typography variant="subtitle2">Chemicals</Typography>
-                            <Typography>{entityStats.chemicals.total} total</Typography>
-                            <Typography>{entityStats.chemicals.active} active</Typography>
-                            <Typography>{entityStats.chemicals.linked} linked</Typography>
+                            <Typography>{0} total</Typography>
+                            <Typography>{0} active</Typography>
+                            <Typography>{0} linked</Typography>
                         </Box>
                     </Grid>
                     <Grid item xs={12} sm={3}>
                         <Box sx={{ p: 2, background: '#e8f5e9', borderRadius: 2 }}>
                             <PathwayIcon color="success" />
                             <Typography variant="subtitle2">Pathways</Typography>
-                            <Typography>{entityStats.pathways.total} total</Typography>
-                            <Typography>{entityStats.pathways.active} active</Typography>
-                            <Typography>{entityStats.pathways.linked} linked</Typography>
+                            <Typography>{0} total</Typography>
+                            <Typography>{0} active</Typography>
+                            <Typography>{0} linked</Typography>
                         </Box>
                     </Grid>
                     <Grid item xs={12} sm={3}>
                         <Box sx={{ p: 2, background: '#fffde7', borderRadius: 2 }}>
                             <ProtocolsIcon color="warning" />
                             <Typography variant="subtitle2">Protocols</Typography>
-                            <Typography>{entityStats.protocols.total} total</Typography>
-                            <Typography>{entityStats.protocols.active} active</Typography>
-                            <Typography>{entityStats.protocols.linked} linked</Typography>
+                            <Typography>{0} total</Typography>
+                            <Typography>{0} active</Typography>
+                            <Typography>{0} linked</Typography>
                         </Box>
                     </Grid>
                 </Grid>
@@ -322,9 +284,9 @@ const ResearchDashboard: React.FC = () => {
                                     secondary={exp.description || 'No description'}
                                 />
                                 <Box sx={{ minWidth: 120 }}>
-                                    <LinearProgress variant="determinate" value={getExperimentProgress(exp)} sx={{ height: 8, borderRadius: 4 }} />
+                                    <LinearProgress variant="determinate" value={0} sx={{ height: 8, borderRadius: 4 }} />
                                     <Typography variant="caption" color="text.secondary">
-                                        {getExperimentProgress(exp)}% Complete
+                                        0% Complete
                                     </Typography>
                                 </Box>
                             </ListItem>
@@ -405,18 +367,16 @@ const ResearchDashboard: React.FC = () => {
                     <Chip label="Mock Data" size="small" color="warning" sx={{ ml: 2 }} />
                 </Box>
                 <List>
-                    {upcomingDeadlines.map((d, idx) => (
-                        <ListItem key={idx} divider>
-                            <ListItemIcon>
-                                <EventIcon color={d.priority === 'high' ? 'error' : d.priority === 'medium' ? 'warning' : 'success'} />
-                            </ListItemIcon>
-                            <ListItemText
-                                primary={d.title}
-                                secondary={`Due: ${d.date}`}
-                            />
-                            <Chip label={d.priority.charAt(0).toUpperCase() + d.priority.slice(1)} color={d.priority === 'high' ? 'error' : d.priority === 'medium' ? 'warning' : 'success'} size="small" />
-                        </ListItem>
-                    ))}
+                    <ListItem>
+                        <ListItemIcon>
+                            <EventIcon color="error" />
+                        </ListItemIcon>
+                        <ListItemText
+                            primary="No upcoming deadlines."
+                            secondary="No deadlines found."
+                        />
+                        <Chip label="No Deadlines" color="error" size="small" />
+                    </ListItem>
                 </List>
             </Paper>
             {/* Recent Entities (Mock) */}
@@ -427,15 +387,13 @@ const ResearchDashboard: React.FC = () => {
                     <Chip label="Mock Data" size="small" color="warning" sx={{ ml: 2 }} />
                 </Box>
                 <Grid container spacing={2}>
-                    {recentEntities.map((e, idx) => (
-                        <Grid item xs={12} sm={3} key={idx}>
-                            <Box sx={{ background: '#f0f0f0', borderRadius: 2, p: 2, textAlign: 'center' }}>
-                                <Typography variant="subtitle1" fontWeight="bold">{e.name}</Typography>
-                                <Typography variant="caption" color="text.secondary">{e.type}</Typography>
-                                <Typography variant="caption" color="text.secondary">{e.lastUsed}</Typography>
-                            </Box>
-                        </Grid>
-                    ))}
+                    <Grid item xs={12} sm={3}>
+                        <Box sx={{ background: '#f0f0f0', borderRadius: 2, p: 2, textAlign: 'center' }}>
+                            <Typography variant="subtitle1" fontWeight="bold">No Entities</Typography>
+                            <Typography variant="caption" color="text.secondary">No entities found.</Typography>
+                            <Typography variant="caption" color="text.secondary">No last usage.</Typography>
+                        </Box>
+                    </Grid>
                 </Grid>
             </Paper>
             {/* Entities Overview (Real) */}

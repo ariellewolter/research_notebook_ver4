@@ -27,40 +27,38 @@ import {
     Restaurant as RecipeIcon,
     LibraryBooks as ZoteroIcon,
     Settings as SettingsIcon,
+    CheckBox as CheckBoxIcon,
+    Calculate as CalculateIcon,
+    Search as SearchIcon,
+    FileDownload as FileDownloadIcon,
+    Timeline as TimelineIcon,
+    Assessment as AssessmentIcon,
 } from '@mui/icons-material';
 import Tooltip from '@mui/material/Tooltip';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import SearchBar from '../Search/SearchBar';
+import AdvancedSearch from '../Search/AdvancedSearch';
+import DataExport from '../Export/DataExport';
+import GanttChartExport from '../Export/GanttChartExport';
+import ResearchTimelineExport from '../Export/ResearchTimelineExport';
 import { useTheme } from '@mui/material/styles';
 import { useWorkspaceTabs } from '../../pages/WorkspaceTabsContext';
-import Notes from '../../pages/Notes';
-import Protocols from '../../pages/Protocols';
-import Recipes from '../../pages/Recipes';
-import PDFs from '../../pages/PDFs';
-import Projects from '../../pages/Projects';
-import Tables from '../../pages/Tables';
-import Database from '../../pages/Database';
-import { ProtocolsTabWrapper, RecipesTabWrapper, PDFsTabWrapper, ProjectsTabWrapper, TablesTabWrapper, DatabaseTabWrapper, LiteratureNotesTabWrapper } from '../../pages/WorkspaceTabWrappers';
+import { createNoteTab, createProjectTab, createProtocolTab, createDatabaseEntryTab } from '../../services/tabUtils';
 
 const drawerWidth = 240;
 
-const workspaceTabMap = {
-    notes: { key: 'notes', label: 'Notes', component: Notes },
-    protocols: { key: 'protocols', label: 'Protocols', component: ProtocolsTabWrapper },
-    recipes: { key: 'recipes', label: 'Recipes', component: RecipesTabWrapper },
-    pdfs: { key: 'pdfs', label: 'PDFs', component: PDFsTabWrapper },
-    projects: { key: 'projects', label: 'Projects', component: ProjectsTabWrapper },
-    tables: { key: 'tables', label: 'Tables', component: TablesTabWrapper },
-    database: { key: 'database', label: 'Database', component: DatabaseTabWrapper },
-    literature: { key: 'literature', label: 'Literature Notes', component: LiteratureNotesTabWrapper },
-} as const;
+
 
 const Layout: React.FC = () => {
     const [mobileOpen, setMobileOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [openSections, setOpenSections] = useState<{ [key: string]: boolean }>({});
+    const [advancedSearchOpen, setAdvancedSearchOpen] = useState(false);
+    const [dataExportOpen, setDataExportOpen] = useState(false);
+    const [ganttChartOpen, setGanttChartOpen] = useState(false);
+    const [researchTimelineOpen, setResearchTimelineOpen] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
     const theme = useTheme();
@@ -78,6 +76,12 @@ const Layout: React.FC = () => {
             label: 'Calendar',
             icon: <CalendarIcon fontSize="large" />,
             path: '/calendar',
+        },
+        {
+            key: 'tasks',
+            label: 'Tasks',
+            icon: <CheckBoxIcon fontSize="large" />, // Tasks icon
+            path: '/tasks',
         },
         {
             key: 'notes',
@@ -133,6 +137,12 @@ const Layout: React.FC = () => {
             icon: <JournalIcon fontSize="large" />, // or use LibraryBooks if preferred
             path: '/literature',
         },
+        {
+            key: 'calculators',
+            label: 'Calculators',
+            icon: <CalculateIcon fontSize="large" />,
+            path: '/calculators',
+        },
     ] as const;
 
     const handleDrawerToggle = () => {
@@ -149,15 +159,10 @@ const Layout: React.FC = () => {
         setMobileOpen(false);
     };
 
-    const handleSidebarItemClick = (section: typeof scienceMenuSections[number]) => {
-        const key = section.key as string;
-        if (key in workspaceTabMap) {
-            openTab(workspaceTabMap[key as keyof typeof workspaceTabMap]);
-            navigate('/');
-            setMobileOpen(false);
-        } else {
-            handleNavigation(section.path);
-        }
+    const handleSidebarItemClick = (section: any) => {
+        // For now, just navigate to the route
+        // In the future, we can open specific entities in tabs
+        navigate(section.path);
     };
 
     // Sidebar content
@@ -247,19 +252,69 @@ const Layout: React.FC = () => {
                     >
                         <MenuIcon />
                     </IconButton>
-                    <Typography variant="h6" noWrap component="div" sx={{ mr: 3, minWidth: 200 }}>
+                    <Typography variant="h6" noWrap component="div" sx={{ mr: 3, minWidth: { xs: 120, sm: 200 } }}>
                         Electronic Lab Notebook
                     </Typography>
                     {/* Search Bar */}
                     <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'block' } }}>
                         <SearchBar />
                     </Box>
+                    <IconButton
+                        color="inherit"
+                        onClick={() => setAdvancedSearchOpen(true)}
+                        sx={{ ml: 1, display: { xs: 'none', sm: 'flex' } }}
+                    >
+                        <SearchIcon />
+                    </IconButton>
+                    <IconButton
+                        color="inherit"
+                        onClick={() => setDataExportOpen(true)}
+                        sx={{ ml: 1, display: { xs: 'none', sm: 'flex' } }}
+                    >
+                        <FileDownloadIcon />
+                    </IconButton>
+                    <IconButton
+                        color="inherit"
+                        onClick={() => setGanttChartOpen(true)}
+                        sx={{ ml: 1, display: { xs: 'none', sm: 'flex' } }}
+                    >
+                        <TimelineIcon />
+                    </IconButton>
+                    <IconButton
+                        color="inherit"
+                        onClick={() => setResearchTimelineOpen(true)}
+                        sx={{ ml: 1, display: { xs: 'none', sm: 'flex' } }}
+                    >
+                        <AssessmentIcon />
+                    </IconButton>
                 </Toolbar>
             </AppBar>
             <Box
                 component="nav"
                 sx={{ width: { sm: sidebarCollapsed ? 64 : drawerWidth }, flexShrink: { sm: 0 } }}
             >
+                {/* Mobile Drawer */}
+                <Drawer
+                    variant="temporary"
+                    open={mobileOpen}
+                    onClose={handleDrawerToggle}
+                    ModalProps={{
+                        keepMounted: true, // Better open performance on mobile.
+                    }}
+                    sx={{
+                        display: { xs: 'block', sm: 'none' },
+                        '& .MuiDrawer-paper': {
+                            boxSizing: 'border-box',
+                            width: drawerWidth,
+                            background: theme.palette.background.paper,
+                            color: theme.palette.text.primary,
+                        },
+                    }}
+                >
+                    {sidebarContent}
+                </Drawer>
+                
+                {/* Desktop Drawer */}
                 <Drawer
                     variant="permanent"
                     sx={{
@@ -283,11 +338,80 @@ const Layout: React.FC = () => {
                 sx={{
                     flexGrow: 1,
                     width: { sm: `calc(100% - ${sidebarCollapsed ? 64 : drawerWidth}px)` },
+                    p: { xs: 1, sm: 2 },
                 }}
             >
                 <Toolbar />
-                <Outlet />
+                <Box sx={{ 
+                    maxWidth: '100%', 
+                    overflowX: 'auto',
+                    '& .MuiGrid-container': {
+                        margin: { xs: 0, sm: 'auto' },
+                    }
+                }}>
+                    <Outlet />
+                </Box>
             </Box>
+
+            <AdvancedSearch
+                open={advancedSearchOpen}
+                onClose={() => setAdvancedSearchOpen(false)}
+                onSelectResult={(result) => {
+                    setAdvancedSearchOpen(false);
+                    // Navigate to the appropriate page based on result type
+                    switch (result.type) {
+                        case 'note':
+                            navigate(`/notes`);
+                            break;
+                        case 'project':
+                            navigate(`/projects`);
+                            break;
+                        case 'protocol':
+                            navigate(`/protocols`);
+                            break;
+                        case 'recipe':
+                            navigate(`/recipes`);
+                            break;
+                        case 'database':
+                            navigate(`/database`);
+                            break;
+                        case 'pdf':
+                            navigate(`/pdfs`);
+                            break;
+                        case 'table':
+                            navigate(`/tables`);
+                            break;
+                        case 'task':
+                            navigate(`/tasks`);
+                            break;
+                        case 'literature':
+                            navigate(`/literature`);
+                            break;
+                        default:
+                            navigate(`/`);
+                    }
+                }}
+            />
+            <DataExport
+                open={dataExportOpen}
+                onClose={() => setDataExportOpen(false)}
+            />
+            <GanttChartExport
+                open={ganttChartOpen}
+                onClose={() => setGanttChartOpen(false)}
+                projects={[]}
+                experiments={[]}
+                protocols={[]}
+                tasks={[]}
+            />
+            <ResearchTimelineExport
+                open={researchTimelineOpen}
+                onClose={() => setResearchTimelineOpen(false)}
+                projects={[]}
+                experiments={[]}
+                protocols={[]}
+                tasks={[]}
+            />
         </Box>
     );
 };

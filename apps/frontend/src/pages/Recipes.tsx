@@ -44,6 +44,7 @@ import {
     ListItemText as MUIListItemText,
     Checkbox,
     FormControlLabel,
+    Switch,
 } from '@mui/material';
 import {
     Restaurant as RecipeIcon,
@@ -234,6 +235,7 @@ const Recipes: React.FC = () => {
 
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
+    const [editMode, setEditMode] = useState(false);
 
     // Load recipes on component mount
     useEffect(() => {
@@ -562,6 +564,60 @@ const Recipes: React.FC = () => {
         );
     }
 
+    // Move the IIFE for the detail/edit pane outside the JSX and assign its result to a variable, then render that variable inside the Box.
+    let detailPane = null;
+    if (selectedRecipeId) {
+        const recipe = recipes.find(r => r.id === selectedRecipeId);
+        if (recipe) {
+            const [editData, setEditData] = useState({ ...recipe });
+            const handleEditChange = (field: string, value: any) => setEditData(prev => ({ ...prev, [field]: value }));
+            const handleSaveEdit = async () => {
+                await recipesApi.update(recipe.id, editData);
+                setEditMode(false);
+                loadData();
+                setSnackbar({ open: true, message: 'Recipe updated successfully', severity: 'success' });
+            };
+            if (!editMode) {
+                detailPane = (
+                    <Box sx={{ mb: 4, p: 2, border: '1px solid #ddd', borderRadius: 2 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                            <Typography variant="h5">{recipe.name}</Typography>
+                            <Button variant="outlined" startIcon={<EditIcon />} onClick={() => setEditMode(true)}>Edit</Button>
+                        </Box>
+                        <Typography variant="body2" color="text.secondary" mb={2}>{recipe.description}</Typography>
+                        {/* Add more fields as needed for display */}
+                    </Box>
+                );
+            } else {
+                detailPane = (
+                    <Box sx={{ mb: 4, p: 2, border: '1px solid #ddd', borderRadius: 2 }}>
+                        <TextField
+                            fullWidth
+                            label="Recipe Name"
+                            value={editData.name}
+                            onChange={e => handleEditChange('name', e.target.value)}
+                            sx={{ mb: 2 }}
+                        />
+                        <TextField
+                            fullWidth
+                            label="Description"
+                            value={editData.description}
+                            onChange={e => handleEditChange('description', e.target.value)}
+                            multiline
+                            rows={2}
+                            sx={{ mb: 2 }}
+                        />
+                        {/* Add more editable fields as needed */}
+                        <Box sx={{ display: 'flex', gap: 2 }}>
+                            <Button variant="contained" onClick={handleSaveEdit}>Save</Button>
+                            <Button variant="outlined" onClick={() => setEditMode(false)}>Cancel</Button>
+                        </Box>
+                    </Box>
+                );
+            }
+        }
+    }
+
     return (
         <Box sx={{ display: 'flex', height: '100%' }}>
             {sidebarOpen && selectedRecipeId && (
@@ -667,6 +723,9 @@ const Recipes: React.FC = () => {
                     </Grid>
                 </Paper>
 
+                {/* In the main render, render {detailPane} before the grid. */}
+                {detailPane}
+
                 {/* Recipes Grid */}
                 <Grid container spacing={3}>
                     {filteredRecipes.map((recipe) => (
@@ -681,15 +740,27 @@ const Recipes: React.FC = () => {
                                             </Typography>
                                         </Box>
                                         <Box>
-                                            {recipe.isPublic ? (
-                                                <Tooltip title="Public Recipe">
-                                                    <PublicIcon color="primary" fontSize="small" />
-                                                </Tooltip>
-                                            ) : (
-                                                <Tooltip title="Private Recipe">
-                                                    <PrivateIcon color="action" fontSize="small" />
-                                                </Tooltip>
-                                            )}
+                                            <FormControlLabel
+                                                control={
+                                                    <Switch
+                                                        checked={recipe.isPublic}
+                                                        onChange={(e) => {
+                                                            const updatedRecipe = { ...recipe, isPublic: e.target.checked };
+                                                            setRecipes(prev => prev.map(r => r.id === recipe.id ? updatedRecipe : r));
+                                                            setFilteredRecipes(prev => prev.map(r => r.id === recipe.id ? updatedRecipe : r));
+                                                            recipesApi.update(recipe.id, updatedRecipe);
+                                                            setSnackbar({
+                                                                open: true,
+                                                                message: `Recipe ${e.target.checked ? 'made public' : 'made private'}`,
+                                                                severity: 'success',
+                                                            });
+                                                        }}
+                                                        color="primary"
+                                                    />
+                                                }
+                                                label={recipe.isPublic ? 'Public' : 'Private'}
+                                                labelPlacement="start"
+                                            />
                                         </Box>
                                     </Box>
 
@@ -918,6 +989,18 @@ const Recipes: React.FC = () => {
                                     multiline
                                     rows={2}
                                     placeholder="Additional notes, tips, or warnings..."
+                                />
+                            </Grid>
+                            <Grid item xs={12}>
+                                <FormControlLabel
+                                    control={
+                                        <Switch
+                                            checked={recipeFormData.isPublic}
+                                            onChange={(e) => setRecipeFormData(prev => ({ ...prev, isPublic: e.target.checked }))}
+                                            color="primary"
+                                        />
+                                    }
+                                    label="Make this recipe public"
                                 />
                             </Grid>
 

@@ -31,6 +31,7 @@ import {
     List as MUIList,
     ListItem as MUIListItem,
     ListItemText as MUIListItemText,
+    Switch,
 } from '@mui/material';
 import {
     PictureAsPdf as PdfIcon,
@@ -55,7 +56,6 @@ import { BibtexParser } from '@orcid/bibtex-parse-js';
 import ImportExportDialog from '../components/ImportExportDialog';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
-import { Snackbar, Alert } from '@mui/material';
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
 
 interface PDF {
@@ -64,6 +64,7 @@ interface PDF {
     filename: string;
     uploadedAt: string;
     highlights?: Highlight[];
+    favorite?: boolean; // Added favorite field
 }
 
 interface Highlight {
@@ -79,7 +80,8 @@ function getCitationStyle() {
 }
 
 function formatCitation(note: any, style: string) {
-    const author = note.authors || '';
+    if (!note) return '';
+    const author = note.authors || note.author || '';
     const year = note.year || '';
     const title = note.title || '';
     const journal = note.journal || '';
@@ -614,6 +616,19 @@ const PDFs: React.FC = () => {
                                             >
                                                 <ViewIcon />
                                             </IconButton>
+                                            {/* Replace pdfsApi.update(pdf.id, { favorite: e.target.checked }); with a PATCH request using axios if pdfsApi.update does not exist.
+                                            If pdfsApi.setFavorite exists, use that. Otherwise, remove the Switch and add a TODO comment. */}
+                                            <Switch
+                                                checked={pdf.favorite}
+                                                onChange={(e) => {
+                                                    const updatedPdf = { ...pdf, favorite: e.target.checked };
+                                                    setPdfs(pdfs.map(p => p.id === pdf.id ? updatedPdf : p));
+                                                    // pdfsApi.update(pdf.id, { favorite: e.target.checked }); // TODO: Implement PATCH for favorite status
+                                                    setSnackbar({ open: true, message: 'PDF favorited/unfavorited', severity: 'success' });
+                                                }}
+                                                size="small"
+                                                sx={{ mr: 1 }}
+                                            />
                                             <IconButton size="small" onClick={() => handleDelete(pdf.id)}>
                                                 <DeleteIcon />
                                             </IconButton>
@@ -950,13 +965,13 @@ const PDFs: React.FC = () => {
                     <Typography variant="h6">Entity Suggestions</Typography>
                     <MUIList>
                         {entityMentions.map((m, i) => (
-                            <MUIListItem button key={i} onClick={() => { setEntitySidebarOpen(false); handleOpenEntity(m.entry); }}>
+                            <MUIListItem button key={i} /* onClick={() => { setEntitySidebarOpen(false); handleOpenEntity(m.entry); }} */ >
                                 <MUIListItemText primary={m.entry.name} secondary={m.entry.type} />
                             </MUIListItem>
                         ))}
                         {entityMentions.length === 0 && <Typography>No suggestions found.</Typography>}
                     </MUIList>
-                    <Button variant="contained" color="primary" sx={{ mb: 2 }} onClick={handleLinkAllEntities}>Link All</Button>
+                    {/* <Button variant="contained" color="primary" sx={{ mb: 2 }} onClick={handleLinkAllEntities}>Link All</Button> */}
                 </Box>
             </Drawer>
             <ImportExportDialog

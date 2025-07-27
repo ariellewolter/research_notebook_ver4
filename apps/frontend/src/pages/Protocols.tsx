@@ -195,8 +195,23 @@ function renderTextWithEntities(text: string, entries: any[], onEntityClick: (en
     return parts;
 }
 
-function handleLinkAllEntities() {
-    alert('Bulk link all suggested entities (not yet implemented)');
+// 1. Implement handleLinkAllEntities to iterate over entityMentions and call linksApi.create for each, linking to the current protocol.
+// 2. Enable the 'Link All' button in the Drawer, and call handleLinkAllEntities on click.
+// 3. Show a snackbar notification when linking is complete.
+async function handleLinkAllEntities(editingProtocol: Protocol, entityMentions: { start: number, end: number, entry: any }[], onExecutionUpdated: () => void) {
+    if (!editingProtocol) return;
+    const newLinks: any[] = [];
+    for (const mention of entityMentions) {
+        const link = await linksApi.create({
+            sourceType: 'protocol',
+            sourceId: editingProtocol.id,
+            targetType: mention.entry.type,
+            targetId: mention.entry.id,
+        });
+        newLinks.push(link);
+    }
+    onExecutionUpdated(); // Reload data to reflect new links
+    return newLinks;
 }
 
 const Protocols: React.FC<ProtocolsProps> = ({ onOpenProtocolTab, openTabs }) => {
@@ -1513,7 +1528,7 @@ const Protocols: React.FC<ProtocolsProps> = ({ onOpenProtocolTab, openTabs }) =>
                         ))}
                         {entityMentions.length === 0 && <Typography>No suggestions found.</Typography>}
                     </MUIList>
-                    <Button variant="contained" color="primary" sx={{ mb: 2 }} onClick={handleLinkAllEntities}>Link All</Button>
+                    <Button variant="contained" color="primary" sx={{ mb: 2 }} onClick={() => handleLinkAllEntities(editingProtocol!, entityMentions, loadData).then(() => setSnackbar({ open: true, message: 'All suggested entities linked!', severity: 'success' }))}>Link All</Button>
                 </Box>
             </Drawer>
 
