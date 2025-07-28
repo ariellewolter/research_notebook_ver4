@@ -1,514 +1,565 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    Button,
-    TextField,
-    List,
-    ListItem,
-    ListItemText,
-    ListItemIcon,
-    Chip,
     Box,
     Typography,
+    TextField,
+    Button,
+    Card,
+    CardContent,
+    Grid,
+    Chip,
     FormControl,
     InputLabel,
     Select,
     MenuItem,
     Checkbox,
     FormControlLabel,
-    Divider,
+    Accordion,
+    AccordionSummary,
+    AccordionDetails,
     IconButton,
-    CircularProgress,
+    List,
+    ListItem,
+    ListItemText,
+    ListItemSecondaryAction,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
     Alert,
+    Snackbar,
+    Divider,
+    Paper,
     Tabs,
     Tab,
-    Badge
+    Autocomplete,
+    Slider,
+    InputAdornment
 } from '@mui/material';
 import {
     Search as SearchIcon,
+    ExpandMore as ExpandMoreIcon,
+    Save as SaveIcon,
     History as HistoryIcon,
     Clear as ClearIcon,
     FilterList as FilterIcon,
-    Save as SaveIcon,
     Bookmark as BookmarkIcon,
-    Note as NoteIcon,
-    Folder as ProjectIcon,
-    Science as ProtocolIcon,
-    Restaurant as RecipeIcon,
-    Storage as DatabaseIcon,
-    PictureAsPdf as PdfIcon,
-    TableChart as TableIcon,
-    CheckBox as TaskIcon,
-    Calculate as CalculatorIcon
+    Delete as DeleteIcon
 } from '@mui/icons-material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import api from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface SearchResult {
     id: string;
-    type: 'note' | 'project' | 'protocol' | 'recipe' | 'database' | 'pdf' | 'table' | 'task' | 'literature';
+    type: string;
     title: string;
-    description?: string;
-    content?: string;
-    date?: string;
-    tags?: string[];
-    score: number;
+    content: string;
+    project?: string;
+    createdAt: string;
+    score?: number;
 }
 
 interface SavedSearch {
     id: string;
     name: string;
-    query: string;
-    filters: SearchFilters;
+    description?: string;
+    searchQuery: string;
     createdAt: string;
 }
 
-interface SearchFilters {
-    types: string[];
-    dateRange: {
-        start?: string;
-        end?: string;
-    };
-    tags: string[];
-    contentOnly: boolean;
+interface SearchHistory {
+    id: string;
+    query: string;
+    timestamp: string;
 }
 
 interface AdvancedSearchProps {
-    open: boolean;
-    onClose: () => void;
-    onSelectResult: (result: SearchResult) => void;
+    onResultSelect?: (result: SearchResult) => void;
+    initialQuery?: string;
 }
 
-const entityTypes = [
-    { key: 'note', label: 'Notes', icon: <NoteIcon /> },
-    { key: 'project', label: 'Projects', icon: <ProjectIcon /> },
-    { key: 'protocol', label: 'Protocols', icon: <ProtocolIcon /> },
-    { key: 'recipe', label: 'Recipes', icon: <RecipeIcon /> },
-    { key: 'database', label: 'Database', icon: <DatabaseIcon /> },
-    { key: 'pdf', label: 'PDFs', icon: <PdfIcon /> },
-    { key: 'table', label: 'Tables', icon: <TableIcon /> },
-    { key: 'task', label: 'Tasks', icon: <TaskIcon /> },
-    { key: 'literature', label: 'Literature', icon: <BookmarkIcon /> },
-];
-
-const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ open, onClose, onSelectResult }) => {
-    const [query, setQuery] = useState('');
+const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ onResultSelect, initialQuery = '' }) => {
+    const { token } = useAuth();
+    const [activeTab, setActiveTab] = useState(0);
+    const [searchQuery, setSearchQuery] = useState(initialQuery);
     const [results, setResults] = useState<SearchResult[]>([]);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState(0);
-    const [showFilters, setShowFilters] = useState(false);
-    const [filters, setFilters] = useState<SearchFilters>({
-        types: [],
-        dateRange: {},
-        tags: [],
-        contentOnly: false
-    });
-    const [searchHistory, setSearchHistory] = useState<string[]>([]);
     const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
-    const [selectedTags, setSelectedTags] = useState<string[]>([]);
-    const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
+    const [showAdvanced, setShowAdvanced] = useState(false);
+    const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+    const [saveSearchName, setSaveSearchName] = useState('');
+    const [saveSearchDescription, setSaveSearchDescription] = useState('');
+    const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+        open: false,
+        message: '',
+        severity: 'success'
+    });
 
-    // Load search history and saved searches from localStorage
+    // Advanced search filters
+    const [filters, setFilters] = useState({
+        models: ['projects', 'experiments', 'notes', 'database', 'protocols', 'recipes', 'tasks'],
+        dateRange: {
+            startDate: null as Date | null,
+            endDate: null as Date | null
+        },
+        projects: [] as string[],
+        types: [] as string[],
+        status: [] as string[],
+        tags: [] as string[]
+    });
+
+    // Load saved searches and history
     useEffect(() => {
-        const history = localStorage.getItem('searchHistory');
-        const saved = localStorage.getItem('savedSearches');
-        
-        if (history) {
-            setSearchHistory(JSON.parse(history));
-        }
-        if (saved) {
-            setSavedSearches(JSON.parse(saved));
-        }
+        loadSavedSearches();
+        loadSearchHistory();
     }, []);
 
-    // Debounced search
-    useEffect(() => {
-        if (searchTimeoutRef.current) {
-            clearTimeout(searchTimeoutRef.current);
+    const loadSavedSearches = async () => {
+        try {
+            const response = await api.get('/search/saved', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setSavedSearches(response.data);
+        } catch (error) {
+            console.error('Failed to load saved searches:', error);
         }
+    };
 
-        if (query.trim()) {
-            searchTimeoutRef.current = setTimeout(() => {
-                performSearch();
-            }, 500);
-        } else {
-            setResults([]);
+    const loadSearchHistory = async () => {
+        try {
+            const response = await api.get('/search/history', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setSearchHistory(response.data);
+        } catch (error) {
+            console.error('Failed to load search history:', error);
         }
+    };
 
-        return () => {
-            if (searchTimeoutRef.current) {
-                clearTimeout(searchTimeoutRef.current);
-            }
-        };
-    }, [query, filters]);
-
-    const performSearch = async () => {
-        if (!query.trim()) return;
+    const performSearch = async (query?: string, searchFilters?: any) => {
+        if (!query && !searchQuery) return;
 
         setLoading(true);
-        setError(null);
-
         try {
-            // Search across all entity types
-            const searchPromises = entityTypes
-                .filter(type => filters.types.length === 0 || filters.types.includes(type.key))
-                .map(async (type) => {
-                    try {
-                        const response = await fetch(`/api/${type.key}/search?q=${encodeURIComponent(query)}&limit=10`);
-                        if (response.ok) {
-                            const data = await response.json();
-                            return data.items?.map((item: any) => ({
-                                id: item.id,
-                                type: type.key as SearchResult['type'],
-                                title: item.title || item.name || 'Untitled',
-                                description: item.description || item.content?.substring(0, 100),
-                                content: item.content,
-                                date: item.createdAt || item.date,
-                                tags: item.tags ? item.tags.split(',').map((t: string) => t.trim()) : [],
-                                score: 1.0 // Simple scoring for now
-                            })) || [];
-                        }
-                        return [];
-                    } catch (err) {
-                        console.warn(`Failed to search ${type.key}:`, err);
-                        return [];
-                    }
-                });
+            const searchParams = {
+                query: query || searchQuery,
+                models: filters.models,
+                dateRange: filters.dateRange.startDate || filters.dateRange.endDate ? {
+                    startDate: filters.dateRange.startDate?.toISOString(),
+                    endDate: filters.dateRange.endDate?.toISOString()
+                } : undefined,
+                projects: filters.projects.length > 0 ? filters.projects : undefined,
+                types: filters.types.length > 0 ? filters.types : undefined,
+                status: filters.status.length > 0 ? filters.status : undefined,
+                tags: filters.tags.length > 0 ? filters.tags : undefined,
+                ...searchFilters
+            };
 
-            const allResults = await Promise.all(searchPromises);
-            const flatResults = allResults.flat();
-
-            // Apply additional filters
-            let filteredResults = flatResults;
-
-            if (filters.dateRange.start || filters.dateRange.end) {
-                filteredResults = filteredResults.filter(result => {
-                    if (!result.date) return true;
-                    const resultDate = new Date(result.date);
-                    const startDate = filters.dateRange.start ? new Date(filters.dateRange.start) : null;
-                    const endDate = filters.dateRange.end ? new Date(filters.dateRange.end) : null;
-                    
-                    if (startDate && resultDate < startDate) return false;
-                    if (endDate && resultDate > endDate) return false;
-                    return true;
-                });
-            }
-
-            if (filters.tags.length > 0) {
-                filteredResults = filteredResults.filter(result => 
-                    result.tags?.some((tag: string) => filters.tags.includes(tag))
-                );
-            }
-
-            if (filters.contentOnly) {
-                filteredResults = filteredResults.filter(result => 
-                    result.content && result.content.toLowerCase().includes(query.toLowerCase())
-                );
-            }
-
-            // Sort by relevance (simple implementation)
-            filteredResults.sort((a, b) => {
-                const aScore = a.title.toLowerCase().includes(query.toLowerCase()) ? 2 : 1;
-                const bScore = b.title.toLowerCase().includes(query.toLowerCase()) ? 2 : 1;
-                return bScore - aScore;
+            const response = await api.post('/search', searchParams, {
+                headers: { Authorization: `Bearer ${token}` }
             });
 
-            setResults(filteredResults);
-
-            // Update search history
-            if (query.trim() && !searchHistory.includes(query.trim())) {
-                const newHistory = [query.trim(), ...searchHistory.slice(0, 9)];
-                setSearchHistory(newHistory);
-                localStorage.setItem('searchHistory', JSON.stringify(newHistory));
-            }
-
-        } catch (err) {
-            setError('Search failed. Please try again.');
-            console.error('Search error:', err);
+            setResults(response.data.results || []);
+        } catch (error) {
+            console.error('Search failed:', error);
+            setSnackbar({
+                open: true,
+                message: 'Search failed. Please try again.',
+                severity: 'error'
+            });
         } finally {
             setLoading(false);
         }
     };
 
-    const handleSaveSearch = () => {
-        const newSearch: SavedSearch = {
-            id: Date.now().toString(),
-            name: `Search ${savedSearches.length + 1}`,
-            query,
-            filters,
-            createdAt: new Date().toISOString()
-        };
-
-        const updatedSearches = [newSearch, ...savedSearches];
-        setSavedSearches(updatedSearches);
-        localStorage.setItem('savedSearches', JSON.stringify(updatedSearches));
+    const handleSearch = () => {
+        performSearch();
     };
 
-    const handleLoadSearch = (savedSearch: SavedSearch) => {
-        setQuery(savedSearch.query);
-        setFilters(savedSearch.filters);
-        setActiveTab(0);
+    const handleSaveSearch = async () => {
+        if (!saveSearchName.trim()) return;
+
+        try {
+            const searchParams = {
+                query: searchQuery,
+                models: filters.models,
+                dateRange: filters.dateRange.startDate || filters.dateRange.endDate ? {
+                    startDate: filters.dateRange.startDate?.toISOString(),
+                    endDate: filters.dateRange.endDate?.toISOString()
+                } : undefined,
+                projects: filters.projects.length > 0 ? filters.projects : undefined,
+                types: filters.types.length > 0 ? filters.types : undefined,
+                status: filters.status.length > 0 ? filters.status : undefined,
+                tags: filters.tags.length > 0 ? filters.tags : undefined
+            };
+
+            await api.post('/search/saved', {
+                name: saveSearchName,
+                description: saveSearchDescription,
+                searchQuery: JSON.stringify(searchParams)
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            setSnackbar({
+                open: true,
+                message: 'Search saved successfully!',
+                severity: 'success'
+            });
+            setSaveDialogOpen(false);
+            setSaveSearchName('');
+            setSaveSearchDescription('');
+            loadSavedSearches();
+        } catch (error) {
+            console.error('Failed to save search:', error);
+            setSnackbar({
+                open: true,
+                message: 'Failed to save search.',
+                severity: 'error'
+            });
+        }
     };
 
-    const handleClearHistory = () => {
-        setSearchHistory([]);
-        localStorage.removeItem('searchHistory');
+    const handleLoadSavedSearch = async (savedSearch: SavedSearch) => {
+        try {
+            const searchParams = JSON.parse(savedSearch.searchQuery);
+            setSearchQuery(searchParams.query || '');
+            setFilters(prev => ({
+                ...prev,
+                models: searchParams.models || prev.models,
+                dateRange: searchParams.dateRange ? {
+                    startDate: searchParams.dateRange.startDate ? new Date(searchParams.dateRange.startDate) : null,
+                    endDate: searchParams.dateRange.endDate ? new Date(searchParams.dateRange.endDate) : null
+                } : prev.dateRange,
+                projects: searchParams.projects || prev.projects,
+                types: searchParams.types || prev.types,
+                status: searchParams.status || prev.status,
+                tags: searchParams.tags || prev.tags
+            }));
+            await performSearch(searchParams.query, searchParams);
+        } catch (error) {
+            console.error('Failed to load saved search:', error);
+        }
     };
 
-    const getEntityIcon = (type: string) => {
-        const entityType = entityTypes.find(t => t.key === type);
-        return entityType?.icon || <NoteIcon />;
+    const handleDeleteSavedSearch = async (id: string) => {
+        try {
+            await api.delete(`/search/saved/${id}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setSnackbar({
+                open: true,
+                message: 'Saved search deleted.',
+                severity: 'success'
+            });
+            loadSavedSearches();
+        } catch (error) {
+            console.error('Failed to delete saved search:', error);
+        }
     };
 
-    const formatDate = (dateString?: string) => {
-        if (!dateString) return '';
+    const handleClearFilters = () => {
+        setFilters({
+            models: ['projects', 'experiments', 'notes', 'database', 'protocols', 'recipes', 'tasks'],
+            dateRange: { startDate: null, endDate: null },
+            projects: [],
+            types: [],
+            status: [],
+            tags: []
+        });
+    };
+
+    const getModelIcon = (type: string) => {
+        switch (type) {
+            case 'project': return '📁';
+            case 'experiment': return '🧪';
+            case 'note': return '📝';
+            case 'database': return '🗄️';
+            case 'protocol': return '📋';
+            case 'recipe': return '📖';
+            case 'task': return '✅';
+            default: return '📄';
+        }
+    };
+
+    const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString();
     };
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
-            <DialogTitle>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <SearchIcon />
-                    Advanced Search
-                </Box>
-            </DialogTitle>
-            <DialogContent>
-                <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)} sx={{ mb: 2 }}>
-                    <Tab label="Search" />
-                    <Tab label="History" />
-                    <Tab label="Saved Searches" />
-                </Tabs>
+        <Box sx={{ p: 2 }}>
 
-                {activeTab === 0 && (
-                    <>
-                        <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+            {/* Search Bar */}
+            <Card sx={{ mb: 2 }}>
+                <CardContent>
+                    <Grid container spacing={2} alignItems="center">
+                        <Grid item xs={12} md={8}>
                             <TextField
                                 fullWidth
-                                placeholder="Search across all entities..."
-                                value={query}
-                                onChange={(e) => setQuery(e.target.value)}
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Search across all content..."
+                                variant="outlined"
+                                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                                 InputProps={{
-                                    startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <SearchIcon />
+                                        </InputAdornment>
+                                    )
                                 }}
                             />
-                            <IconButton 
-                                onClick={() => setShowFilters(!showFilters)}
-                                color={showFilters ? 'primary' : 'default'}
-                            >
-                                <Badge badgeContent={filters.types.length + filters.tags.length} color="primary">
-                                    <FilterIcon />
-                                </Badge>
-                            </IconButton>
-                        </Box>
+                        </Grid>
+                        <Grid item xs={12} md={4}>
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                                <Button
+                                    variant="contained"
+                                    onClick={handleSearch}
+                                    disabled={loading}
+                                    startIcon={<SearchIcon />}
+                                    fullWidth
+                                >
+                                    Search
+                                </Button>
+                                <Button
+                                    variant="outlined"
+                                    onClick={() => setShowAdvanced(!showAdvanced)}
+                                    startIcon={<FilterIcon />}
+                                >
+                                    Filters
+                                </Button>
+                                <Button
+                                    variant="outlined"
+                                    onClick={() => setSaveDialogOpen(true)}
+                                    startIcon={<SaveIcon />}
+                                >
+                                    Save
+                                </Button>
+                            </Box>
+                        </Grid>
+                    </Grid>
+                </CardContent>
+            </Card>
 
-                        {showFilters && (
-                            <Box sx={{ mb: 2, p: 2, border: '1px solid #eee', borderRadius: 1 }}>
-                                <Typography variant="subtitle2" gutterBottom>Filters</Typography>
-                                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                                    <FormControl size="small" sx={{ minWidth: 200 }}>
-                                        <InputLabel>Entity Types</InputLabel>
-                                        <Select
-                                            multiple
-                                            value={filters.types}
-                                            onChange={(e) => setFilters(prev => ({ ...prev, types: e.target.value as string[] }))}
-                                            label="Entity Types"
-                                        >
-                                            {entityTypes.map(type => (
-                                                <MenuItem key={type.key} value={type.key}>
-                                                    {type.icon} {type.label}
-                                                </MenuItem>
-                                            ))}
-                                        </Select>
-                                    </FormControl>
-
-                                    <TextField
-                                        size="small"
-                                        label="Start Date"
-                                        type="date"
-                                        value={filters.dateRange.start || ''}
-                                        onChange={(e) => setFilters(prev => ({ 
-                                            ...prev, 
-                                            dateRange: { ...prev.dateRange, start: e.target.value }
-                                        }))}
-                                        InputLabelProps={{ shrink: true }}
-                                    />
-
-                                    <TextField
-                                        size="small"
-                                        label="End Date"
-                                        type="date"
-                                        value={filters.dateRange.end || ''}
-                                        onChange={(e) => setFilters(prev => ({ 
-                                            ...prev, 
-                                            dateRange: { ...prev.dateRange, end: e.target.value }
-                                        }))}
-                                        InputLabelProps={{ shrink: true }}
-                                    />
-
-                                    <FormControlLabel
-                                        control={
-                                            <Checkbox
-                                                checked={filters.contentOnly}
-                                                onChange={(e) => setFilters(prev => ({ ...prev, contentOnly: e.target.checked }))}
+            {/* Advanced Filters */}
+            {showAdvanced && (
+                <Card sx={{ mb: 2 }}>
+                    <CardContent>
+                        <Typography variant="h6" gutterBottom>
+                            Advanced Filters
+                        </Typography>
+                        <Grid container spacing={2}>
+                            <Grid item xs={12} md={6}>
+                                <FormControl fullWidth>
+                                    <InputLabel>Search Models</InputLabel>
+                                    <Select
+                                        multiple
+                                        value={filters.models}
+                                        onChange={(e) => setFilters(prev => ({ ...prev, models: e.target.value as string[] }))}
+                                        renderValue={(selected) => (
+                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                                {selected.map((value) => (
+                                                    <Chip key={value} label={value} size="small" />
+                                                ))}
+                                            </Box>
+                                        )}
+                                    >
+                                        <MenuItem value="projects">Projects</MenuItem>
+                                        <MenuItem value="experiments">Experiments</MenuItem>
+                                        <MenuItem value="notes">Notes</MenuItem>
+                                        <MenuItem value="database">Database</MenuItem>
+                                        <MenuItem value="protocols">Protocols</MenuItem>
+                                        <MenuItem value="recipes">Recipes</MenuItem>
+                                        <MenuItem value="tasks">Tasks</MenuItem>
+                                    </Select>
+                                </FormControl>
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                                <LocalizationProvider dateAdapter={AdapterDateFns}>
+                                    <Grid container spacing={1}>
+                                        <Grid item xs={6}>
+                                            <DatePicker
+                                                label="Start Date"
+                                                value={filters.dateRange.startDate}
+                                                onChange={(date: Date | null) => setFilters(prev => ({ 
+                                                    ...prev, 
+                                                    dateRange: { ...prev.dateRange, startDate: date } 
+                                                }))}
+                                                slotProps={{ textField: { fullWidth: true } }}
                                             />
-                                        }
-                                        label="Content only"
-                                    />
+                                        </Grid>
+                                        <Grid item xs={6}>
+                                            <DatePicker
+                                                label="End Date"
+                                                value={filters.dateRange.endDate}
+                                                onChange={(date: Date | null) => setFilters(prev => ({ 
+                                                    ...prev, 
+                                                    dateRange: { ...prev.dateRange, endDate: date } 
+                                                }))}
+                                                slotProps={{ textField: { fullWidth: true } }}
+                                            />
+                                        </Grid>
+                                    </Grid>
+                                </LocalizationProvider>
+                            </Grid>
+                            <Grid item xs={12}>
+                                <Button
+                                    variant="outlined"
+                                    onClick={handleClearFilters}
+                                    startIcon={<ClearIcon />}
+                                >
+                                    Clear Filters
+                                </Button>
+                            </Grid>
+                        </Grid>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Tabs for Results, Saved Searches, and History */}
+            <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 2 }}>
+                <Tab label={`Results (${results.length})`} />
+                <Tab label={`Saved Searches (${savedSearches.length})`} />
+                <Tab label={`History (${searchHistory.length})`} />
+            </Tabs>
+
+            {/* Results Tab */}
+            {activeTab === 0 && (
+                <Box>
+                    {loading && <Typography>Searching...</Typography>}
+                    {!loading && results.length === 0 && searchQuery && (
+                        <Typography color="textSecondary">No results found.</Typography>
+                    )}
+                    {results.map((result) => (
+                        <Card key={result.id} sx={{ mb: 1, cursor: 'pointer' }} onClick={() => onResultSelect?.(result)}>
+                            <CardContent>
+                                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                                    <Typography variant="h6" sx={{ mr: 1 }}>
+                                        {getModelIcon(result.type)}
+                                    </Typography>
+                                    <Typography variant="h6" sx={{ flexGrow: 1 }}>
+                                        {result.title}
+                                    </Typography>
+                                    <Chip label={result.type} size="small" />
+                                    {result.score && (
+                                        <Chip label={`Score: ${result.score.toFixed(2)}`} size="small" color="primary" />
+                                    )}
                                 </Box>
-                            </Box>
-                        )}
+                                <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
+                                    {result.content.substring(0, 200)}...
+                                </Typography>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Typography variant="caption" color="textSecondary">
+                                        {formatDate(result.createdAt)}
+                                    </Typography>
+                                    {result.project && (
+                                        <Chip label={result.project} size="small" variant="outlined" />
+                                    )}
+                                </Box>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </Box>
+            )}
 
-                        {error && (
-                            <Alert severity="error" sx={{ mb: 2 }}>
-                                {error}
-                            </Alert>
-                        )}
+            {/* Saved Searches Tab */}
+            {activeTab === 1 && (
+                <Box>
+                    {savedSearches.map((savedSearch) => (
+                        <Card key={savedSearch.id} sx={{ mb: 1 }}>
+                            <CardContent>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Box>
+                                        <Typography variant="h6">{savedSearch.name}</Typography>
+                                        {savedSearch.description && (
+                                            <Typography variant="body2" color="textSecondary">
+                                                {savedSearch.description}
+                                            </Typography>
+                                        )}
+                                        <Typography variant="caption" color="textSecondary">
+                                            {formatDate(savedSearch.createdAt)}
+                                        </Typography>
+                                    </Box>
+                                    <Box>
+                                        <IconButton onClick={() => handleLoadSavedSearch(savedSearch)}>
+                                            <SearchIcon />
+                                        </IconButton>
+                                        <IconButton onClick={() => handleDeleteSavedSearch(savedSearch.id)}>
+                                            <DeleteIcon />
+                                        </IconButton>
+                                    </Box>
+                                </Box>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </Box>
+            )}
 
-                        {loading && (
-                            <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-                                <CircularProgress />
-                            </Box>
-                        )}
-
-                        {!loading && results.length === 0 && query.trim() && (
-                            <Typography color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                                No results found
-                            </Typography>
-                        )}
-
-                        <List sx={{ maxHeight: 400, overflow: 'auto' }}>
-                            {results.map((result) => (
-                                <ListItem
-                                    key={`${result.type}-${result.id}`}
-                                    button
-                                    onClick={() => onSelectResult(result)}
-                                    sx={{ 
-                                        border: '1px solid #eee', 
-                                        borderRadius: 1, 
-                                        mb: 1,
-                                        '&:hover': {
-                                            backgroundColor: 'action.hover'
-                                        }
-                                    }}
-                                >
-                                    <ListItemIcon>
-                                        {getEntityIcon(result.type)}
-                                    </ListItemIcon>
-                                    <ListItemText
-                                        primary={
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <Typography variant="subtitle1">
-                                                    {result.title}
-                                                </Typography>
-                                                <Chip 
-                                                    label={result.type} 
-                                                    size="small" 
-                                                    color="primary" 
-                                                    variant="outlined"
-                                                />
-                                            </Box>
-                                        }
-                                        secondary={
-                                            <Box>
-                                                <Typography variant="body2" color="text.secondary">
-                                                    {result.description}
-                                                </Typography>
-                                                <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                                                    {result.tags?.slice(0, 3).map(tag => (
-                                                        <Chip key={tag} label={tag} size="small" />
-                                                    ))}
-                                                    {result.date && (
-                                                        <Typography variant="caption" color="text.secondary">
-                                                            {formatDate(result.date)}
-                                                        </Typography>
-                                                    )}
-                                                </Box>
-                                            </Box>
-                                        }
-                                    />
-                                </ListItem>
-                            ))}
-                        </List>
-                    </>
-                )}
-
-                {activeTab === 1 && (
-                    <Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                            <Typography variant="h6">Search History</Typography>
-                            <Button size="small" onClick={handleClearHistory}>
-                                Clear History
-                            </Button>
-                        </Box>
-                        <List>
-                            {searchHistory.map((searchTerm, index) => (
-                                <ListItem
-                                    key={index}
-                                    button
-                                    onClick={() => {
-                                        setQuery(searchTerm);
+            {/* History Tab */}
+            {activeTab === 2 && (
+                <Box>
+                    {searchHistory.map((history) => (
+                        <Card key={history.id} sx={{ mb: 1 }}>
+                            <CardContent>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Typography variant="body1" sx={{ flexGrow: 1, cursor: 'pointer' }} onClick={() => {
+                                        setSearchQuery(history.query);
+                                        performSearch(history.query);
                                         setActiveTab(0);
-                                    }}
-                                >
-                                    <ListItemIcon>
-                                        <HistoryIcon />
-                                    </ListItemIcon>
-                                    <ListItemText primary={searchTerm} />
-                                </ListItem>
-                            ))}
-                            {searchHistory.length === 0 && (
-                                <Typography color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                                    No search history
-                                </Typography>
-                            )}
-                        </List>
-                    </Box>
-                )}
+                                    }}>
+                                        {history.query}
+                                    </Typography>
+                                    <Typography variant="caption" color="textSecondary">
+                                        {formatDate(history.timestamp)}
+                                    </Typography>
+                                </Box>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </Box>
+            )}
 
-                {activeTab === 2 && (
-                    <Box>
-                        <Typography variant="h6" gutterBottom>Saved Searches</Typography>
-                        <List>
-                            {savedSearches.map((savedSearch) => (
-                                <ListItem
-                                    key={savedSearch.id}
-                                    button
-                                    onClick={() => handleLoadSearch(savedSearch)}
-                                >
-                                    <ListItemIcon>
-                                        <BookmarkIcon />
-                                    </ListItemIcon>
-                                    <ListItemText
-                                        primary={savedSearch.name}
-                                        secondary={`${savedSearch.query} • ${formatDate(savedSearch.createdAt)}`}
-                                    />
-                                </ListItem>
-                            ))}
-                            {savedSearches.length === 0 && (
-                                <Typography color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                                    No saved searches
-                                </Typography>
-                            )}
-                        </List>
-                    </Box>
-                )}
-            </DialogContent>
-            <DialogActions>
-                {activeTab === 0 && query.trim() && (
-                    <Button
-                        startIcon={<SaveIcon />}
-                        onClick={handleSaveSearch}
-                        disabled={savedSearches.some(s => s.query === query)}
-                    >
-                        Save Search
-                    </Button>
-                )}
-                <Button onClick={onClose}>Close</Button>
-            </DialogActions>
-        </Dialog>
+            {/* Save Search Dialog */}
+            <Dialog open={saveDialogOpen} onClose={() => setSaveDialogOpen(false)}>
+                <DialogTitle>Save Search</DialogTitle>
+                <DialogContent>
+                    <TextField
+                        fullWidth
+                        label="Search Name"
+                        value={saveSearchName}
+                        onChange={(e) => setSaveSearchName(e.target.value)}
+                        sx={{ mb: 2, mt: 1 }}
+                    />
+                    <TextField
+                        fullWidth
+                        label="Description (optional)"
+                        value={saveSearchDescription}
+                        onChange={(e) => setSaveSearchDescription(e.target.value)}
+                        multiline
+                        rows={3}
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setSaveDialogOpen(false)}>Cancel</Button>
+                    <Button onClick={handleSaveSearch} variant="contained">Save</Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Snackbar */}
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={6000}
+                onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+            >
+                <Alert severity={snackbar.severity} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}>
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
+        </Box>
     );
 };
 

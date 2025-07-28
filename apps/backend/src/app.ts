@@ -12,6 +12,10 @@ import protocolsRoutes from './routes/protocols';
 import recipesRoutes from './routes/recipes';
 import literatureNotesRouter from './routes/literatureNotes';
 import tasksRoutes from './routes/tasks';
+import authRoutes from './routes/auth';
+import importExportRoutes from './routes/importExport';
+import searchRoutes from './routes/search';
+import analyticsRoutes from './routes/analytics';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -29,6 +33,10 @@ app.use(cors({
 }));
 
 // API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/import-export', importExportRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/analytics', analyticsRoutes);
 app.use('/api/health', healthRoutes);
 app.use('/api/notes', notesRoutes);
 app.use('/api/projects', projectsRoutes);
@@ -48,6 +56,10 @@ app.get('/', (req, res) => {
         message: 'Electronic Lab Notebook API',
         version: '1.0.0',
         endpoints: {
+            auth: '/api/auth',
+            importExport: '/api/import-export',
+            search: '/api/search',
+            analytics: '/api/analytics',
             health: '/api/health',
             notes: '/api/notes',
             projects: '/api/projects',

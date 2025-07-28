@@ -12,6 +12,10 @@ import {
     Toolbar,
     Typography,
     Divider,
+    Button,
+    Avatar,
+    Menu,
+    MenuItem,
 } from '@mui/material';
 import {
     Menu as MenuIcon,
@@ -46,6 +50,7 @@ import ResearchTimelineExport from '../Export/ResearchTimelineExport';
 import { useTheme } from '@mui/material/styles';
 import { useWorkspaceTabs } from '../../pages/WorkspaceTabsContext';
 import { createNoteTab, createProjectTab, createProtocolTab, createDatabaseEntryTab } from '../../services/tabUtils';
+import { useAuth } from '../../contexts/AuthContext';
 
 const drawerWidth = 240;
 
@@ -59,10 +64,12 @@ const Layout: React.FC = () => {
     const [dataExportOpen, setDataExportOpen] = useState(false);
     const [ganttChartOpen, setGanttChartOpen] = useState(false);
     const [researchTimelineOpen, setResearchTimelineOpen] = useState(false);
+    const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(null);
     const navigate = useNavigate();
     const location = useLocation();
     const theme = useTheme();
     const { openTab } = useWorkspaceTabs();
+    const { user, logout } = useAuth();
 
     const scienceMenuSections = [
         {
@@ -143,6 +150,18 @@ const Layout: React.FC = () => {
             icon: <CalculateIcon fontSize="large" />,
             path: '/calculators',
         },
+        {
+            key: 'analytics',
+            label: 'Analytics',
+            icon: <AssessmentIcon fontSize="large" />,
+            path: '/analytics',
+        },
+        {
+            key: 'search',
+            label: 'Search',
+            icon: <SearchIcon fontSize="large" />,
+            path: '/search',
+        },
     ] as const;
 
     const handleDrawerToggle = () => {
@@ -163,6 +182,19 @@ const Layout: React.FC = () => {
         // For now, just navigate to the route
         // In the future, we can open specific entities in tabs
         navigate(section.path);
+    };
+
+    const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+        setUserMenuAnchor(event.currentTarget);
+    };
+
+    const handleUserMenuClose = () => {
+        setUserMenuAnchor(null);
+    };
+
+    const handleLogout = () => {
+        logout();
+        handleUserMenuClose();
     };
 
     // Sidebar content
@@ -287,6 +319,43 @@ const Layout: React.FC = () => {
                     >
                         <AssessmentIcon />
                     </IconButton>
+                    
+                    {/* User Menu */}
+                    <Box sx={{ ml: 2 }}>
+                        <Button
+                            onClick={handleUserMenuOpen}
+                            sx={{ color: 'inherit', textTransform: 'none' }}
+                            startIcon={
+                                <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
+                                    {user?.username?.charAt(0).toUpperCase()}
+                                </Avatar>
+                            }
+                        >
+                            <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>
+                                {user?.username}
+                            </Typography>
+                        </Button>
+                        <Menu
+                            anchorEl={userMenuAnchor}
+                            open={Boolean(userMenuAnchor)}
+                            onClose={handleUserMenuClose}
+                            anchorOrigin={{
+                                vertical: 'bottom',
+                                horizontal: 'right',
+                            }}
+                            transformOrigin={{
+                                vertical: 'top',
+                                horizontal: 'right',
+                            }}
+                        >
+                            <MenuItem onClick={() => navigate('/settings')}>
+                                Settings
+                            </MenuItem>
+                            <MenuItem onClick={handleLogout}>
+                                Logout
+                            </MenuItem>
+                        </Menu>
+                    </Box>
                 </Toolbar>
             </AppBar>
             <Box
@@ -353,45 +422,70 @@ const Layout: React.FC = () => {
                 </Box>
             </Box>
 
-            <AdvancedSearch
-                open={advancedSearchOpen}
-                onClose={() => setAdvancedSearchOpen(false)}
-                onSelectResult={(result) => {
-                    setAdvancedSearchOpen(false);
-                    // Navigate to the appropriate page based on result type
-                    switch (result.type) {
-                        case 'note':
-                            navigate(`/notes`);
-                            break;
-                        case 'project':
-                            navigate(`/projects`);
-                            break;
-                        case 'protocol':
-                            navigate(`/protocols`);
-                            break;
-                        case 'recipe':
-                            navigate(`/recipes`);
-                            break;
-                        case 'database':
-                            navigate(`/database`);
-                            break;
-                        case 'pdf':
-                            navigate(`/pdfs`);
-                            break;
-                        case 'table':
-                            navigate(`/tables`);
-                            break;
-                        case 'task':
-                            navigate(`/tasks`);
-                            break;
-                        case 'literature':
-                            navigate(`/literature`);
-                            break;
-                        default:
-                            navigate(`/`);
-                    }
-                }}
-            />
+            {advancedSearchOpen && (
+                <Box sx={{ 
+                    position: 'fixed', 
+                    top: 0, 
+                    left: 0, 
+                    right: 0, 
+                    bottom: 0, 
+                    bgcolor: 'background.paper', 
+                    zIndex: 1300,
+                    overflow: 'auto'
+                }}>
+                    <Box sx={{ 
+                        position: 'sticky', 
+                        top: 0, 
+                        bgcolor: 'background.paper', 
+                        borderBottom: 1, 
+                        borderColor: 'divider',
+                        p: 2,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                    }}>
+                        <Typography variant="h6">Advanced Search</Typography>
+                        <Button onClick={() => setAdvancedSearchOpen(false)}>Close</Button>
+                    </Box>
+                    <AdvancedSearch
+                        onResultSelect={(result) => {
+                            setAdvancedSearchOpen(false);
+                            // Navigate to the appropriate page based on result type
+                            switch (result.type) {
+                                case 'note':
+                                    navigate(`/notes`);
+                                    break;
+                                case 'project':
+                                    navigate(`/projects`);
+                                    break;
+                                case 'protocol':
+                                    navigate(`/protocols`);
+                                    break;
+                                case 'recipe':
+                                    navigate(`/recipes`);
+                                    break;
+                                case 'database':
+                                    navigate(`/database`);
+                                    break;
+                                case 'pdf':
+                                    navigate(`/pdfs`);
+                                    break;
+                                case 'table':
+                                    navigate(`/tables`);
+                                    break;
+                                case 'task':
+                                    navigate(`/tasks`);
+                                    break;
+                                case 'literature':
+                                    navigate(`/literature`);
+                                    break;
+                                default:
+                                    navigate(`/`);
+                            }
+                        }}
+                    />
+                </Box>
+            )}
             <DataExport
                 open={dataExportOpen}
                 onClose={() => setDataExportOpen(false)}

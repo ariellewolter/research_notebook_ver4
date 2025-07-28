@@ -7,6 +7,35 @@ datasource db {
   url      = "file:./dev.db"
 }
 
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  projects  Project[]
+  savedSearches SavedSearch[]
+  searchHistory SearchHistory[]
+}
+
+model SavedSearch {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  searchQuery String   // JSON string of search parameters
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model SearchHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  query     String   // JSON string of search parameters
+  timestamp DateTime @default(now())
+}
+
 model Project {
   id          String      @id @default(uuid())
   name        String
@@ -15,6 +44,8 @@ model Project {
   startDate   DateTime?
   lastActivity DateTime?
   createdAt   DateTime    @default(now())
+  user        User        @relation(fields: [userId], references: [id])
+  userId      String
   experiments Experiment[]
   tasks       Task[]
 }

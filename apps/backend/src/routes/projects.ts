@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
+import { authenticateToken } from './auth';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -37,9 +38,12 @@ const updateExperimentSchema = z.object({
 });
 
 // Get all projects
-router.get('/', async (req, res) => {
+router.get('/', authenticateToken, async (req: any, res) => {
     try {
         const projects = await prisma.project.findMany({
+            where: {
+                userId: req.user.userId
+            },
             include: {
                 experiments: {
                     include: {
@@ -61,12 +65,15 @@ router.get('/', async (req, res) => {
 });
 
 // Get a specific project
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticateToken, async (req: any, res) => {
     try {
         const { id } = req.params;
 
-        const project = await prisma.project.findUnique({
-            where: { id },
+        const project = await prisma.project.findFirst({
+            where: { 
+                id,
+                userId: req.user.userId
+            },
             include: {
                 experiments: {
                     include: {
@@ -91,12 +98,15 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create a new project
-router.post('/', async (req, res) => {
+router.post('/', authenticateToken, async (req: any, res) => {
     try {
         const validatedData = createProjectSchema.parse(req.body);
 
         const project = await prisma.project.create({
-            data: validatedData
+            data: {
+                ...validatedData,
+                userId: req.user.userId
+            }
         });
 
         res.status(201).json(project);
@@ -110,13 +120,16 @@ router.post('/', async (req, res) => {
 });
 
 // Update a project
-router.put('/:id', async (req, res) => {
+router.put('/:id', authenticateToken, async (req: any, res) => {
     try {
         const { id } = req.params;
         const validatedData = updateProjectSchema.parse(req.body);
 
         const project = await prisma.project.update({
-            where: { id },
+            where: { 
+                id,
+                userId: req.user.userId
+            },
             data: validatedData
         });
 
@@ -131,9 +144,21 @@ router.put('/:id', async (req, res) => {
 });
 
 // Delete a project
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authenticateToken, async (req: any, res) => {
     try {
         const { id } = req.params;
+
+        // Verify the project belongs to the user
+        const project = await prisma.project.findFirst({
+            where: { 
+                id,
+                userId: req.user.userId
+            }
+        });
+
+        if (!project) {
+            return res.status(404).json({ error: 'Project not found' });
+        }
 
         // Delete all experiments and their notes first
         const experiments = await prisma.experiment.findMany({

@@ -38,7 +38,6 @@ import {
     Visibility as ViewIcon
 } from '@mui/icons-material';
 import { databaseApi } from '../services/api';
-import ColorLegend from '../components/Legend/ColorLegend';
 
 interface DatabaseEntry {
     id: string;
@@ -210,8 +209,6 @@ const Database: React.FC = () => {
 
     return (
         <Box sx={{ p: 3 }}>
-            <ColorLegend types={['database', 'protocol', 'project', 'table']} />
-            
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography variant="h5">Database</Typography>
                 <Box>
