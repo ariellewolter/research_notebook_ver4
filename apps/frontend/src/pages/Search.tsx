@@ -1,5 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Box, Typography, Paper } from '@mui/material';
+import { Search as SearchIcon } from '@mui/icons-material';
 import AdvancedSearch from '../components/Search/AdvancedSearch';
 
 interface SearchResult {
@@ -50,7 +52,20 @@ const Search: React.FC = () => {
         }
     };
 
-    return <AdvancedSearch onResultSelect={handleResultSelect} />;
+    return (
+        <Box sx={{ p: 3 }}>
+            <Paper sx={{ p: 3, mb: 3 }}>
+                <Typography variant="h4" gutterBottom>
+                    🔍 Search & Discovery
+                </Typography>
+                <Typography variant="body1" color="text.secondary" paragraph>
+                    Search across all your research data with powerful filters, saved searches, and intelligent suggestions.
+                </Typography>
+            </Paper>
+
+            <AdvancedSearch onResultSelect={handleResultSelect} />
+        </Box>
+    );
 };
 
 export default Search; 

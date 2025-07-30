@@ -88,7 +88,8 @@ const Database: React.FC = () => {
         try {
             setLoading(true);
             const response = await databaseApi.getAll();
-            setEntries(response.data);
+            // The backend returns { entries: [...], pagination: {...} }
+            setEntries(response.data.entries || []);
         } catch (error) {
             setError('Failed to load database entries');
             console.error('Error loading entries:', error);

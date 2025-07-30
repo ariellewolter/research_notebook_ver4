@@ -40,6 +40,7 @@ pnpm exec prisma migrate dev --name init
   pnpm dev
   ```
 - Open your browser to [http://localhost:5180](http://localhost:5180)
+- **Calendar Setup:** Go to the Settings page to connect your Google, Outlook, or Apple Calendar.
 
 ### 6. **Environment Variables (Optional)**
 Create a `.env` file in `apps/backend/` for custom DB or Zotero integration (see below for details).
@@ -157,6 +158,70 @@ notebook-notion-app/
 - **React App Setup** - Basic structure with Vite and TypeScript
 - **Component Architecture** - Planned modular feature-based structure
 - **UI Framework** - Ready for Tailwind CSS integration
+
+---
+
+## 🗓️ Calendar Integrations (NEW)
+
+### Google Calendar Integration
+- Per-user OAuth2 authentication: Each user enters their own Google API credentials in the app settings.
+- Bi-directional sync: Sync events between the app and selected Google Calendars.
+- Calendar selection: Choose which Google Calendars to sync.
+- Event creation: Add, edit, and delete events in both the app and Google Calendar.
+- Secure token storage: OAuth tokens are stored per user in the database.
+
+### Outlook Calendar Integration
+- Per-user OAuth2 authentication: Each user enters their own Microsoft API credentials in the app settings.
+- Bi-directional sync: Sync events between the app and selected Outlook Calendars.
+- Calendar selection: Choose which Outlook Calendars to sync.
+- Event creation: Add, edit, and delete events in both the app and Outlook Calendar.
+- Secure token storage: OAuth tokens are stored per user in the database.
+
+### Apple Calendar Integration
+- ICS feed export: Export all research events (experiments, protocols, tasks, notes) as an ICS file.
+- One-way sync: Import the ICS file into Apple Calendar for read-only access to research events.
+
+### Settings Page
+- New sections for Google, Outlook, and Apple Calendar: Enter credentials, connect/disconnect, select calendars, and export ICS.
+- Step-by-step instructions for obtaining API credentials for both Google and Microsoft.
+
+### Backend
+- New endpoints for Google and Outlook OAuth2 flows, calendar listing, event sync, and ICS export.
+- Prisma schema updated: User model now includes fields for Google and Outlook credentials and tokens.
+- Database migration: Run `pnpm exec prisma migrate dev --name add_outlook_calendar_fields` to update your schema.
+
+### Frontend
+- Modern Material-UI UI for all calendar integrations.
+- Calendar management: View, connect, and manage all external calendar integrations from the Settings page.
+
+---
+
+## Example API Endpoints (NEW)
+
+- `POST /api/auth/user/google-credentials` — Save Google API credentials
+- `GET /api/auth/user/google-credentials` — Retrieve Google API credentials
+- `POST /api/auth/user/outlook-credentials` — Save Outlook API credentials
+- `GET /api/auth/user/outlook-credentials` — Retrieve Outlook API credentials
+- `GET /api/calendar/google/auth` — Start Google OAuth2 flow
+- `GET /api/calendar/google/callback` — Google OAuth2 callback
+- `GET /api/calendar/google/calendars` — List Google Calendars
+- `POST /api/calendar/google/sync` — Sync Google Calendar events
+- `POST /api/calendar/google/events` — Create Google Calendar event
+- `GET /api/calendar/outlook/auth` — Start Outlook OAuth2 flow
+- `GET /api/calendar/outlook/callback` — Outlook OAuth2 callback
+- `GET /api/calendar/outlook/calendars` — List Outlook Calendars
+- `POST /api/calendar/outlook/sync` — Sync Outlook Calendar events
+- `POST /api/calendar/outlook/events` — Create Outlook Calendar event
+- `GET /api/calendar/apple/ics` — Export all events as ICS for Apple Calendar
+
+---
+
+## How to Use Calendar Integrations
+
+1. Go to Settings in the app.
+2. Enter your Google and/or Microsoft API credentials (see instructions in the app).
+3. Connect your account and select which calendars to sync.
+4. For Apple Calendar, select a date range and export the ICS file, then import it into Apple Calendar.
 
 ---
 
@@ -338,3 +403,10 @@ This is a research-focused application designed for scientific workflows. Contri
 ## 📄 License
 
 [Add your license information here] 
+
+## Database Migration Required
+If upgrading from a previous version, run:
+```bash
+cd apps/backend
+pnpm exec prisma migrate dev --name add_outlook_calendar_fields
+``` 

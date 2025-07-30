@@ -13,5 +13,8 @@
         "build": "pnpm -r build",
         "lint": "pnpm -r lint",
         "format": "pnpm -r format"
+    },
+    "dependencies": {
+        "bcryptjs": "^3.0.2"
     }
 }

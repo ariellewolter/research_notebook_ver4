@@ -12,10 +12,14 @@ import protocolsRoutes from './routes/protocols';
 import recipesRoutes from './routes/recipes';
 import literatureNotesRouter from './routes/literatureNotes';
 import tasksRoutes from './routes/tasks';
+import taskTemplatesRoutes from './routes/taskTemplates';
+import taskDependenciesRoutes from './routes/taskDependencies';
+import notificationsRoutes from './routes/notifications';
 import authRoutes from './routes/auth';
 import importExportRoutes from './routes/importExport';
 import searchRoutes from './routes/search';
 import analyticsRoutes from './routes/analytics';
+import calendarRoutes from './routes/calendar';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -37,6 +41,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/import-export', importExportRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/calendar', calendarRoutes);
 app.use('/api/health', healthRoutes);
 app.use('/api/notes', notesRoutes);
 app.use('/api/projects', projectsRoutes);
@@ -49,6 +54,9 @@ app.use('/api/protocols', protocolsRoutes);
 app.use('/api/recipes', recipesRoutes);
 app.use('/api/literature-notes', literatureNotesRouter);
 app.use('/api/tasks', tasksRoutes);
+app.use('/api/task-templates', taskTemplatesRoutes);
+app.use('/api/task-dependencies', taskDependenciesRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -70,6 +78,8 @@ app.get('/', (req, res) => {
             tables: '/api/tables',
             protocols: '/api/protocols',
             recipes: '/api/recipes',
+            notifications: '/api/notifications',
+            taskDependencies: '/api/task-dependencies',
         },
     });
 });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { CssBaseline, Box } from '@mui/material';
 import Layout from './components/Layout/Layout';
@@ -24,12 +24,14 @@ import LiteratureNotes from './pages/LiteratureNotes';
 import Calculators from './pages/Calculators';
 import Analytics from './pages/Analytics';
 import Search from './pages/Search';
+import Links from './pages/Links';
 import { ThemePaletteProvider, useThemePalette } from './services/ThemePaletteContext';
 import { WorkspaceTabsProvider } from './pages/WorkspaceTabsContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 const ProtectedRoutes: React.FC = () => {
     const { isAuthenticated, login } = useAuth();
+    const location = useLocation();
 
     if (!isAuthenticated) {
         return <Login onLogin={login} />;
@@ -49,13 +51,14 @@ const ProtectedRoutes: React.FC = () => {
                 <Route path="/pdfs" element={<PDFs />} />
                 <Route path="/projects" element={<Projects />} />
                 <Route path="/tables" element={<Tables />} />
-                <Route path="/database" element={<Database />} />
+                <Route path="/database" element={<Database key={location.pathname} />} />
                 <Route path="/experiments" element={<ExperimentsDashboard />} />
-                <Route path="/tasks" element={<Tasks />} />
+                <Route path="/tasks" element={<Tasks key={location.pathname} />} />
                 <Route path="/literature" element={<LiteratureNotes />} />
                 <Route path="/calculators" element={<Calculators />} />
                 <Route path="/analytics" element={<Analytics />} />
                 <Route path="/search" element={<Search />} />
+                <Route path="/links" element={<Links />} />
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Route>

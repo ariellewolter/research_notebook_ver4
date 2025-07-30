@@ -212,6 +212,26 @@ router.get('/:projectId/experiments', async (req, res) => {
     }
 });
 
+// Get all experiments across all projects (for calendar integration)
+router.get('/experiments/all', async (req, res) => {
+    try {
+        const experiments = await prisma.experiment.findMany({
+            include: {
+                project: { select: { id: true, name: true } },
+                notes: {
+                    select: { id: true, title: true, type: true, createdAt: true }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        res.json({ experiments });
+    } catch (error) {
+        console.error('Error fetching all experiments:', error);
+        res.status(500).json({ error: 'Failed to fetch experiments' });
+    }
+});
+
 // Create a new experiment
 router.post('/:projectId/experiments', async (req, res) => {
     try {

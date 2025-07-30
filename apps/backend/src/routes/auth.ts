@@ -128,6 +128,76 @@ export const authenticateToken = (req: any, res: any, next: any) => {
     });
 };
 
+// Add endpoints for Google Calendar credentials
+router.post('/user/google-credentials', authenticateToken, async (req: any, res) => {
+    try {
+        const userId = req.user.userId;
+        const { googleClientId, googleClientSecret } = req.body;
+        await prisma.user.update({
+            where: { id: userId },
+            data: {
+                googleClientId,
+                googleClientSecret
+            }
+        });
+        res.status(200).json({ message: 'Google credentials saved.' });
+    } catch (error) {
+        console.error('Save Google credentials error:', error);
+        res.status(500).json({ error: 'Failed to save Google credentials' });
+    }
+});
+
+router.get('/user/google-credentials', authenticateToken, async (req: any, res) => {
+    try {
+        const userId = req.user.userId;
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { googleClientId: true, googleClientSecret: true }
+        });
+        res.status(200).json(user);
+    } catch (error) {
+        console.error('Get Google credentials error:', error);
+        res.status(500).json({ error: 'Failed to get Google credentials' });
+    }
+});
+
+// Add endpoints for Outlook Calendar credentials
+router.post('/user/outlook-credentials', authenticateToken, async (req: any, res) => {
+    try {
+        const userId = req.user.userId;
+        const { outlookClientId, outlookClientSecret } = req.body;
+        await prisma.user.update({
+            where: { id: userId },
+            data: {
+                outlookClientId,
+                outlookClientSecret
+            }
+        });
+        res.status(200).json({ message: 'Outlook credentials saved.' });
+    } catch (error) {
+        console.error('Save Outlook credentials error:', error);
+        res.status(500).json({ error: 'Failed to save Outlook credentials' });
+    }
+});
+
+router.get('/user/outlook-credentials', authenticateToken, async (req: any, res) => {
+    try {
+        const userId = req.user.userId;
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { outlookClientId: true, outlookClientSecret: true, outlookTokens: true }
+        });
+        res.json({
+            outlookClientId: user?.outlookClientId || '',
+            outlookClientSecret: user?.outlookClientSecret || '',
+            outlookTokens: user?.outlookTokens || null
+        });
+    } catch (error) {
+        console.error('Get Outlook credentials error:', error);
+        res.status(500).json({ error: 'Failed to get Outlook credentials' });
+    }
+});
+
 // Get current user
 router.get('/me', authenticateToken, async (req: any, res) => {
     try {

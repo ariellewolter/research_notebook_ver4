@@ -37,6 +37,7 @@ import {
     FileDownload as FileDownloadIcon,
     Timeline as TimelineIcon,
     Assessment as AssessmentIcon,
+    Link as LinkIcon,
 } from '@mui/icons-material';
 import Tooltip from '@mui/material/Tooltip';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -47,6 +48,7 @@ import AdvancedSearch from '../Search/AdvancedSearch';
 import DataExport from '../Export/DataExport';
 import GanttChartExport from '../Export/GanttChartExport';
 import ResearchTimelineExport from '../Export/ResearchTimelineExport';
+import NotificationCenter from '../Notifications/NotificationCenter';
 import { useTheme } from '@mui/material/styles';
 import { useWorkspaceTabs } from '../../pages/WorkspaceTabsContext';
 import { createNoteTab, createProjectTab, createProtocolTab, createDatabaseEntryTab } from '../../services/tabUtils';
@@ -161,6 +163,12 @@ const Layout: React.FC = () => {
             label: 'Search',
             icon: <SearchIcon fontSize="large" />,
             path: '/search',
+        },
+        {
+            key: 'links',
+            label: 'Links',
+            icon: <LinkIcon fontSize="large" />,
+            path: '/links',
         },
     ] as const;
 
@@ -319,6 +327,7 @@ const Layout: React.FC = () => {
                     >
                         <AssessmentIcon />
                     </IconButton>
+                    <NotificationCenter />
                     
                     {/* User Menu */}
                     <Box sx={{ ml: 2 }}>
