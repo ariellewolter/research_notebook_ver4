@@ -200,7 +200,7 @@ const LiteratureNotes: React.FC = () => {
     };
 
     const handleOpenEntity = (entry: any) => {
-        console.log('Opening entity:', entry);
+        // Navigate to entity details
         // TODO: Implement navigation to entity details
     };
 

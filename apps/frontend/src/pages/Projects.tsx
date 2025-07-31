@@ -262,7 +262,10 @@ const Projects: React.FC = () => {
             try {
                 await projectsApi.update(project.id, { lastActivity: today });
                 await loadProjects();
-            } catch (err) { }
+            } catch (err) {
+                console.error('Failed to update project last activity:', err);
+                // Continue with dialog opening even if update fails
+            }
             setEditingProject({ ...project, lastActivity: today });
             setProjectForm({
                 id: project.id,
