@@ -38,6 +38,7 @@ import {
     Timeline as TimelineIcon,
     Assessment as AssessmentIcon,
     Link as LinkIcon,
+    ViewColumn as WorkspaceIcon,
 } from '@mui/icons-material';
 import Tooltip from '@mui/material/Tooltip';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -74,6 +75,12 @@ const Layout: React.FC = () => {
     const { user, logout } = useAuth();
 
     const scienceMenuSections = [
+        {
+            key: 'workspace',
+            label: 'Workspace',
+            icon: <WorkspaceIcon fontSize="large" />,
+            path: '/workspace',
+        },
         {
             key: 'dashboard',
             label: 'Dashboard',
@@ -273,13 +280,16 @@ const Layout: React.FC = () => {
         </div>
     );
 
+    // Check if we're on the NotionWorkspace (root path or notion-workspace path)
+    const isNotionWorkspace = location.pathname === '/' || location.pathname === '/notion-workspace';
+
     return (
         <Box sx={{ display: 'flex' }}>
             <AppBar
                 position="fixed"
                 sx={{
-                    width: { sm: `calc(100% - ${sidebarCollapsed ? 64 : drawerWidth}px)` },
-                    ml: { sm: `${sidebarCollapsed ? 64 : drawerWidth}px` },
+                    width: { sm: isNotionWorkspace ? '100%' : `calc(100% - ${sidebarCollapsed ? 64 : drawerWidth}px)` },
+                    ml: { sm: isNotionWorkspace ? 0 : `${sidebarCollapsed ? 64 : drawerWidth}px` },
                 }}
             >
                 <Toolbar>
@@ -295,6 +305,17 @@ const Layout: React.FC = () => {
                     <Typography variant="h6" noWrap component="div" sx={{ mr: 3, minWidth: { xs: 120, sm: 200 } }}>
                         Electronic Lab Notebook
                     </Typography>
+                    {!isNotionWorkspace && (
+                        <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => navigate('/')}
+                            startIcon={<WorkspaceIcon />}
+                            sx={{ mr: 2, color: 'inherit', borderColor: 'inherit' }}
+                        >
+                            Back to Workspace
+                        </Button>
+                    )}
                     {/* Search Bar */}
                     <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'block' } }}>
                         <SearchBar />
@@ -328,7 +349,7 @@ const Layout: React.FC = () => {
                         <AssessmentIcon />
                     </IconButton>
                     <NotificationCenter />
-                    
+
                     {/* User Menu */}
                     <Box sx={{ ml: 2 }}>
                         <Button
@@ -367,61 +388,63 @@ const Layout: React.FC = () => {
                     </Box>
                 </Toolbar>
             </AppBar>
-            <Box
-                component="nav"
-                sx={{ width: { sm: sidebarCollapsed ? 64 : drawerWidth }, flexShrink: { sm: 0 } }}
-            >
-                {/* Mobile Drawer */}
-                <Drawer
-                    variant="temporary"
-                    open={mobileOpen}
-                    onClose={handleDrawerToggle}
-                    ModalProps={{
-                        keepMounted: true, // Better open performance on mobile.
-                    }}
-                    sx={{
-                        display: { xs: 'block', sm: 'none' },
-                        '& .MuiDrawer-paper': {
-                            boxSizing: 'border-box',
-                            width: drawerWidth,
-                            background: theme.palette.background.paper,
-                            color: theme.palette.text.primary,
-                        },
-                    }}
+            {!isNotionWorkspace && (
+                <Box
+                    component="nav"
+                    sx={{ width: { sm: sidebarCollapsed ? 64 : drawerWidth }, flexShrink: { sm: 0 } }}
                 >
-                    {sidebarContent}
-                </Drawer>
-                
-                {/* Desktop Drawer */}
-                <Drawer
-                    variant="permanent"
-                    sx={{
-                        display: { xs: 'none', sm: 'block' },
-                        '& .MuiDrawer-paper': {
-                            boxSizing: 'border-box',
-                            width: sidebarCollapsed ? 64 : drawerWidth,
-                            background: theme.palette.background.paper,
-                            color: theme.palette.text.primary,
-                            transition: 'width 0.2s',
-                            overflowX: 'hidden',
-                        },
-                    }}
-                    open
-                >
-                    {sidebarContent}
-                </Drawer>
-            </Box>
+                    {/* Mobile Drawer */}
+                    <Drawer
+                        variant="temporary"
+                        open={mobileOpen}
+                        onClose={handleDrawerToggle}
+                        ModalProps={{
+                            keepMounted: true, // Better open performance on mobile.
+                        }}
+                        sx={{
+                            display: { xs: 'block', sm: 'none' },
+                            '& .MuiDrawer-paper': {
+                                boxSizing: 'border-box',
+                                width: drawerWidth,
+                                background: theme.palette.background.paper,
+                                color: theme.palette.text.primary,
+                            },
+                        }}
+                    >
+                        {sidebarContent}
+                    </Drawer>
+
+                    {/* Desktop Drawer */}
+                    <Drawer
+                        variant="permanent"
+                        sx={{
+                            display: { xs: 'none', sm: 'block' },
+                            '& .MuiDrawer-paper': {
+                                boxSizing: 'border-box',
+                                width: sidebarCollapsed ? 64 : drawerWidth,
+                                background: theme.palette.background.paper,
+                                color: theme.palette.text.primary,
+                                transition: 'width 0.2s',
+                                overflowX: 'hidden',
+                            },
+                        }}
+                        open
+                    >
+                        {sidebarContent}
+                    </Drawer>
+                </Box>
+            )}
             <Box
                 component="main"
                 sx={{
                     flexGrow: 1,
-                    width: { sm: `calc(100% - ${sidebarCollapsed ? 64 : drawerWidth}px)` },
-                    p: { xs: 1, sm: 2 },
+                    width: { sm: isNotionWorkspace ? '100%' : `calc(100% - ${sidebarCollapsed ? 64 : drawerWidth}px)` },
+                    p: { xs: 1, sm: isNotionWorkspace ? 0 : 2 },
                 }}
             >
                 <Toolbar />
-                <Box sx={{ 
-                    maxWidth: '100%', 
+                <Box sx={{
+                    maxWidth: '100%',
                     overflowX: 'auto',
                     '& .MuiGrid-container': {
                         margin: { xs: 0, sm: 'auto' },
@@ -432,21 +455,21 @@ const Layout: React.FC = () => {
             </Box>
 
             {advancedSearchOpen && (
-                <Box sx={{ 
-                    position: 'fixed', 
-                    top: 0, 
-                    left: 0, 
-                    right: 0, 
-                    bottom: 0, 
-                    bgcolor: 'background.paper', 
+                <Box sx={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    bgcolor: 'background.paper',
                     zIndex: 1300,
                     overflow: 'auto'
                 }}>
-                    <Box sx={{ 
-                        position: 'sticky', 
-                        top: 0, 
-                        bgcolor: 'background.paper', 
-                        borderBottom: 1, 
+                    <Box sx={{
+                        position: 'sticky',
+                        top: 0,
+                        bgcolor: 'background.paper',
+                        borderBottom: 1,
                         borderColor: 'divider',
                         p: 2,
                         display: 'flex',

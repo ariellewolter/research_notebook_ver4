@@ -18,6 +18,7 @@ import Zotero from './pages/Zotero';
 import Settings from './pages/Settings';
 import ResearchDashboard from './pages/ResearchDashboard';
 import Workspace from './pages/Workspace';
+import NotionWorkspace from './pages/NotionWorkspace';
 import ExperimentsDashboard from './pages/ExperimentsDashboard';
 import Tasks from './pages/Tasks';
 import LiteratureNotes from './pages/LiteratureNotes';
@@ -40,7 +41,9 @@ const ProtectedRoutes: React.FC = () => {
     return (
         <Routes>
             <Route element={<Layout />}>
-                <Route path="/" element={<ResearchDashboard />} />
+                <Route path="/" element={<NotionWorkspace />} />
+                <Route path="/workspace" element={<Workspace />} />
+                <Route path="/notion-workspace" element={<NotionWorkspace />} />
                 <Route path="/dashboard" element={<ResearchDashboard />} />
                 <Route path="/calendar" element={<Calendar />} />
                 <Route path="/settings" element={<Settings />} />
