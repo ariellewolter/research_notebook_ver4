@@ -78,36 +78,105 @@ const createLinkSchema = z.object({
     targetId: z.string(),
 });
 
+// Helper function to safely parse numeric values
+const safeParseFloat = (value: any): number | null => {
+    if (value === null || value === undefined || value === '') {
+        return null;
+    }
+    
+    const stringValue = String(value).trim();
+    if (stringValue === '') {
+        return null;
+    }
+    
+    const parsed = parseFloat(stringValue);
+    
+    // Check for valid number (not NaN, not Infinity)
+    if (isNaN(parsed) || !isFinite(parsed)) {
+        throw new Error(`Invalid numeric value: ${value}`);
+    }
+    
+    // Additional range validation for molecular weight (reasonable scientific range)
+    if (parsed < 0 || parsed > 1000000) {
+        throw new Error(`Molecular weight out of valid range (0-1000000): ${parsed}`);
+    }
+    
+    return parsed;
+};
+
+// Helper function to safely sanitize string values
+const sanitizeString = (value: any, maxLength: number = 500): string | null => {
+    if (value === null || value === undefined) {
+        return null;
+    }
+    
+    const stringValue = String(value).trim();
+    if (stringValue === '') {
+        return null;
+    }
+    
+    // Remove potentially dangerous characters and limit length
+    const sanitized = stringValue
+        .replace(/[<>'"&]/g, '') // Remove basic HTML/XML characters
+        .replace(/[\x00-\x1f\x7f]/g, '') // Remove control characters
+        .substring(0, maxLength);
+    
+    return sanitized || null;
+};
+
+// Helper function to validate enum values
+const validateEnumValue = (value: any, allowedValues: string[]): string | null => {
+    if (value === null || value === undefined) {
+        return null;
+    }
+    
+    const stringValue = String(value).trim().toLowerCase();
+    const lowercaseAllowed = allowedValues.map(v => v.toLowerCase());
+    
+    const foundValue = allowedValues.find((_, index) => lowercaseAllowed[index] === stringValue);
+    return foundValue || null;
+};
+
 // Helper function to transform metadata for database storage
 const transformMetadataForStorage = (metadata: any) => {
-    if (!metadata) return {};
+    if (!metadata || typeof metadata !== 'object') {
+        return {};
+    }
 
-    return {
-        molecularWeight: metadata.molecularWeight ? parseFloat(metadata.molecularWeight) : null,
-        concentration: metadata.concentration || null,
-        storage: metadata.storage || null,
-        supplier: metadata.supplier || null,
-        catalogNumber: metadata.catalogNumber || null,
-        purity: metadata.purity || null,
-        sequence: metadata.sequence || null,
-        organism: metadata.organism || null,
-        function: metadata.function || null,
-        protocol: metadata.protocol || null,
-        equipment: metadata.equipment || null,
-        duration: metadata.duration || null,
-        temperature: metadata.temperature || null,
-        pH: metadata.pH || null,
-        // New model/animal fields
-        modelType: metadata.modelType || null,
-        species: metadata.species || null,
-        strain: metadata.strain || null,
-        geneticModification: metadata.geneticModification || null,
-        sex: metadata.sex || null,
-        age: metadata.age || null,
-        anatomicalLocation: metadata.anatomicalLocation || null,
-        condition: metadata.condition || null,
-        notes: metadata.notes || null,
-    };
+    try {
+        const validSexValues = ['male', 'female', 'unknown'];
+        const validModelTypes = ['cell', 'mouse', 'rat', 'monkey', 'human', 'other'];
+
+        return {
+            molecularWeight: safeParseFloat(metadata.molecularWeight),
+            concentration: sanitizeString(metadata.concentration, 100),
+            storage: sanitizeString(metadata.storage, 200),
+            supplier: sanitizeString(metadata.supplier, 100),
+            catalogNumber: sanitizeString(metadata.catalogNumber, 50),
+            purity: sanitizeString(metadata.purity, 50),
+            sequence: sanitizeString(metadata.sequence, 10000), // DNA/protein sequences can be long
+            organism: sanitizeString(metadata.organism, 100),
+            function: sanitizeString(metadata.function, 500),
+            protocol: sanitizeString(metadata.protocol, 1000),
+            equipment: sanitizeString(metadata.equipment, 500),
+            duration: sanitizeString(metadata.duration, 100),
+            temperature: sanitizeString(metadata.temperature, 50),
+            pH: sanitizeString(metadata.pH, 20),
+            // New model/animal fields with validation
+            modelType: validateEnumValue(metadata.modelType, validModelTypes),
+            species: sanitizeString(metadata.species, 100),
+            strain: sanitizeString(metadata.strain, 100),
+            geneticModification: sanitizeString(metadata.geneticModification, 500),
+            sex: validateEnumValue(metadata.sex, validSexValues),
+            age: sanitizeString(metadata.age, 50),
+            anatomicalLocation: sanitizeString(metadata.anatomicalLocation, 200),
+            condition: sanitizeString(metadata.condition, 200),
+            notes: sanitizeString(metadata.notes, 2000),
+        };
+    } catch (error) {
+        console.error('Error transforming metadata:', error);
+        throw new Error(`Invalid metadata: ${error.message}`);
+    }
 };
 
 // Helper function to transform database data for API response
@@ -319,7 +388,7 @@ router.post('/', async (req, res) => {
     try {
         const validatedData = createDatabaseEntrySchema.parse(req.body);
 
-        // Transform metadata for storage
+        // Transform metadata for storage with enhanced validation
         const metadata = transformMetadataForStorage(validatedData.metadata);
 
         const entryData = {
@@ -342,6 +411,12 @@ router.post('/', async (req, res) => {
         if (error instanceof z.ZodError) {
             return res.status(400).json({ error: 'Validation error', details: error.errors });
         }
+        
+        // Handle metadata validation errors specifically
+        if (error.message && error.message.startsWith('Invalid metadata:')) {
+            return res.status(400).json({ error: 'Metadata validation error', details: error.message });
+        }
+        
         console.error('Error creating database entry:', error);
         res.status(500).json({ error: 'Failed to create database entry' });
     }
@@ -353,7 +428,7 @@ router.put('/:id', async (req, res) => {
         const { id } = req.params;
         const validatedData = updateDatabaseEntrySchema.parse(req.body);
 
-        // Transform metadata for storage
+        // Transform metadata for storage with enhanced validation
         const metadata = transformMetadataForStorage(validatedData.metadata);
 
         const entryData = {
@@ -376,6 +451,12 @@ router.put('/:id', async (req, res) => {
         if (error instanceof z.ZodError) {
             return res.status(400).json({ error: 'Validation error', details: error.errors });
         }
+        
+        // Handle metadata validation errors specifically
+        if (error.message && error.message.startsWith('Invalid metadata:')) {
+            return res.status(400).json({ error: 'Metadata validation error', details: error.message });
+        }
+        
         console.error('Error updating database entry:', error);
         res.status(500).json({ error: 'Failed to update database entry' });
     }

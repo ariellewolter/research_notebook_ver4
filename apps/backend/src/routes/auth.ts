@@ -2,12 +2,33 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
+import crypto from 'crypto';
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
 // JWT secret (in production, this should be in environment variables)
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+// Encryption key for OAuth credentials (should be in environment variables)
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
+
+// Utility functions for encryption/decryption
+const encrypt = (text: string): string => {
+  if (!text) return text;
+  const cipher = crypto.createCipher('aes-256-cbc', ENCRYPTION_KEY);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return encrypted;
+};
+
+const decrypt = (encryptedText: string): string => {
+  if (!encryptedText) return encryptedText;
+  const decipher = crypto.createDecipher('aes-256-cbc', ENCRYPTION_KEY);
+  let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
+};
 
 // Register endpoint
 router.post('/register', async (req, res) => {
@@ -133,11 +154,15 @@ router.post('/user/google-credentials', authenticateToken, async (req: any, res)
     try {
         const userId = req.user.userId;
         const { googleClientId, googleClientSecret } = req.body;
+        
+        // Encrypt sensitive credentials before storing
+        const encryptedClientSecret = encrypt(googleClientSecret);
+        
         await prisma.user.update({
             where: { id: userId },
             data: {
-                googleClientId,
-                googleClientSecret
+                googleClientId, // Client ID is not sensitive, can be stored as plaintext
+                googleClientSecret: encryptedClientSecret
             }
         });
         res.status(200).json({ message: 'Google credentials saved.' });
@@ -154,7 +179,14 @@ router.get('/user/google-credentials', authenticateToken, async (req: any, res) 
             where: { id: userId },
             select: { googleClientId: true, googleClientSecret: true }
         });
-        res.status(200).json(user);
+        
+        // Decrypt sensitive credentials before returning
+        const decryptedClientSecret = user?.googleClientSecret ? decrypt(user.googleClientSecret) : '';
+        
+        res.status(200).json({
+            googleClientId: user?.googleClientId || '',
+            googleClientSecret: decryptedClientSecret
+        });
     } catch (error) {
         console.error('Get Google credentials error:', error);
         res.status(500).json({ error: 'Failed to get Google credentials' });
@@ -166,11 +198,15 @@ router.post('/user/outlook-credentials', authenticateToken, async (req: any, res
     try {
         const userId = req.user.userId;
         const { outlookClientId, outlookClientSecret } = req.body;
+        
+        // Encrypt sensitive credentials before storing
+        const encryptedClientSecret = encrypt(outlookClientSecret);
+        
         await prisma.user.update({
             where: { id: userId },
             data: {
-                outlookClientId,
-                outlookClientSecret
+                outlookClientId, // Client ID is not sensitive, can be stored as plaintext
+                outlookClientSecret: encryptedClientSecret
             }
         });
         res.status(200).json({ message: 'Outlook credentials saved.' });
@@ -187,9 +223,13 @@ router.get('/user/outlook-credentials', authenticateToken, async (req: any, res)
             where: { id: userId },
             select: { outlookClientId: true, outlookClientSecret: true, outlookTokens: true }
         });
+        
+        // Decrypt sensitive credentials before returning
+        const decryptedClientSecret = user?.outlookClientSecret ? decrypt(user.outlookClientSecret) : '';
+        
         res.json({
             outlookClientId: user?.outlookClientId || '',
-            outlookClientSecret: user?.outlookClientSecret || '',
+            outlookClientSecret: decryptedClientSecret,
             outlookTokens: user?.outlookTokens || null
         });
     } catch (error) {
