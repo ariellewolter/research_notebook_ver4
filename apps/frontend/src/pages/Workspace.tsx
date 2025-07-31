@@ -123,7 +123,7 @@ const Workspace: React.FC = () => {
 
     const handleNewNote = () => {
         // TODO: Implement new note creation
-        console.log('New note clicked');
+        // Create new note functionality
     };
 
     return (

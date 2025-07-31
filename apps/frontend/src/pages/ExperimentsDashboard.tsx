@@ -128,9 +128,15 @@ const ExperimentsDashboard: React.FC = () => {
             .catch(err => setError('Failed to load experiments'))
             .finally(() => setLoading(false));
         // Fetch all protocols, notes, literature notes (placeholder APIs)
-        fetch('/api/protocols').then(r => r.json()).then(d => setProtocols(d.protocols || d)).catch(() => { });
-        fetch('/api/notes').then(r => r.json()).then(d => setNotes(d.notes || d)).catch(() => { });
-        fetch('/api/literatureNotes').then(r => r.json()).then(d => setLiteratureNotes(d.literatureNotes || d)).catch(() => { });
+        fetch('/api/protocols').then(r => r.json()).then(d => setProtocols(d.protocols || d)).catch((err) => {
+            console.error('Failed to load protocols:', err);
+        });
+        fetch('/api/notes').then(r => r.json()).then(d => setNotes(d.notes || d)).catch((err) => {
+            console.error('Failed to load notes:', err);
+        });
+        fetch('/api/literatureNotes').then(r => r.json()).then(d => setLiteratureNotes(d.literatureNotes || d)).catch((err) => {
+            console.error('Failed to load literature notes:', err);
+        });
     }, []);
 
     // Fetch all protocols, recipes, and PDFs for linking

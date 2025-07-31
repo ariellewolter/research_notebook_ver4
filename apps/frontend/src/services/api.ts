@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create axios instance with base configuration
 const api = axios.create({
-    baseURL: 'http://localhost:4000/api',
+    baseURL: process.env.REACT_APP_API_URL || 'http://localhost:4000/api',
     headers: {
         'Content-Type': 'application/json',
     },
@@ -11,7 +11,7 @@ const api = axios.create({
 // Request interceptor for authentication and logging
 api.interceptors.request.use(
     (config) => {
-        console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`);
+        // Debug logging removed for production
         
         // Add authorization header if token exists
         const token = localStorage.getItem('authToken');

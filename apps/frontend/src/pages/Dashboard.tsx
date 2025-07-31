@@ -517,7 +517,6 @@ const Dashboard: React.FC = () => {
   const handleExport = async (format: string, options: any) => {
     try {
       // Implementation would depend on the export library used
-      console.log(`Exporting dashboard as ${format} with options:`, options);
       // For now, just show a success message
       alert(`Dashboard exported as ${format.toUpperCase()}`);
     } catch (err) {

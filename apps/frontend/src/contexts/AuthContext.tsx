@@ -57,7 +57,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const verifyToken = async (tokenToVerify: string) => {
         try {
-            const response = await fetch('http://localhost:4000/api/auth/me', {
+            const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:4000/api'}/auth/me`, {
                 headers: {
                     'Authorization': `Bearer ${tokenToVerify}`,
                 },
