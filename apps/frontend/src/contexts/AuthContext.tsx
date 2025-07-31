@@ -34,28 +34,48 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        // Check for existing token on app load
-        const savedToken = localStorage.getItem('authToken');
-        const savedUser = localStorage.getItem('authUser');
+        let isMounted = true;
 
-        if (savedToken && savedUser) {
-            try {
-                const userData = JSON.parse(savedUser);
-                setToken(savedToken);
-                setUser(userData);
-                
-                // Verify token is still valid
-                verifyToken(savedToken);
-            } catch (error) {
-                console.error('Error parsing saved user data:', error);
-                localStorage.removeItem('authToken');
-                localStorage.removeItem('authUser');
+        const initializeAuth = async () => {
+            // Check for existing token on app load
+            const savedToken = localStorage.getItem('authToken');
+            const savedUser = localStorage.getItem('authUser');
+
+            if (savedToken && savedUser) {
+                try {
+                    const userData = JSON.parse(savedUser);
+                    if (isMounted) {
+                        setToken(savedToken);
+                        setUser(userData);
+                    }
+                    
+                    // Verify token is still valid
+                    await verifyToken(savedToken, isMounted);
+                } catch (error) {
+                    console.error('Error parsing saved user data:', error);
+                    localStorage.removeItem('authToken');
+                    localStorage.removeItem('authUser');
+                    if (isMounted) {
+                        setToken(null);
+                        setUser(null);
+                    }
+                }
             }
-        }
-        setIsLoading(false);
+            
+            if (isMounted) {
+                setIsLoading(false);
+            }
+        };
+
+        initializeAuth();
+
+        // Cleanup function to prevent memory leaks
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
-    const verifyToken = async (tokenToVerify: string) => {
+    const verifyToken = async (tokenToVerify: string, isMounted: boolean = true) => {
         try {
             // Use environment variable for API URL to support different environments
             const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:4000';
@@ -70,10 +90,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             }
 
             const data = await response.json();
-            setUser(data.user);
+            
+            // Only update state if component is still mounted
+            if (isMounted) {
+                setUser(data.user);
+            }
         } catch (error) {
             console.error('Token verification failed:', error);
-            logout();
+            // Only logout if component is still mounted
+            if (isMounted) {
+                logout();
+            }
         }
     };
 

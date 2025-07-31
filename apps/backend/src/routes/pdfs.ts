@@ -263,14 +263,44 @@ router.get('/:id/file', async (req, res) => {
             return res.status(404).json({ error: 'PDF not found' });
         }
 
-        if (!fs.existsSync(pdf.filePath)) {
+        // Security: Validate file path to prevent path traversal attacks
+        const uploadsDir = path.resolve(__dirname, '../../uploads');
+        const requestedFilePath = path.resolve(pdf.filePath);
+        
+        // Ensure the file is within the uploads directory
+        if (!requestedFilePath.startsWith(uploadsDir)) {
+            console.error('Path traversal attempt detected:', pdf.filePath);
+            return res.status(403).json({ error: 'Access denied: Invalid file path' });
+        }
+
+        // Additional validation: Check if path contains any traversal patterns
+        if (pdf.filePath.includes('..') || pdf.filePath.includes('~')) {
+            console.error('Suspicious file path detected:', pdf.filePath);
+            return res.status(403).json({ error: 'Access denied: Invalid file path' });
+        }
+
+        if (!fs.existsSync(requestedFilePath)) {
             return res.status(404).json({ error: 'PDF file not found on disk' });
         }
 
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `inline; filename="${pdf.title}.pdf"`);
+        // Validate file type by reading magic bytes
+        const fileBuffer = fs.readFileSync(requestedFilePath, { start: 0, end: 4 });
+        const isPDF = fileBuffer.toString() === '%PDF';
+        
+        if (!isPDF) {
+            console.error('File is not a valid PDF:', requestedFilePath);
+            return res.status(403).json({ error: 'Access denied: Invalid file type' });
+        }
 
-        const fileStream = fs.createReadStream(pdf.filePath);
+        // Sanitize filename for Content-Disposition header to prevent header injection
+        const sanitizedTitle = pdf.title.replace(/[^\w\s.-]/g, '').substring(0, 100);
+        
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${sanitizedTitle}.pdf"`);
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('Content-Security-Policy', "default-src 'none'; object-src 'self';");
+
+        const fileStream = fs.createReadStream(requestedFilePath);
         fileStream.pipe(res);
     } catch (error) {
         console.error('Error serving PDF file:', error);
