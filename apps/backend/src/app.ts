@@ -65,6 +65,7 @@ app.get('/', (req, res) => {
         version: '1.0.0',
         endpoints: {
             auth: '/api/auth',
+            calendar: '/api/calendar',
             importExport: '/api/import-export',
             search: '/api/search',
             analytics: '/api/analytics',
@@ -79,7 +80,10 @@ app.get('/', (req, res) => {
             protocols: '/api/protocols',
             recipes: '/api/recipes',
             notifications: '/api/notifications',
+            tasks: '/api/tasks',
+            taskTemplates: '/api/task-templates',
             taskDependencies: '/api/task-dependencies',
+            literatureNotes: '/api/literature-notes',
         },
     });
 });

@@ -313,7 +313,6 @@ const Links: React.FC = () => {
                                         clickable
                                         onClick={() => {
                                             // TODO: Navigate to source item
-                                            console.log('Navigate to source:', link.source);
                                         }}
                                     />
                                 </Box>
@@ -336,7 +335,6 @@ const Links: React.FC = () => {
                                         clickable
                                         onClick={() => {
                                             // TODO: Navigate to target item
-                                            console.log('Navigate to target:', link.target);
                                         }}
                                     />
                                 </Box>

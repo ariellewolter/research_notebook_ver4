@@ -27,7 +27,7 @@ router.get('/google/auth', authenticateToken, async (req: any, res) => {
         const oauth2Client = new google.auth.OAuth2(
             user.googleClientId,
             user.googleClientSecret,
-            'http://localhost:5173/calendar/callback' // Frontend callback URL
+            process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/calendar/callback` : 'http://localhost:5173/calendar/callback' // Frontend callback URL
         );
 
         // Generate authorization URL

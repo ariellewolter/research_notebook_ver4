@@ -144,7 +144,7 @@ export interface Task {
     id: string;
     title: string;
     description?: string;
-    status: 'todo' | 'in_progress' | 'done' | 'overdue';
+    status: 'todo' | 'in_progress' | 'done' | 'overdue' | 'cancelled';
     priority: 'high' | 'medium' | 'low';
     deadline?: string | null;
     createdAt: string;
