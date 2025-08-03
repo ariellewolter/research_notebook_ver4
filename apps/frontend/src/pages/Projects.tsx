@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
     Box,
     Typography,
@@ -131,6 +132,10 @@ const PROJECT_STATUS_OPTIONS = [
 ];
 
 const Projects: React.FC = () => {
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    console.log('Projects component rendered, location:', location.pathname);
     const [projects, setProjects] = useState<Project[]>([]);
     const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
@@ -142,6 +147,7 @@ const Projects: React.FC = () => {
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [editMode, setEditMode] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [editData, setEditData] = useState<any>(null);
     const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
         open: false,
         message: '',
@@ -194,6 +200,22 @@ const Projects: React.FC = () => {
         loadProjects();
     }, []);
 
+    // Auto-open new project dialog when on /projects/new route
+    useEffect(() => {
+        if (location.pathname === '/projects/new') {
+            console.log('Auto-opening new project dialog for path:', location.pathname);
+            handleOpenProjectDialog();
+        }
+    }, [location.pathname]);
+
+    // Reset editData when selectedProjectId changes
+    useEffect(() => {
+        if (!selectedProjectId) {
+            setEditData(null);
+            setEditMode(false);
+        }
+    }, [selectedProjectId]);
+
     const [databaseEntries, setDatabaseEntries] = useState<any[]>([]);
 
     useEffect(() => {
@@ -212,12 +234,25 @@ const Projects: React.FC = () => {
     // Fetch all notes and database entries for linking
     useEffect(() => {
         if (openProjectDialog && editingProject) {
-            notesApi.getAll().then(res => setAllNotes(res.data || []));
-            databaseApi.getAll().then(res => setAllDatabaseEntries(res.data || []));
+            notesApi.getAll().then(res => setAllNotes(Array.isArray(res.data) ? res.data : []))
+                .catch(err => {
+                    console.error('Error loading notes:', err);
+                    setAllNotes([]);
+                });
+            databaseApi.getAll().then(res => setAllDatabaseEntries(Array.isArray(res.data) ? res.data : []))
+                .catch(err => {
+                    console.error('Error loading database entries:', err);
+                    setAllDatabaseEntries([]);
+                });
             // Fetch existing links for this project
             linksApi.getOutgoing('project', editingProject.id).then(res => {
-                setLinkedNotes((res.data || []).filter((l: any) => l.targetType === 'note').map((l: any) => l.note));
-                setLinkedDatabaseEntries((res.data || []).filter((l: any) => l.targetType === 'databaseEntry').map((l: any) => l.databaseEntry));
+                const links = Array.isArray(res.data) ? res.data : [];
+                setLinkedNotes(links.filter((l: any) => l.targetType === 'note').map((l: any) => l.note));
+                setLinkedDatabaseEntries(links.filter((l: any) => l.targetType === 'databaseEntry').map((l: any) => l.databaseEntry));
+            }).catch(err => {
+                console.error('Error loading links:', err);
+                setLinkedNotes([]);
+                setLinkedDatabaseEntries([]);
             });
         }
     }, [openProjectDialog, editingProject]);
@@ -225,14 +260,32 @@ const Projects: React.FC = () => {
     // Fetch all protocols, recipes, and PDFs for linking
     useEffect(() => {
         if (openProjectDialog && editingProject) {
-            protocolsApi.getAll().then(res => setAllProtocols(res.data || []));
-            recipesApi.getAll().then(res => setAllRecipes(res.data || []));
-            pdfsApi.getAll().then(res => setAllPDFs(res.data || []));
+            protocolsApi.getAll().then(res => setAllProtocols(Array.isArray(res.data) ? res.data : []))
+                .catch(err => {
+                    console.error('Error loading protocols:', err);
+                    setAllProtocols([]);
+                });
+            recipesApi.getAll().then(res => setAllRecipes(Array.isArray(res.data) ? res.data : []))
+                .catch(err => {
+                    console.error('Error loading recipes:', err);
+                    setAllRecipes([]);
+                });
+            pdfsApi.getAll().then(res => setAllPDFs(Array.isArray(res.data) ? res.data : []))
+                .catch(err => {
+                    console.error('Error loading PDFs:', err);
+                    setAllPDFs([]);
+                });
             // Fetch existing links for this project
             linksApi.getOutgoing('project', editingProject.id).then(res => {
-                setLinkedProtocols((res.data || []).filter((l: any) => l.targetType === 'protocol').map((l: any) => l.protocol));
-                setLinkedRecipes((res.data || []).filter((l: any) => l.targetType === 'recipe').map((l: any) => l.recipe));
-                setLinkedPDFs((res.data || []).filter((l: any) => l.targetType === 'pdf').map((l: any) => l.pdf));
+                const links = Array.isArray(res.data) ? res.data : [];
+                setLinkedProtocols(links.filter((l: any) => l.targetType === 'protocol').map((l: any) => l.protocol));
+                setLinkedRecipes(links.filter((l: any) => l.targetType === 'recipe').map((l: any) => l.recipe));
+                setLinkedPDFs(links.filter((l: any) => l.targetType === 'pdf').map((l: any) => l.pdf));
+            }).catch(err => {
+                console.error('Error loading links:', err);
+                setLinkedProtocols([]);
+                setLinkedRecipes([]);
+                setLinkedPDFs([]);
             });
         }
     }, [openProjectDialog, editingProject]);
@@ -284,11 +337,17 @@ const Projects: React.FC = () => {
             });
         }
         setOpenProjectDialog(true);
+        console.log('Project dialog opened, editingProject:', editingProject);
     };
 
     const handleCloseProjectDialog = () => {
+        console.log('Closing project dialog');
         setOpenProjectDialog(false);
         setEditingProject(null);
+        // If we're on the /projects/new route, navigate back to /projects
+        if (location.pathname === '/projects/new') {
+            navigate('/projects');
+        }
     };
 
     const handleSaveProject = async () => {
@@ -311,7 +370,16 @@ const Projects: React.FC = () => {
                     severity: 'success',
                 });
             } else {
-                await projectsApi.create({ ...projectForm, lastActivity: projectForm.lastActivity });
+                // Clean up the data before sending to API
+                const projectData = {
+                    name: projectForm.name,
+                    description: projectForm.description || undefined,
+                    status: projectForm.status,
+                    startDate: projectForm.startDate || null,
+                    lastActivity: projectForm.lastActivity || null,
+                };
+
+                await projectsApi.create(projectData);
                 setSnackbar({
                     open: true,
                     message: 'Project created successfully',
@@ -320,6 +388,10 @@ const Projects: React.FC = () => {
             }
             handleCloseProjectDialog();
             loadProjects();
+            // Navigate back to projects list after successful creation
+            if (!editingProject) {
+                navigate('/projects');
+            }
         } catch (err: any) {
             setSnackbar({
                 open: true,
@@ -640,17 +712,67 @@ const Projects: React.FC = () => {
         );
     }
 
+    console.log('Projects component rendering, loading:', loading, 'projects count:', projects.length);
+
+    // Simple fallback to ensure component always renders
+    if (!loading && projects.length === 0 && location.pathname === '/projects/new') {
+        console.log('Rendering new project view');
+        return (
+            <Box sx={{ p: 3, minHeight: '100vh' }}>
+                <Typography variant="h4" sx={{ mb: 2 }}>Create New Project</Typography>
+                <Typography variant="body1" sx={{ mb: 3 }}>
+                    Loading project creation form...
+                </Typography>
+                <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={() => handleOpenProjectDialog()}
+                >
+                    Open Project Dialog
+                </Button>
+            </Box>
+        );
+    }
+
     function handleOpenEntity(entity: any) {
-        alert(`Open entity: ${entity.name} (type: ${entity.type})`);
+        // Navigate to entity details based on type
+        if (entity.type === 'note') {
+            navigate(`/notes/${entity.id}`);
+        } else if (entity.type === 'project') {
+            navigate(`/projects/${entity.id}`);
+        } else if (entity.type === 'protocol') {
+            navigate(`/protocols/${entity.id}`);
+        } else if (entity.type === 'recipe') {
+            navigate(`/recipes/${entity.id}`);
+        } else if (entity.type === 'experiment') {
+            navigate(`/experiments/${entity.id}`);
+        } else if (entity.type === 'task') {
+            navigate(`/tasks/${entity.id}`);
+        } else if (entity.type === 'databaseEntry') {
+            navigate(`/database/${entity.id}`);
+        } else if (entity.type === 'table') {
+            navigate(`/tables/${entity.id}`);
+        } else if (entity.type === 'pdf') {
+            navigate(`/pdfs/${entity.id}`);
+        } else if (entity.type === 'literatureNote') {
+            navigate(`/literature/${entity.id}`);
+        } else {
+            console.warn('Unknown entity type for navigation:', entity.type);
+        }
     }
 
     let detailPane = null;
     if (selectedProjectId) {
         const project = projects.find(p => p.id === selectedProjectId);
         if (project) {
-            const [editData, setEditData] = useState({ ...project });
-            const handleEditChange = (field: string, value: any) => setEditData(prev => ({ ...prev, [field]: value }));
+            // Initialize editData if not already set
+            if (!editData) {
+                setEditData({ ...project });
+            }
+
+            const handleEditChange = (field: string, value: any) => setEditData((prev: any) => ({ ...prev, [field]: value }));
             const handleSaveEdit = async () => {
+                if (!editData) return;
                 const updateData = {
                     name: editData.name,
                     description: editData.description,
@@ -660,6 +782,7 @@ const Projects: React.FC = () => {
                 };
                 await projectsApi.update(project.id, updateData);
                 setEditMode(false);
+                setEditData(null);
                 loadProjects();
                 setSnackbar({ open: true, message: 'Project updated successfully', severity: 'success' });
             };
@@ -668,7 +791,10 @@ const Projects: React.FC = () => {
                     <Box sx={{ mb: 4, p: 2, border: '1px solid #ddd', borderRadius: 2 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                             <Typography variant="h5">{project.name}</Typography>
-                            <Button variant="outlined" startIcon={<EditIcon />} onClick={() => setEditMode(true)}>Edit</Button>
+                            <Button variant="outlined" startIcon={<EditIcon />} onClick={() => {
+                                setEditMode(true);
+                                setEditData({ ...project });
+                            }}>Edit</Button>
                         </Box>
                         <Typography variant="body2" color="text.secondary" mb={2}>{project.description}</Typography>
                         <Typography variant="body2" color="text.secondary" mb={2}>Status: {project.status}</Typography>
@@ -721,7 +847,10 @@ const Projects: React.FC = () => {
                         {/* Add more editable fields as needed */}
                         <Box sx={{ display: 'flex', gap: 2 }}>
                             <Button variant="contained" onClick={handleSaveEdit}>Save</Button>
-                            <Button variant="outlined" onClick={() => setEditMode(false)}>Cancel</Button>
+                            <Button variant="outlined" onClick={() => {
+                                setEditMode(false);
+                                setEditData(null);
+                            }}>Cancel</Button>
                         </Box>
                     </Box>
                 );
@@ -730,7 +859,7 @@ const Projects: React.FC = () => {
     }
 
     return (
-        <Box>
+        <Box sx={{ p: 3, minHeight: '100vh' }}>
             <ColorLegend types={['project', 'experiment']} />
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                 <Typography variant="h4">Projects</Typography>
@@ -758,6 +887,14 @@ const Projects: React.FC = () => {
                     <Typography variant="body2" color="text.secondary">
                         Create your first project to get started
                     </Typography>
+                    <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={() => handleOpenProjectDialog()}
+                        sx={{ mt: 2 }}
+                    >
+                        Create First Project
+                    </Button>
                 </Box>
             ) : (
                 <Grid container spacing={3}>
@@ -921,17 +1058,18 @@ const Projects: React.FC = () => {
                                     <Typography variant="h6" sx={{ mb: 1 }}>Linked Entities</Typography>
                                     <Autocomplete
                                         multiple
-                                        options={allNotes}
+                                        options={Array.isArray(allNotes) ? allNotes : []}
                                         getOptionLabel={option => option.title}
-                                        value={linkedNotes}
+                                        value={Array.isArray(linkedNotes) ? linkedNotes : []}
                                         onChange={(_, value, reason, details) => {
                                             if (details && details.option && details.option.id === '__new__') {
                                                 handleCreateNote(details.option.title.replace(/^Add \"|\" as new Note$/g, ''));
                                             } else {
+                                                const currentLinkedNotes = Array.isArray(linkedNotes) ? linkedNotes : [];
                                                 value.forEach((n: any) => {
-                                                    if (!linkedNotes.some((ln: any) => ln.id === n.id)) handleLinkNote(n.id);
+                                                    if (!currentLinkedNotes.some((ln: any) => ln.id === n.id)) handleLinkNote(n.id);
                                                 });
-                                                linkedNotes.forEach((ln: any) => {
+                                                currentLinkedNotes.forEach((ln: any) => {
                                                     if (!value.some((n: any) => n.id === ln.id)) handleUnlinkNote(ln.id);
                                                 });
                                             }
@@ -944,6 +1082,7 @@ const Projects: React.FC = () => {
                                         }
                                         loading={creatingNote}
                                         filterOptions={(options, state) => {
+                                            if (!Array.isArray(options)) return [];
                                             const filtered = options.filter(opt => opt.title.toLowerCase().includes(state.inputValue.toLowerCase()));
                                             if (state.inputValue && !options.some(opt => opt.title.toLowerCase() === state.inputValue.toLowerCase())) {
                                                 filtered.push({ id: '__new__', title: `Add "${state.inputValue}" as new Note` });
@@ -954,17 +1093,18 @@ const Projects: React.FC = () => {
                                     />
                                     <Autocomplete
                                         multiple
-                                        options={allDatabaseEntries}
+                                        options={Array.isArray(allDatabaseEntries) ? allDatabaseEntries : []}
                                         getOptionLabel={option => option.name}
-                                        value={linkedDatabaseEntries}
+                                        value={Array.isArray(linkedDatabaseEntries) ? linkedDatabaseEntries : []}
                                         onChange={(_, value, reason, details) => {
                                             if (details && details.option && details.option.id === '__new__') {
                                                 handleCreateDatabaseEntry(details.option.name.replace(/^Add \"|\" as new Entry$/g, ''));
                                             } else {
+                                                const currentLinkedEntries = Array.isArray(linkedDatabaseEntries) ? linkedDatabaseEntries : [];
                                                 value.forEach((e: any) => {
-                                                    if (!linkedDatabaseEntries.some((le: any) => le.id === e.id)) handleLinkDatabaseEntry(e.id);
+                                                    if (!currentLinkedEntries.some((le: any) => le.id === e.id)) handleLinkDatabaseEntry(e.id);
                                                 });
-                                                linkedDatabaseEntries.forEach((le: any) => {
+                                                currentLinkedEntries.forEach((le: any) => {
                                                     if (!value.some((e: any) => e.id === le.id)) handleUnlinkDatabaseEntry(le.id);
                                                 });
                                             }
@@ -977,6 +1117,7 @@ const Projects: React.FC = () => {
                                         }
                                         loading={creatingDatabaseEntry}
                                         filterOptions={(options, state) => {
+                                            if (!Array.isArray(options)) return [];
                                             const filtered = options.filter(opt => opt.name.toLowerCase().includes(state.inputValue.toLowerCase()));
                                             if (state.inputValue && !options.some((opt: any) => opt.name.toLowerCase() === state.inputValue.toLowerCase())) {
                                                 filtered.push({ id: '__new__', name: `Add "${state.inputValue}" as new Entry` });
@@ -990,17 +1131,18 @@ const Projects: React.FC = () => {
                                     <Typography variant="h6" sx={{ mb: 1 }}>Linked Protocols</Typography>
                                     <Autocomplete
                                         multiple
-                                        options={allProtocols}
+                                        options={Array.isArray(allProtocols) ? allProtocols : []}
                                         getOptionLabel={option => option.name}
-                                        value={linkedProtocols}
+                                        value={Array.isArray(linkedProtocols) ? linkedProtocols : []}
                                         onChange={(_, value, reason, details) => {
                                             if (details && details.option && details.option.id === '__new__') {
                                                 // Optionally support inline creation for protocols
                                             } else {
+                                                const currentLinkedProtocols = Array.isArray(linkedProtocols) ? linkedProtocols : [];
                                                 value.forEach((p: any) => {
-                                                    if (!linkedProtocols.some((lp: any) => lp.id === p.id)) handleLinkProtocol(p.id);
+                                                    if (!currentLinkedProtocols.some((lp: any) => lp.id === p.id)) handleLinkProtocol(p.id);
                                                 });
-                                                linkedProtocols.forEach((lp: any) => {
+                                                currentLinkedProtocols.forEach((lp: any) => {
                                                     if (!value.some((p: any) => p.id === lp.id)) handleUnlinkProtocol(lp.id);
                                                 });
                                             }
@@ -1013,6 +1155,7 @@ const Projects: React.FC = () => {
                                         }
                                         loading={false}
                                         filterOptions={(options, state) => {
+                                            if (!Array.isArray(options)) return [];
                                             const filtered = options.filter(opt => opt.name.toLowerCase().includes(state.inputValue.toLowerCase()));
                                             return filtered;
                                         }}
@@ -1021,17 +1164,18 @@ const Projects: React.FC = () => {
                                     <Typography variant="h6" sx={{ mb: 1 }}>Linked Recipes</Typography>
                                     <Autocomplete
                                         multiple
-                                        options={allRecipes}
+                                        options={Array.isArray(allRecipes) ? allRecipes : []}
                                         getOptionLabel={option => option.name}
-                                        value={linkedRecipes}
+                                        value={Array.isArray(linkedRecipes) ? linkedRecipes : []}
                                         onChange={(_, value, reason, details) => {
                                             if (details && details.option && details.option.id === '__new__') {
                                                 handleCreateRecipe(details.option.name.replace(/^Add \"|\" as new Recipe$/g, ''));
                                             } else {
+                                                const currentLinkedRecipes = Array.isArray(linkedRecipes) ? linkedRecipes : [];
                                                 value.forEach((r: any) => {
-                                                    if (!linkedRecipes.some((lr: any) => lr.id === r.id)) handleLinkRecipe(r.id);
+                                                    if (!currentLinkedRecipes.some((lr: any) => lr.id === r.id)) handleLinkRecipe(r.id);
                                                 });
-                                                linkedRecipes.forEach((lr: any) => {
+                                                currentLinkedRecipes.forEach((lr: any) => {
                                                     if (!value.some((r: any) => r.id === lr.id)) handleUnlinkRecipe(lr.id);
                                                 });
                                             }
@@ -1044,6 +1188,7 @@ const Projects: React.FC = () => {
                                         }
                                         loading={creatingRecipe}
                                         filterOptions={(options, state) => {
+                                            if (!Array.isArray(options)) return [];
                                             const filtered = options.filter(opt => opt.name.toLowerCase().includes(state.inputValue.toLowerCase()));
                                             if (state.inputValue && !options.some(opt => opt.name.toLowerCase() === state.inputValue.toLowerCase())) {
                                                 filtered.push({ id: '__new__', name: `Add "${state.inputValue}" as new Recipe` });
@@ -1055,17 +1200,18 @@ const Projects: React.FC = () => {
                                     <Typography variant="h6" sx={{ mb: 1 }}>Linked PDFs</Typography>
                                     <Autocomplete
                                         multiple
-                                        options={allPDFs}
+                                        options={Array.isArray(allPDFs) ? allPDFs : []}
                                         getOptionLabel={option => option.title}
-                                        value={linkedPDFs}
+                                        value={Array.isArray(linkedPDFs) ? linkedPDFs : []}
                                         onChange={(_, value, reason, details) => {
                                             if (details && details.option && details.option.id === '__new__') {
                                                 handleCreatePDF(details.option.title.replace(/^Add \"|\" as new PDF$/g, ''));
                                             } else {
+                                                const currentLinkedPDFs = Array.isArray(linkedPDFs) ? linkedPDFs : [];
                                                 value.forEach((p: any) => {
-                                                    if (!linkedPDFs.some((lp: any) => lp.id === p.id)) handleLinkPDF(p.id);
+                                                    if (!currentLinkedPDFs.some((lp: any) => lp.id === p.id)) handleLinkPDF(p.id);
                                                 });
-                                                linkedPDFs.forEach((lp: any) => {
+                                                currentLinkedPDFs.forEach((lp: any) => {
                                                     if (!value.some((p: any) => p.id === lp.id)) handleUnlinkPDF(lp.id);
                                                 });
                                             }
@@ -1078,6 +1224,7 @@ const Projects: React.FC = () => {
                                         }
                                         loading={creatingPDF}
                                         filterOptions={(options, state) => {
+                                            if (!Array.isArray(options)) return [];
                                             const filtered = options.filter(opt => opt.title.toLowerCase().includes(state.inputValue.toLowerCase()));
                                             if (state.inputValue && !options.some(opt => opt.title.toLowerCase() === state.inputValue.toLowerCase())) {
                                                 filtered.push({ id: '__new__', title: `Add "${state.inputValue}" as new PDF` });
