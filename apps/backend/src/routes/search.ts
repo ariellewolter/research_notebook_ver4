@@ -15,7 +15,8 @@ router.get('/', authenticateToken, async (req: any, res) => {
                 advanced: 'POST /advanced',
                 suggestions: 'GET /suggestions',
                 history: 'GET /history',
-                saved: 'GET /saved'
+                saved: 'GET /saved',
+                analytics: 'GET /analytics'
             }
         });
     } catch (error) {
@@ -50,7 +51,7 @@ router.post('/advanced', authenticateToken, async (req: any, res) => {
     try {
         const userId = req.user.userId;
         const searchParams = searchQuerySchema.parse(req.body);
-        
+
         const results: any = {
             projects: [],
             experiments: [],
@@ -276,14 +277,14 @@ router.post('/advanced', authenticateToken, async (req: any, res) => {
         }
 
         // Calculate totals
-        results.totalResults = 
-            results.projects.length + 
-            results.experiments.length + 
-            results.notes.length + 
-            results.databaseEntries.length + 
-            results.literatureNotes.length + 
-            results.protocols.length + 
-            results.recipes.length + 
+        results.totalResults =
+            results.projects.length +
+            results.experiments.length +
+            results.notes.length +
+            results.databaseEntries.length +
+            results.literatureNotes.length +
+            results.protocols.length +
+            results.recipes.length +
             results.tasks.length;
 
         results.searchTime = Date.now() - startTime;
@@ -350,7 +351,7 @@ router.delete('/saved/:id', authenticateToken, async (req: any, res) => {
         const { id } = req.params;
 
         const savedSearch = await prisma.savedSearch.findFirst({
-            where: { 
+            where: {
                 id,
                 userId
             }
@@ -454,7 +455,7 @@ router.get('/suggestions', authenticateToken, async (req: any, res) => {
 
         // Remove duplicates and limit results
         const uniqueSuggestions = suggestions
-            .filter((s, index, self) => 
+            .filter((s, index, self) =>
                 index === self.findIndex(t => t.text === s.text)
             )
             .slice(0, 10);
@@ -463,6 +464,142 @@ router.get('/suggestions', authenticateToken, async (req: any, res) => {
     } catch (error) {
         console.error('Get suggestions error:', error);
         res.status(500).json({ error: 'Failed to get suggestions' });
+    }
+});
+
+// Get search analytics
+router.get('/analytics', authenticateToken, async (req: any, res) => {
+    try {
+        const userId = req.user.userId;
+        const { period = '30d' } = req.query;
+
+        // Calculate date range based on period
+        const now = new Date();
+        let startDate: Date;
+
+        switch (period) {
+            case '7d':
+                startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                break;
+            case '30d':
+                startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                break;
+            case '90d':
+                startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+                break;
+            default:
+                startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        }
+
+        // Get total searches
+        const totalSearches = await prisma.searchHistory.count({
+            where: {
+                userId,
+                timestamp: { gte: startDate }
+            }
+        });
+
+        // Get popular queries
+        const searchHistory = await prisma.searchHistory.findMany({
+            where: {
+                userId,
+                timestamp: { gte: startDate }
+            },
+            select: { query: true }
+        });
+
+        const queryCounts: { [key: string]: number } = {};
+        searchHistory.forEach(record => {
+            try {
+                const parsed = JSON.parse(record.query);
+                const query = parsed.query || '';
+                if (query) {
+                    queryCounts[query] = (queryCounts[query] || 0) + 1;
+                }
+            } catch (e) {
+                // Skip invalid JSON
+            }
+        });
+
+        const popularQueries = Object.entries(queryCounts)
+            .map(([query, count]) => ({ query, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 10);
+
+        // Get search trends (daily counts)
+        const dailySearches = await prisma.searchHistory.groupBy({
+            by: ['timestamp'],
+            where: {
+                userId,
+                timestamp: { gte: startDate }
+            },
+            _count: { timestamp: true }
+        });
+
+        const searchTrends = dailySearches.map(day => ({
+            date: day.timestamp.toISOString().split('T')[0],
+            count: day._count.timestamp
+        }));
+
+        // Get result type distribution
+        const resultTypes = [
+            { type: 'projects', count: await prisma.project.count({ where: { userId } }) },
+            {
+                type: 'notes', count: await prisma.note.count({
+                    where: { experiment: { project: { userId } } }
+                })
+            },
+            { type: 'database', count: await prisma.databaseEntry.count() },
+            { type: 'protocols', count: await prisma.protocol.count() },
+            { type: 'recipes', count: await prisma.recipe.count() },
+            { type: 'tasks', count: await prisma.task.count({ where: { userId } }) }
+        ];
+
+        // Calculate average results per search
+        const averageResults = totalSearches > 0 ?
+            Math.round((resultTypes.reduce((sum, type) => sum + type.count, 0) / totalSearches) * 10) / 10 : 0;
+
+        // Get most searched tags (from tasks and notes)
+        const taskTags = await prisma.task.findMany({
+            where: { userId },
+            select: { tags: true }
+        });
+
+        const noteTags = await prisma.note.findMany({
+            where: { experiment: { project: { userId } } },
+            select: { tags: true }
+        });
+
+        const tagCounts: { [key: string]: number } = {};
+        [...taskTags, ...noteTags].forEach(item => {
+            if (item.tags) {
+                try {
+                    const tags = JSON.parse(item.tags);
+                    tags.forEach((tag: string) => {
+                        tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+                    });
+                } catch (e) {
+                    // Skip invalid JSON
+                }
+            }
+        });
+
+        const mostSearchedTags = Object.entries(tagCounts)
+            .map(([tag, count]) => ({ tag, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 10);
+
+        res.json({
+            totalSearches,
+            popularQueries,
+            searchTrends,
+            resultTypes,
+            averageResults,
+            mostSearchedTags
+        });
+    } catch (error) {
+        console.error('Get search analytics error:', error);
+        res.status(500).json({ error: 'Failed to get search analytics' });
     }
 });
 

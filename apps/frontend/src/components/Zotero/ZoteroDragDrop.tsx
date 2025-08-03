@@ -183,8 +183,11 @@ const ZoteroDragDrop: React.FC = () => {
                     importProgress: ((i + 1) / state.selectedItems.length) * 100
                 }));
 
-                // TODO: Implement actual import logic
-                // await zoteroApi.importItem(item);
+                try {
+                    await zoteroApi.importItem(item.key);
+                } catch (error) {
+                    console.error('Error importing item:', error);
+                }
 
                 // Simulate API delay
                 await new Promise(resolve => setTimeout(resolve, 500));

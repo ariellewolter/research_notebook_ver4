@@ -298,10 +298,8 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
 
     const loadSearchAnalytics = async () => {
         try {
-            // TODO: Implement getSearchAnalytics API
-            // const response = await searchApi.getSearchAnalytics();
-            // setSearchAnalytics(response.data);
-            console.log('Search analytics not yet implemented');
+            const response = await searchApi.getSearchAnalytics();
+            setSearchAnalytics(response.data);
         } catch (error) {
             console.error('Failed to load search analytics:', error);
         }
@@ -328,13 +326,11 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
 
     const saveSearchHistory = async (searchQuery: string, searchFilters: SearchFilters) => {
         try {
-            // TODO: Implement saveSearchHistory API
-            // await searchApi.saveSearchHistory({
-            //     query: searchQuery,
-            //     filters: searchFilters,
-            //     timestamp: new Date().toISOString()
-            // });
-            console.log('Search history saving not yet implemented');
+            await searchApi.saveSearchHistory({
+                query: searchQuery,
+                filters: searchFilters,
+                timestamp: new Date().toISOString()
+            });
         } catch (error) {
             console.error('Failed to save search history:', error);
         }

@@ -241,7 +241,7 @@ const ZoteroPage: React.FC = () => {
     const handleSync = async () => {
         setSyncing(true);
         try {
-            // await zoteroApi.sync(); // TODO: Implement sync functionality
+            await zoteroApi.sync();
             await loadData();
             setSuccess('Library synced successfully');
         } catch (err) {
@@ -256,7 +256,7 @@ const ZoteroPage: React.FC = () => {
         setImporting(true);
         try {
             for (const item of selectedItems) {
-                // await zoteroApi.importItem(item.key); // TODO: Implement import functionality
+                await zoteroApi.importItem(item.key);
             }
             setSuccess(`Successfully imported ${selectedItems.length} item(s)`);
             setOpenImportDialog(false);

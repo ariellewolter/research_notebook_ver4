@@ -338,6 +338,8 @@ export const zoteroApi = {
     getItems: (params?: { limit?: number; start?: number; itemType?: string }) =>
         api.get('/zotero/items', { params }),
     getItem: (key: string) => api.get(`/zotero/items/${key}`),
+    sync: () => api.post('/zotero/sync'),
+    importItem: (key: string) => api.post(`/zotero/import-item/${key}`),
     import: (file: File, data: { zoteroKey: string; title: string; authors?: string[]; abstract?: string; publicationYear?: number; journal?: string; doi?: string; url?: string; tags?: string[] }) => {
         const formData = new FormData();
         formData.append('pdf', file);
@@ -545,6 +547,9 @@ export const searchApi = {
     getHistory: (limit?: number) => api.get('/search/history', { params: { limit } }),
     clearHistory: () => api.delete('/search/history'),
     getSuggestions: (query: string) => api.get('/search/suggestions', { params: { q: query } }),
+    getSearchAnalytics: (period?: string) => api.get('/search/analytics', { params: { period } }),
+    saveSearchHistory: (data: { query: string; filters: any; timestamp: string }) =>
+        api.post('/search/history', data),
 };
 
 export const notificationsApi = {

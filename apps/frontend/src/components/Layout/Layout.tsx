@@ -13,14 +13,52 @@ import { Button, Card, Input, PanelLayout, SidebarNav } from '../UI/index.js';
 
 // Import the refactored sidebar
 import RefactoredSidebar from './Sidebar';
+import NotificationCenter from '../Notifications/NotificationCenter';
+import AccountSettings from '../Auth/AccountSettings';
+import { notificationsApi } from '../../services/api';
 
 const ResearchNotebookLayout = () => {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [notifications, setNotifications] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [showSearch, setShowSearch] = useState(false);
+    const [notificationCenterOpen, setNotificationCenterOpen] = useState(false);
+    const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
 
     const location = useLocation();
+
+    // Load notifications
+    useEffect(() => {
+        const loadNotifications = async () => {
+            try {
+                const response = await notificationsApi.getAll({ limit: 10 });
+                setNotifications(response.data.notifications || response.data || []);
+            } catch (error) {
+                console.error('Error loading notifications:', error);
+            }
+        };
+        loadNotifications();
+    }, []);
+
+    const handleMarkAsRead = async (id: string) => {
+        try {
+            await notificationsApi.markAsRead(id);
+            setNotifications(prev =>
+                prev.map(n => n.id === id ? { ...n, isRead: true } : n)
+            );
+        } catch (error) {
+            console.error('Error marking notification as read:', error);
+        }
+    };
+
+    const handleMarkAllAsRead = async () => {
+        try {
+            await notificationsApi.markAllAsRead();
+            setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+        } catch (error) {
+            console.error('Error marking all notifications as read:', error);
+        }
+    };
 
     // Get page title based on current route
     const getPageTitle = () => {
@@ -108,15 +146,12 @@ const ResearchNotebookLayout = () => {
                             variant="ghost"
                             size="sm"
                             className="relative p-2"
-                            onClick={() => {
-                                // TODO: Implement notification center
-                                console.log('Open notification center');
-                            }}
+                            onClick={() => setNotificationCenterOpen(true)}
                         >
                             <NotificationsIcon className="w-5 h-5" />
-                            {notifications.length > 0 && (
+                            {notifications.filter(n => !n.isRead).length > 0 && (
                                 <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                                    {notifications.length}
+                                    {notifications.filter(n => !n.isRead).length}
                                 </span>
                             )}
                         </Button>
@@ -125,10 +160,7 @@ const ResearchNotebookLayout = () => {
                             variant="ghost"
                             size="sm"
                             className="p-2"
-                            onClick={() => {
-                                // TODO: Implement account settings
-                                console.log('Open account settings');
-                            }}
+                            onClick={() => setAccountSettingsOpen(true)}
                         >
                             <AccountIcon className="w-5 h-5" />
                         </Button>
@@ -168,6 +200,21 @@ const ResearchNotebookLayout = () => {
                 leftSize="sm"
                 className="h-full"
                 leftClassName="border-r border-gray-200"
+            />
+
+            {/* Notification Center */}
+            <NotificationCenter
+                open={notificationCenterOpen}
+                onClose={() => setNotificationCenterOpen(false)}
+                notifications={notifications}
+                onMarkAsRead={handleMarkAsRead}
+                onMarkAllAsRead={handleMarkAllAsRead}
+            />
+
+            {/* Account Settings */}
+            <AccountSettings
+                open={accountSettingsOpen}
+                onClose={() => setAccountSettingsOpen(false)}
             />
         </div>
     );

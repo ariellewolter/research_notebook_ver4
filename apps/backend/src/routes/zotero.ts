@@ -376,4 +376,147 @@ router.post('/sync-highlights/:pdfId', async (req, res) => {
     }
 });
 
+// Sync Zotero library
+router.post('/sync', async (req, res) => {
+    try {
+        if (!zoteroConfig) {
+            return res.status(400).json({ error: 'Zotero not configured' });
+        }
+
+        // Get all items from Zotero
+        const url = `${zoteroConfig.baseUrl}/users/${zoteroConfig.userId}/items`;
+        const response = await axios.get(url, {
+            headers: {
+                'Zotero-API-Key': zoteroConfig.apiKey,
+                'Zotero-API-Version': '3'
+            },
+            params: {
+                limit: 100,
+                format: 'json'
+            }
+        });
+
+        const items = response.data;
+        let syncedCount = 0;
+
+        // Process each item and create database entries if they don't exist
+        for (const item of items) {
+            const existingEntry = await prisma.databaseEntry.findFirst({
+                where: {
+                    properties: {
+                        contains: `"zoteroKey":"${item.key}"`
+                    }
+                }
+            });
+
+            if (!existingEntry) {
+                const properties = JSON.stringify({
+                    zoteroKey: item.key,
+                    title: item.data.title,
+                    authors: item.data.creators?.map((creator: any) => `${creator.firstName} ${creator.lastName}`.trim()) || [],
+                    abstract: item.data.abstractNote,
+                    publicationYear: item.data.date ? new Date(item.data.date).getFullYear() : null,
+                    journal: item.data.publicationTitle,
+                    doi: item.data.DOI,
+                    url: item.data.url,
+                    tags: item.data.tags?.map((tag: any) => tag.tag) || [],
+                    itemType: item.data.itemType,
+                    importedFrom: 'zotero',
+                    importedAt: new Date().toISOString()
+                });
+
+                await prisma.databaseEntry.create({
+                    data: {
+                        type: 'REFERENCE',
+                        name: item.data.title,
+                        description: item.data.abstractNote,
+                        properties
+                    }
+                });
+                syncedCount++;
+            }
+        }
+
+        res.json({
+            message: `Successfully synced ${syncedCount} new items from Zotero`,
+            totalItems: items.length,
+            syncedCount
+        });
+    } catch (error) {
+        console.error('Error syncing Zotero library:', error);
+        res.status(500).json({ error: 'Failed to sync Zotero library' });
+    }
+});
+
+// Import a specific Zotero item
+router.post('/import-item/:key', async (req, res) => {
+    try {
+        if (!zoteroConfig) {
+            return res.status(400).json({ error: 'Zotero not configured' });
+        }
+
+        const { key } = req.params;
+
+        // Get the specific item from Zotero
+        const url = `${zoteroConfig.baseUrl}/users/${zoteroConfig.userId}/items/${key}`;
+        const response = await axios.get(url, {
+            headers: {
+                'Zotero-API-Key': zoteroConfig.apiKey,
+                'Zotero-API-Version': '3'
+            }
+        });
+
+        const item = response.data;
+
+        // Check if item already exists
+        const existingEntry = await prisma.databaseEntry.findFirst({
+            where: {
+                properties: {
+                    contains: `"zoteroKey":"${key}"`
+                }
+            }
+        });
+
+        if (existingEntry) {
+            return res.status(409).json({
+                error: 'Item already imported',
+                entry: existingEntry
+            });
+        }
+
+        // Create database entry
+        const properties = JSON.stringify({
+            zoteroKey: key,
+            title: item.data.title,
+            authors: item.data.creators?.map((creator: any) => `${creator.firstName} ${creator.lastName}`.trim()) || [],
+            abstract: item.data.abstractNote,
+            publicationYear: item.data.date ? new Date(item.data.date).getFullYear() : null,
+            journal: item.data.publicationTitle,
+            doi: item.data.DOI,
+            url: item.data.url,
+            tags: item.data.tags?.map((tag: any) => tag.tag) || [],
+            itemType: item.data.itemType,
+            importedFrom: 'zotero',
+            importedAt: new Date().toISOString()
+        });
+
+        const databaseEntry = await prisma.databaseEntry.create({
+            data: {
+                type: 'REFERENCE',
+                name: item.data.title,
+                description: item.data.abstractNote,
+                properties
+            }
+        });
+
+        res.status(201).json({
+            message: 'Successfully imported item from Zotero',
+            entry: databaseEntry
+        });
+    } catch (error) {
+        console.error('Error importing Zotero item:', error);
+        res.status(500).json({ error: 'Failed to import Zotero item' });
+    }
+});
+
 export default router; 
