@@ -3,39 +3,34 @@ import { MathData } from './MathBlock';
 
 export interface Block {
     id: string;
-    type: 'text' | 'heading' | 'note' | 'project' | 'protocol' | 'database' | 'pdf' | 'page' | 'experiment' | 'recipe' | 'literature' | 'task' | 'columns' | 'list' | 'code' | 'quote' | 'divider' | 'image' | 'table' | 'math' | 'horizontal' | 'link';
-    content: string;
-    title?: string;
-    entityId?: string;
-    createdAt: Date;
-    updatedAt: Date;
-    order: number;
-    isEditing?: boolean;
-    isFocused?: boolean;
-    columns?: Block[][];
-    columnCount?: number;
-    layout?: 'vertical' | 'horizontal' | 'grid';
+    type: 'text' | 'heading' | 'protocol' | 'note' | 'pdf' | 'image' | 'table' | 'divider' | 'callout' | 'code' | 'equation';
+    content: any;
     metadata?: {
-        level?: number;
-        checked?: boolean;
-        language?: string;
-        url?: string;
-        rows?: number;
-        cols?: number;
-        width?: number;
-        height?: number;
-        displayMode?: 'link' | 'embed';
-        linkType?: string;
-        imageData?: ImageData;
-        mathData?: MathData;
+        createdAt: Date;
+        updatedAt: Date;
+        author?: string;
+        tags?: string[];
+    };
+    style?: {
+        backgroundColor?: string;
+        textColor?: string;
+        fontSize?: string;
+        alignment?: 'left' | 'center' | 'right';
     };
 }
 
-export interface Page {
+export interface NotionPage {
     id: string;
     title: string;
+    icon?: string;
+    cover?: string;
     blocks: Block[];
-    createdAt: Date;
+    metadata: {
+        createdAt: Date;
+        updatedAt: Date;
+        parentId?: string;
+        path: string;
+    };
 }
 
 export interface SlashCommand {

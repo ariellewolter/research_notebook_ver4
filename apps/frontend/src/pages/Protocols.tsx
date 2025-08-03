@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Box,
     Typography,
@@ -216,6 +217,7 @@ async function handleLinkAllEntities(editingProtocol: Protocol, entityMentions: 
 
 const Protocols: React.FC<ProtocolsProps> = ({ onOpenProtocolTab, openTabs }) => {
     // All hooks must be called here, at the top of the component
+    const navigate = useNavigate();
     const [entityModalOpen, setEntityModalOpen] = useState(false);
     const [selectedEntity, setSelectedEntity] = useState<any>(null);
     const { openTab } = useWorkspaceTabs();
@@ -755,17 +757,60 @@ const Protocols: React.FC<ProtocolsProps> = ({ onOpenProtocolTab, openTabs }) =>
     const { palette } = useThemePalette();
 
     function handleOpenEntity(entry: any) {
-        setSelectedEntity(entry);
-        setEntityModalOpen(true);
+        // Navigate to entity details based on type
+        if (entry.type === 'note') {
+            navigate(`/notes/${entry.id}`);
+        } else if (entry.type === 'project') {
+            navigate(`/projects/${entry.id}`);
+        } else if (entry.type === 'protocol') {
+            navigate(`/protocols/${entry.id}`);
+        } else if (entry.type === 'recipe') {
+            navigate(`/recipes/${entry.id}`);
+        } else if (entry.type === 'experiment') {
+            navigate(`/experiments/${entry.id}`);
+        } else if (entry.type === 'task') {
+            navigate(`/tasks/${entry.id}`);
+        } else if (entry.type === 'databaseEntry') {
+            navigate(`/database/${entry.id}`);
+        } else if (entry.type === 'table') {
+            navigate(`/tables/${entry.id}`);
+        } else if (entry.type === 'pdf') {
+            navigate(`/pdfs/${entry.id}`);
+        } else if (entry.type === 'literatureNote') {
+            navigate(`/literature/${entry.id}`);
+        } else {
+            // Fallback to modal for unknown types
+            setSelectedEntity(entry);
+            setEntityModalOpen(true);
+        }
     }
 
     function handleOpenEntityInTab() {
         if (selectedEntity) {
-            openTab({
-                key: selectedEntity.id,
-                label: selectedEntity.name,
-                component: () => <div>{selectedEntity.name}</div>, // Replace with actual component if available
-            });
+            // Navigate to entity details based on type
+            if (selectedEntity.type === 'note') {
+                navigate(`/notes/${selectedEntity.id}`);
+            } else if (selectedEntity.type === 'project') {
+                navigate(`/projects/${selectedEntity.id}`);
+            } else if (selectedEntity.type === 'protocol') {
+                navigate(`/protocols/${selectedEntity.id}`);
+            } else if (selectedEntity.type === 'recipe') {
+                navigate(`/recipes/${selectedEntity.id}`);
+            } else if (selectedEntity.type === 'experiment') {
+                navigate(`/experiments/${selectedEntity.id}`);
+            } else if (selectedEntity.type === 'task') {
+                navigate(`/tasks/${selectedEntity.id}`);
+            } else if (selectedEntity.type === 'databaseEntry') {
+                navigate(`/database/${selectedEntity.id}`);
+            } else if (selectedEntity.type === 'table') {
+                navigate(`/tables/${selectedEntity.id}`);
+            } else if (selectedEntity.type === 'pdf') {
+                navigate(`/pdfs/${selectedEntity.id}`);
+            } else if (selectedEntity.type === 'literatureNote') {
+                navigate(`/literature/${selectedEntity.id}`);
+            } else {
+                console.warn('Unknown entity type for navigation:', selectedEntity.type);
+            }
             setEntityModalOpen(false);
         }
     }

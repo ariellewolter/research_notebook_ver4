@@ -36,6 +36,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         setLoading(true);
         setError('');
 
+        console.log('Attempting login with:', { username, password });
+
         try {
             const response = await fetch('http://localhost:4000/api/auth/login', {
                 method: 'POST',
@@ -45,14 +47,21 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 body: JSON.stringify({ username, password }),
             });
 
+            console.log('Response status:', response.status);
             const data = await response.json();
+            console.log('Response data:', data);
 
             if (!response.ok) {
                 throw new Error(data.error || 'Login failed');
             }
 
+            console.log('Login successful, calling onLogin');
             onLogin(data.token, data.user);
+
+            // Force navigation to dashboard after successful login
+            window.location.href = '/dashboard';
         } catch (err: any) {
+            console.error('Login error:', err);
             setError(err.message || 'Login failed');
         } finally {
             setLoading(false);

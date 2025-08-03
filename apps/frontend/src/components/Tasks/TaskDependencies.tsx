@@ -139,7 +139,7 @@ export default function TaskDependencies({
       loadDependencies();
       loadWorkflows();
     }
-  }, [open, taskId]);
+  }, [open, taskId, loadDependencies, loadWorkflows]);
 
   const loadDependencies = async () => {
     try {

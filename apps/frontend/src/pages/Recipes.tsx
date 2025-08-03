@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Box,
     Typography,
@@ -245,7 +245,7 @@ const Recipes: React.FC = () => {
     // Filter recipes when search query or filters change
     useEffect(() => {
         filterRecipes();
-    }, [searchQuery, selectedCategory, selectedType, recipes]);
+    }, [searchQuery, selectedCategory, selectedType, recipes, filterRecipes]);
 
     const loadData = async () => {
         try {
@@ -279,7 +279,7 @@ const Recipes: React.FC = () => {
         }
     };
 
-    const filterRecipes = () => {
+    const filterRecipes = useCallback(() => {
         let filtered = recipes;
 
         if (selectedCategory) {
@@ -299,7 +299,7 @@ const Recipes: React.FC = () => {
         }
 
         setFilteredRecipes(filtered);
-    };
+    }, [recipes, selectedCategory, selectedType, searchQuery]);
 
     const handleOpenRecipeDialog = (recipe?: Recipe) => {
         if (recipe) {

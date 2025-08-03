@@ -1,545 +1,362 @@
-import React, { useState } from 'react';
-import {
-    AppBar,
-    Box,
-    Drawer,
-    IconButton,
-    List,
-    ListItem,
-    ListItemButton,
-    ListItemIcon,
-    ListItemText,
-    Toolbar,
-    Typography,
-    Divider,
-    Button,
-    Avatar,
-    Menu,
-    MenuItem,
-} from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import {
     Menu as MenuIcon,
-    Dashboard as DashboardIcon,
-    Note as NoteIcon,
-    Book as JournalIcon,
-    CalendarToday as CalendarIcon,
-    Folder as ProjectIcon,
-    PictureAsPdf as PdfIcon,
-    Storage as DatabaseIcon,
-    TableChart as TableIcon,
-    Science as ProtocolIcon,
-    Restaurant as RecipeIcon,
-    LibraryBooks as ZoteroIcon,
+    Notifications as NotificationsIcon,
+    AccountCircle as AccountIcon,
     Settings as SettingsIcon,
-    CheckBox as CheckBoxIcon,
-    Calculate as CalculateIcon,
-    Search as SearchIcon,
-    FileDownload as FileDownloadIcon,
-    Timeline as TimelineIcon,
-    Assessment as AssessmentIcon,
-    Link as LinkIcon,
-    ViewColumn as WorkspaceIcon,
+    Search as SearchIcon
 } from '@mui/icons-material';
-import Tooltip from '@mui/material/Tooltip';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import { useNavigate, useLocation, Outlet } from 'react-router-dom';
-import SearchBar from '../Search/SearchBar';
-import AdvancedSearch from '../Search/AdvancedSearch';
-import DataExport from '../Export/DataExport';
-import GanttChartExport from '../Export/GanttChartExport';
-import ResearchTimelineExport from '../Export/ResearchTimelineExport';
-import NotificationCenter from '../Notifications/NotificationCenter';
-import { useTheme } from '@mui/material/styles';
-import { useWorkspaceTabs } from '../../pages/WorkspaceTabsContext';
-import { createNoteTab, createProjectTab, createProtocolTab, createDatabaseEntryTab } from '../../services/tabUtils';
-import { useAuth } from '../../contexts/AuthContext';
 
-const drawerWidth = 240;
+// Import our new UI components
+import { Button, Card, Input, PanelLayout, SidebarNav } from '../UI/index.js';
 
+// Import the refactored sidebar
+import RefactoredSidebar from './Sidebar';
 
-
-const Layout: React.FC = () => {
-    const [mobileOpen, setMobileOpen] = useState(false);
+const ResearchNotebookLayout = () => {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-    const [openSections, setOpenSections] = useState<{ [key: string]: boolean }>({});
-    const [advancedSearchOpen, setAdvancedSearchOpen] = useState(false);
-    const [dataExportOpen, setDataExportOpen] = useState(false);
-    const [ganttChartOpen, setGanttChartOpen] = useState(false);
-    const [researchTimelineOpen, setResearchTimelineOpen] = useState(false);
-    const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(null);
-    const navigate = useNavigate();
+    const [notifications, setNotifications] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [showSearch, setShowSearch] = useState(false);
+
     const location = useLocation();
-    const theme = useTheme();
-    const { openTab } = useWorkspaceTabs();
-    const { user, logout } = useAuth();
 
-    const scienceMenuSections = [
-        {
-            key: 'workspace',
-            label: 'Workspace',
-            icon: <WorkspaceIcon fontSize="large" />,
-            path: '/workspace',
-        },
-        {
-            key: 'dashboard',
-            label: 'Dashboard',
-            icon: <DashboardIcon fontSize="large" />,
-            path: '/dashboard',
-        },
-        {
-            key: 'calendar',
-            label: 'Calendar',
-            icon: <CalendarIcon fontSize="large" />,
-            path: '/calendar',
-        },
-        {
-            key: 'tasks',
-            label: 'Tasks',
-            icon: <CheckBoxIcon fontSize="large" />, // Tasks icon
-            path: '/tasks',
-        },
-        {
-            key: 'notes',
-            label: 'Notes',
-            icon: <NoteIcon fontSize="large" />,
-            path: '/notes',
-        },
-        {
-            key: 'protocols',
-            label: 'Protocols',
-            icon: <ProtocolIcon fontSize="large" />,
-            path: '/protocols',
-        },
-        {
-            key: 'recipes',
-            label: 'Recipes',
-            icon: <RecipeIcon fontSize="large" />,
-            path: '/recipes',
-        },
-        {
-            key: 'pdfs',
-            label: 'PDFs',
-            icon: <PdfIcon fontSize="large" />,
-            path: '/pdfs',
-        },
-        {
-            key: 'projects',
-            label: 'Projects',
-            icon: <ProjectIcon fontSize="large" />,
-            path: '/projects',
-        },
-        {
-            key: 'experiments',
-            label: 'Experiments',
-            icon: <ProtocolIcon fontSize="large" />, // or use a different icon if preferred
-            path: '/experiments',
-        },
-        {
-            key: 'tables',
-            label: 'Tables',
-            icon: <TableIcon fontSize="large" />,
-            path: '/tables',
-        },
-        {
-            key: 'database',
-            label: 'Database',
-            icon: <DatabaseIcon fontSize="large" />,
-            path: '/database',
-        },
-        {
-            key: 'literature',
-            label: 'Literature Notes',
-            icon: <JournalIcon fontSize="large" />, // or use LibraryBooks if preferred
-            path: '/literature',
-        },
-        {
-            key: 'calculators',
-            label: 'Calculators',
-            icon: <CalculateIcon fontSize="large" />,
-            path: '/calculators',
-        },
-        {
-            key: 'analytics',
-            label: 'Analytics',
-            icon: <AssessmentIcon fontSize="large" />,
-            path: '/analytics',
-        },
-        {
-            key: 'search',
-            label: 'Search',
-            icon: <SearchIcon fontSize="large" />,
-            path: '/search',
-        },
-        {
-            key: 'links',
-            label: 'Links',
-            icon: <LinkIcon fontSize="large" />,
-            path: '/links',
-        },
-    ] as const;
-
-    const handleDrawerToggle = () => {
-        setMobileOpen(!mobileOpen);
-    };
-    const handleSidebarCollapse = () => {
-        setSidebarCollapsed((prev) => !prev);
-    };
-    const handleSectionToggle = (key: string) => {
-        setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
-    };
-    const handleNavigation = (path: string) => {
-        navigate(path);
-        setMobileOpen(false);
+    // Get page title based on current route
+    const getPageTitle = () => {
+        const path = location.pathname;
+        const titleMap = {
+            '/dashboard': 'Dashboard',
+            '/notes': 'Notes',
+            '/journal': 'Journal',
+            '/calendar': 'Calendar',
+            '/projects': 'Projects',
+            '/pdfs': 'PDF Documents',
+            '/database': 'Database',
+            '/tables': 'Tables',
+            '/protocols': 'Protocols',
+            '/recipes': 'Recipes',
+            '/zotero': 'Zotero Integration',
+            '/search': 'Advanced Search',
+            '/calculator': 'Calculator',
+            '/tasks': 'Tasks',
+            '/export': 'Export Data',
+            '/timeline': 'Timeline',
+            '/analytics': 'Analytics',
+            '/links': 'Link Manager',
+            '/settings': 'Settings'
+        };
+        return titleMap[path] || 'Research Notebook';
     };
 
-    const handleSidebarItemClick = (section: any) => {
-        // For now, just navigate to the route
-        // In the future, we can open specific entities in tabs
-        navigate(section.path);
-    };
+    // Top Navigation Bar Component
+    const TopNavigation = () => (
+        <Card variant="flat" className="border-b border-gray-200 rounded-none">
+            <Card.Content padding="sm">
+                <div className="flex items-center justify-between h-12">
+                    {/* Left side - Menu toggle for mobile */}
+                    <div className="flex items-center gap-4">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                            className="lg:hidden p-2"
+                        >
+                            <MenuIcon className="w-5 h-5" />
+                        </Button>
 
-    const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-        setUserMenuAnchor(event.currentTarget);
-    };
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-xl font-semibold text-gray-900">
+                                {getPageTitle()}
+                            </h1>
+                            {location.pathname !== '/dashboard' && (
+                                <span className="text-sm text-gray-500">
+                                    • Research Notebook
+                                </span>
+                            )}
+                        </div>
+                    </div>
 
-    const handleUserMenuClose = () => {
-        setUserMenuAnchor(null);
-    };
+                    {/* Center - Global Search */}
+                    <div className="flex-1 max-w-md mx-4">
+                        {showSearch ? (
+                            <Input
+                                placeholder="Search across all content..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full"
+                                onBlur={() => {
+                                    if (!searchTerm) setShowSearch(false);
+                                }}
+                                autoFocus
+                            />
+                        ) : (
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowSearch(true)}
+                                className="w-full justify-start text-gray-500"
+                            >
+                                <SearchIcon className="w-4 h-4 mr-2" />
+                                Search...
+                            </Button>
+                        )}
+                    </div>
 
-    const handleLogout = () => {
-        logout();
-        handleUserMenuClose();
-    };
-
-    // Sidebar content
-    const sidebarContent = (
-        <div style={{ background: theme.palette.background.paper, height: '100%', color: theme.palette.text.primary, display: 'flex', flexDirection: 'column' }}>
-            <List sx={{ flex: 1, py: 2 }}>
-                {scienceMenuSections.map((section) => (
-                    <React.Fragment key={section.key}>
-                        <Tooltip title={section.label} placement="right" arrow disableHoverListener={!sidebarCollapsed}>
-                            <ListItem disablePadding sx={{ display: 'block', mb: sidebarCollapsed ? 2.5 : 0 }}>
-                                <ListItemButton
-                                    selected={location.pathname === section.path}
-                                    onClick={() => handleSidebarItemClick(section)}
-                                    sx={{
-                                        minHeight: 48,
-                                        justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-                                        px: 2.5,
-                                        borderRadius: 2,
-                                        mb: sidebarCollapsed ? 2.5 : 0,
-                                    }}
-                                >
-                                    <ListItemIcon
-                                        sx={{
-                                            minWidth: 0,
-                                            mr: sidebarCollapsed ? 0 : 2,
-                                            justifyContent: 'center',
-                                            color: theme.palette.text.primary,
-                                        }}
-                                    >
-                                        {section.icon}
-                                    </ListItemIcon>
-                                    {!sidebarCollapsed && <ListItemText primary={section.label} />}
-                                </ListItemButton>
-                            </ListItem>
-                        </Tooltip>
-                    </React.Fragment>
-                ))}
-            </List>
-            <Divider sx={{ my: 2 }} />
-            <List>
-                <Tooltip title="Settings" placement="right" arrow disableHoverListener={!sidebarCollapsed}>
-                    <ListItem disablePadding sx={{ display: 'block' }}>
-                        <ListItemButton
-                            selected={location.pathname === '/settings'}
-                            onClick={() => handleNavigation('/settings')}
-                            sx={{
-                                minHeight: 48,
-                                justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-                                px: 2.5,
-                                borderRadius: 2,
+                    {/* Right side - Actions */}
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="relative p-2"
+                            onClick={() => {
+                                // TODO: Implement notification center
+                                console.log('Open notification center');
                             }}
                         >
-                            <ListItemIcon
-                                sx={{
-                                    minWidth: 0,
-                                    mr: sidebarCollapsed ? 0 : 2,
-                                    justifyContent: 'center',
-                                    color: theme.palette.text.primary,
-                                }}
-                            >
-                                <SettingsIcon />
-                            </ListItemIcon>
-                            {!sidebarCollapsed && <ListItemText primary="Settings" />}
-                        </ListItemButton>
-                    </ListItem>
-                </Tooltip>
-            </List>
+                            <NotificationsIcon className="w-5 h-5" />
+                            {notifications.length > 0 && (
+                                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                                    {notifications.length}
+                                </span>
+                            )}
+                        </Button>
+
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="p-2"
+                            onClick={() => {
+                                // TODO: Implement account settings
+                                console.log('Open account settings');
+                            }}
+                        >
+                            <AccountIcon className="w-5 h-5" />
+                        </Button>
+                    </div>
+                </div>
+            </Card.Content>
+        </Card>
+    );
+
+    // Sidebar Panel
+    const sidebarPanel = (
+        <div className={`h-full transition-all duration-200 ${sidebarCollapsed ? 'w-16' : 'w-64'}`}>
+            <RefactoredSidebar />
         </div>
     );
 
-    // Check if we're on the NotionWorkspace (root path or notion-workspace path)
-    const isNotionWorkspace = location.pathname === '/' || location.pathname === '/notion-workspace';
+    // Main Content Panel
+    const mainContentPanel = (
+        <PanelLayout.Panel className="h-full bg-gray-50" scrollable={false}>
+            {/* Top Navigation */}
+            <div className="flex-shrink-0">
+                <TopNavigation />
+            </div>
+
+            {/* Page Content */}
+            <div className="flex-1 overflow-hidden">
+                <Outlet />
+            </div>
+        </PanelLayout.Panel>
+    );
 
     return (
-        <Box sx={{ display: 'flex' }}>
-            <AppBar
-                position="fixed"
-                sx={{
-                    width: { sm: isNotionWorkspace ? '100%' : `calc(100% - ${sidebarCollapsed ? 64 : drawerWidth}px)` },
-                    ml: { sm: isNotionWorkspace ? 0 : `${sidebarCollapsed ? 64 : drawerWidth}px` },
-                }}
-            >
-                <Toolbar>
-                    <IconButton
-                        color="inherit"
-                        aria-label="open drawer"
-                        edge="start"
-                        onClick={handleDrawerToggle}
-                        sx={{ mr: 2, display: { sm: 'none' } }}
-                    >
-                        <MenuIcon />
-                    </IconButton>
-                    <Typography variant="h6" noWrap component="div" sx={{ mr: 3, minWidth: { xs: 120, sm: 200 } }}>
-                        Electronic Lab Notebook
-                    </Typography>
-                    {!isNotionWorkspace && (
-                        <Button
-                            variant="outlined"
-                            size="small"
-                            onClick={() => navigate('/')}
-                            startIcon={<WorkspaceIcon />}
-                            sx={{ mr: 2, color: 'inherit', borderColor: 'inherit' }}
-                        >
-                            Back to Workspace
-                        </Button>
-                    )}
-                    {/* Search Bar */}
-                    <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'block' } }}>
-                        <SearchBar />
-                    </Box>
-                    <IconButton
-                        color="inherit"
-                        onClick={() => setAdvancedSearchOpen(true)}
-                        sx={{ ml: 1, display: { xs: 'none', sm: 'flex' } }}
-                    >
-                        <SearchIcon />
-                    </IconButton>
-                    <IconButton
-                        color="inherit"
-                        onClick={() => setDataExportOpen(true)}
-                        sx={{ ml: 1, display: { xs: 'none', sm: 'flex' } }}
-                    >
-                        <FileDownloadIcon />
-                    </IconButton>
-                    <IconButton
-                        color="inherit"
-                        onClick={() => setGanttChartOpen(true)}
-                        sx={{ ml: 1, display: { xs: 'none', sm: 'flex' } }}
-                    >
-                        <TimelineIcon />
-                    </IconButton>
-                    <IconButton
-                        color="inherit"
-                        onClick={() => setResearchTimelineOpen(true)}
-                        sx={{ ml: 1, display: { xs: 'none', sm: 'flex' } }}
-                    >
-                        <AssessmentIcon />
-                    </IconButton>
-                    <NotificationCenter />
-
-                    {/* User Menu */}
-                    <Box sx={{ ml: 2 }}>
-                        <Button
-                            onClick={handleUserMenuOpen}
-                            sx={{ color: 'inherit', textTransform: 'none' }}
-                            startIcon={
-                                <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
-                                    {user?.username?.charAt(0).toUpperCase()}
-                                </Avatar>
-                            }
-                        >
-                            <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>
-                                {user?.username}
-                            </Typography>
-                        </Button>
-                        <Menu
-                            anchorEl={userMenuAnchor}
-                            open={Boolean(userMenuAnchor)}
-                            onClose={handleUserMenuClose}
-                            anchorOrigin={{
-                                vertical: 'bottom',
-                                horizontal: 'right',
-                            }}
-                            transformOrigin={{
-                                vertical: 'top',
-                                horizontal: 'right',
-                            }}
-                        >
-                            <MenuItem onClick={() => navigate('/settings')}>
-                                Settings
-                            </MenuItem>
-                            <MenuItem onClick={handleLogout}>
-                                Logout
-                            </MenuItem>
-                        </Menu>
-                    </Box>
-                </Toolbar>
-            </AppBar>
-            {!isNotionWorkspace && (
-                <Box
-                    component="nav"
-                    sx={{ width: { sm: sidebarCollapsed ? 64 : drawerWidth }, flexShrink: { sm: 0 } }}
-                >
-                    {/* Mobile Drawer */}
-                    <Drawer
-                        variant="temporary"
-                        open={mobileOpen}
-                        onClose={handleDrawerToggle}
-                        ModalProps={{
-                            keepMounted: true, // Better open performance on mobile.
-                        }}
-                        sx={{
-                            display: { xs: 'block', sm: 'none' },
-                            '& .MuiDrawer-paper': {
-                                boxSizing: 'border-box',
-                                width: drawerWidth,
-                                background: theme.palette.background.paper,
-                                color: theme.palette.text.primary,
-                            },
-                        }}
-                    >
-                        {sidebarContent}
-                    </Drawer>
-
-                    {/* Desktop Drawer */}
-                    <Drawer
-                        variant="permanent"
-                        sx={{
-                            display: { xs: 'none', sm: 'block' },
-                            '& .MuiDrawer-paper': {
-                                boxSizing: 'border-box',
-                                width: sidebarCollapsed ? 64 : drawerWidth,
-                                background: theme.palette.background.paper,
-                                color: theme.palette.text.primary,
-                                transition: 'width 0.2s',
-                                overflowX: 'hidden',
-                            },
-                        }}
-                        open
-                    >
-                        {sidebarContent}
-                    </Drawer>
-                </Box>
-            )}
-            <Box
-                component="main"
-                sx={{
-                    flexGrow: 1,
-                    width: { sm: isNotionWorkspace ? '100%' : `calc(100% - ${sidebarCollapsed ? 64 : drawerWidth}px)` },
-                    p: { xs: 1, sm: isNotionWorkspace ? 0 : 2 },
-                }}
-            >
-                <Toolbar />
-                <Box sx={{
-                    maxWidth: '100%',
-                    overflowX: 'auto',
-                    '& .MuiGrid-container': {
-                        margin: { xs: 0, sm: 'auto' },
-                    }
-                }}>
-                    <Outlet />
-                </Box>
-            </Box>
-
-            {advancedSearchOpen && (
-                <Box sx={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    bgcolor: 'background.paper',
-                    zIndex: 1300,
-                    overflow: 'auto'
-                }}>
-                    <Box sx={{
-                        position: 'sticky',
-                        top: 0,
-                        bgcolor: 'background.paper',
-                        borderBottom: 1,
-                        borderColor: 'divider',
-                        p: 2,
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                    }}>
-                        <Typography variant="h6">Advanced Search</Typography>
-                        <Button onClick={() => setAdvancedSearchOpen(false)}>Close</Button>
-                    </Box>
-                    <AdvancedSearch
-                        onResultSelect={(result) => {
-                            setAdvancedSearchOpen(false);
-                            // Navigate to the appropriate page based on result type
-                            switch (result.type) {
-                                case 'note':
-                                    navigate(`/notes`);
-                                    break;
-                                case 'project':
-                                    navigate(`/projects`);
-                                    break;
-                                case 'protocol':
-                                    navigate(`/protocols`);
-                                    break;
-                                case 'recipe':
-                                    navigate(`/recipes`);
-                                    break;
-                                case 'database':
-                                    navigate(`/database`);
-                                    break;
-                                case 'pdf':
-                                    navigate(`/pdfs`);
-                                    break;
-                                case 'table':
-                                    navigate(`/tables`);
-                                    break;
-                                case 'task':
-                                    navigate(`/tasks`);
-                                    break;
-                                case 'literature':
-                                    navigate(`/literature`);
-                                    break;
-                                default:
-                                    navigate(`/`);
-                            }
-                        }}
-                    />
-                </Box>
-            )}
-            <DataExport
-                open={dataExportOpen}
-                onClose={() => setDataExportOpen(false)}
+        <div className="h-screen bg-white">
+            <PanelLayout
+                leftPanel={sidebarPanel}
+                rightPanel={mainContentPanel}
+                leftSize="sm"
+                className="h-full"
+                leftClassName="border-r border-gray-200"
             />
-            <GanttChartExport
-                open={ganttChartOpen}
-                onClose={() => setGanttChartOpen(false)}
-                projects={[]}
-                experiments={[]}
-                protocols={[]}
-                tasks={[]}
-            />
-            <ResearchTimelineExport
-                open={researchTimelineOpen}
-                onClose={() => setResearchTimelineOpen(false)}
-                projects={[]}
-                experiments={[]}
-                protocols={[]}
-                tasks={[]}
-            />
-        </Box>
+        </div>
     );
 };
 
-export default Layout;
+// Enhanced Layout for Dual-Pane Views (like Notes, PDFs)
+export const DualPaneLayout = ({
+    leftPanel,
+    rightPanel,
+    leftTitle,
+    rightTitle,
+    leftActions,
+    rightActions,
+    leftSize = 'sm'
+}: {
+    leftPanel: React.ReactNode;
+    rightPanel: React.ReactNode;
+    leftTitle?: string;
+    rightTitle?: string;
+    leftActions?: React.ReactNode;
+    rightActions?: React.ReactNode;
+    leftSize?: 'sm' | 'default' | 'lg';
+}) => {
+    return (
+        <div className="h-full p-4">
+            <PanelLayout
+                leftPanel={
+                    <Card className="h-full">
+                        {leftTitle && (
+                            <Card.Header>
+                                <div className="flex items-center justify-between">
+                                    <Card.Title>{leftTitle}</Card.Title>
+                                    {leftActions && (
+                                        <div className="flex gap-2">
+                                            {leftActions}
+                                        </div>
+                                    )}
+                                </div>
+                            </Card.Header>
+                        )}
+                        <Card.Content padding="none" className="h-full">
+                            {leftPanel}
+                        </Card.Content>
+                    </Card>
+                }
+                rightPanel={
+                    <Card className="h-full">
+                        {rightTitle && (
+                            <Card.Header>
+                                <div className="flex items-center justify-between">
+                                    <Card.Title>{rightTitle}</Card.Title>
+                                    {rightActions && (
+                                        <div className="flex gap-2">
+                                            {rightActions}
+                                        </div>
+                                    )}
+                                </div>
+                            </Card.Header>
+                        )}
+                        <Card.Content padding="none" className="h-full">
+                            {rightPanel}
+                        </Card.Content>
+                    </Card>
+                }
+                leftSize={leftSize}
+                className="h-full gap-4"
+            />
+        </div>
+    );
+};
+
+// Single Panel Layout for simple views
+export const SinglePanelLayout = ({
+    children,
+    title,
+    actions,
+    padding = 'default'
+}: {
+    children: React.ReactNode;
+    title?: string;
+    actions?: React.ReactNode;
+    padding?: 'none' | 'sm' | 'default' | 'lg';
+}) => {
+    return (
+        <div className="h-full p-4">
+            <Card className="h-full">
+                {title && (
+                    <Card.Header>
+                        <div className="flex items-center justify-between">
+                            <Card.Title>{title}</Card.Title>
+                            {actions && (
+                                <div className="flex gap-2">
+                                    {actions}
+                                </div>
+                            )}
+                        </div>
+                    </Card.Header>
+                )}
+                <Card.Content padding={padding} className="h-full">
+                    {children}
+                </Card.Content>
+            </Card>
+        </div>
+    );
+};
+
+// Grid Layout for dashboard-style views
+export const GridLayout = ({
+    children,
+    title,
+    actions,
+    columns = 'auto'
+}: {
+    children: React.ReactNode;
+    title?: string;
+    actions?: React.ReactNode;
+    columns?: 'auto' | '1' | '2' | '3' | '4';
+}) => {
+    const gridClasses = {
+        'auto': 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
+        '1': 'grid-cols-1',
+        '2': 'grid-cols-1 md:grid-cols-2',
+        '3': 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3',
+        '4': 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+    };
+
+    return (
+        <div className="h-full p-4">
+            <Card className="h-full">
+                {title && (
+                    <Card.Header>
+                        <div className="flex items-center justify-between">
+                            <Card.Title>{title}</Card.Title>
+                            {actions && (
+                                <div className="flex gap-2">
+                                    {actions}
+                                </div>
+                            )}
+                        </div>
+                    </Card.Header>
+                )}
+                <Card.Content className="h-full overflow-auto">
+                    <div className={`grid gap-4 ${gridClasses[columns]}`}>
+                        {children}
+                    </div>
+                </Card.Content>
+            </Card>
+        </div>
+    );
+};
+
+// Responsive Layout Component that adapts based on screen size
+export const ResponsiveLayout = ({
+    children,
+    breakpoint = 'lg',
+    mobileLayout = 'stack',
+    desktopLayout = 'dual'
+}: {
+    children: React.ReactNode;
+    breakpoint?: 'sm' | 'md' | 'lg' | 'xl';
+    mobileLayout?: 'stack' | 'tabs';
+    desktopLayout?: 'dual' | 'single';
+}) => {
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const checkScreenSize = () => {
+            const breakpoints = { sm: 640, md: 768, lg: 1024, xl: 1280 };
+            setIsMobile(window.innerWidth < breakpoints[breakpoint]);
+        };
+
+        checkScreenSize();
+        window.addEventListener('resize', checkScreenSize);
+        return () => window.removeEventListener('resize', checkScreenSize);
+    }, [breakpoint]);
+
+    if (isMobile && mobileLayout === 'stack') {
+        return (
+            <div className="h-full flex flex-col">
+                {children}
+            </div>
+        );
+    }
+
+    return (
+        <div className="h-full">
+            {children}
+        </div>
+    );
+};
+
+export default ResearchNotebookLayout;

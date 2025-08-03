@@ -61,6 +61,8 @@ import {
     History,
     FolderOpen,
     Menu as PanelLeft,
+    Description,
+    Rocket as RocketIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
@@ -68,6 +70,9 @@ import { useWorkspaceTabs } from '../../pages/WorkspaceTabsContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCommandPaletteContext } from '../CommandPalette/CommandPaletteProvider';
 import { CommandButton } from '../CommandPalette';
+import { useNotionWorkspace } from '../../hooks/useNotionWorkspace';
+import { getWorkspaceCommands } from '../CommandPalette/WorkspaceCommands';
+import { WorkspaceIntegration } from '../NotionWorkspace/WorkspaceIntegration';
 
 // Enhanced Tab Interface
 interface TabData {
@@ -95,10 +100,11 @@ interface TabGroup {
 const FloatingActionPanel: React.FC<{
     onNewNote: () => void;
     onNewProject: () => void;
+    onNewWorkspace: () => void;
     onSearch: () => void;
     onCommandPalette: () => void;
     onFileTree: () => void;
-}> = ({ onNewNote, onNewProject, onSearch, onCommandPalette, onFileTree }) => (
+}> = ({ onNewNote, onNewProject, onNewWorkspace, onSearch, onCommandPalette, onFileTree }) => (
     <Box sx={{
         position: 'fixed',
         bottom: 24,
@@ -130,6 +136,11 @@ const FloatingActionPanel: React.FC<{
             <Tooltip title="New Project" placement="left">
                 <IconButton onClick={onNewProject}>
                     <ProjectIcon />
+                </IconButton>
+            </Tooltip>
+            <Tooltip title="New Workspace" placement="left">
+                <IconButton onClick={onNewWorkspace}>
+                    <Description />
                 </IconButton>
             </Tooltip>
         </Paper>
@@ -324,13 +335,19 @@ const WorkspacePanel: React.FC<{
 const ObsidianLayout: React.FC = () => {
     const theme = useTheme();
     const navigate = useNavigate();
+    const location = useLocation();
     const { user, logout } = useAuth();
     const { tabGroups, setTabGroups, openTab, closeTab } = useWorkspaceTabs();
     const { openCommandPalette } = useCommandPaletteContext();
+    const { createNewWorkspace, createMixedWorkspace, recentWorkspaces } = useNotionWorkspace();
 
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(null);
     const [workspaceLayout, setWorkspaceLayout] = useState<'single' | 'split' | 'grid'>('single');
+
+    // Routes that should be displayed directly without tabs
+    const directRoutes = ['/settings', '/dashboard', '/analytics', '/calculators', '/advanced-features'];
+    const isDirectRoute = directRoutes.includes(location.pathname);
 
     const handleNewNote = useCallback(() => {
         openTab({
@@ -372,6 +389,10 @@ const ObsidianLayout: React.FC = () => {
         });
         console.log('Navigating to /projects/new');
         navigate('/projects/new');
+    };
+
+    const handleNewWorkspace = () => {
+        createNewWorkspace('New Research Document');
     };
 
     const handleTabSelect = (groupIdx: number, tabKey: string) => {
@@ -460,6 +481,7 @@ const ObsidianLayout: React.FC = () => {
         { key: 'calendar', label: 'Calendar', icon: <CalendarIcon />, path: '/calendar' },
         { key: 'tasks', label: 'Tasks', icon: <CheckBoxIcon />, path: '/tasks' },
         { key: 'notes', label: 'Notes', icon: <NoteIcon />, path: '/notes' },
+        { key: 'workspace', label: 'Mixed Workspace', icon: <Description />, path: '/workspace/new' },
         { key: 'protocols', label: 'Protocols', icon: <ProtocolIcon />, path: '/protocols' },
         { key: 'recipes', label: 'Recipes', icon: <RecipeIcon />, path: '/recipes' },
         { key: 'pdfs', label: 'PDFs', icon: <PdfIcon />, path: '/pdfs' },
@@ -472,6 +494,7 @@ const ObsidianLayout: React.FC = () => {
         { key: 'analytics', label: 'Analytics', icon: <AssessmentIcon />, path: '/analytics' },
         { key: 'search', label: 'Search', icon: <SearchIcon />, path: '/search' },
         { key: 'links', label: 'Links', icon: <LinkIcon />, path: '/links' },
+        { key: 'advanced-features', label: 'Advanced Features', icon: <RocketIcon />, path: '/advanced-features' },
     ];
 
     const handleSidebarItemClick = (item: any) => {
@@ -629,84 +652,99 @@ const ObsidianLayout: React.FC = () => {
                     </Box>
                 </Box>
 
-                {/* Workspace Panels */}
-                <Box sx={{
-                    flexGrow: 1,
-                    display: 'flex',
-                    overflow: 'hidden',
-                    gap: workspaceLayout === 'split' ? 1.5 : 1,
-                    p: 1,
-                    minHeight: 0
-                }}>
-                    {tabGroups.length === 0 ? (
+                {/* Content Area */}
+                {isDirectRoute ? (
+                    // Render direct routes (like Settings) without tabs
+                    <Box sx={{
+                        flexGrow: 1,
+                        overflow: 'auto',
+                        p: 2
+                    }}>
+                        <Outlet />
+                    </Box>
+                ) : (
+                    // Render workspace with tabs for other routes
+                    <WorkspaceIntegration>
                         <Box sx={{
                             flexGrow: 1,
                             display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexDirection: 'column',
-                            gap: 2
+                            overflow: 'hidden',
+                            gap: workspaceLayout === 'split' ? 1.5 : 1,
+                            p: 1,
+                            minHeight: 0
                         }}>
-                            <Typography variant="h4" color="text.secondary" gutterBottom>
-                                Welcome to your Research Workspace
-                            </Typography>
-                            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                                Press Ctrl+K to open the command palette or use the sidebar to get started
-                            </Typography>
-                            <ButtonGroup variant="contained">
-                                <Button startIcon={<NoteIcon />} onClick={handleNewNote}>
-                                    New Note
-                                </Button>
-                                <Button startIcon={<ProjectIcon />} onClick={handleNewProject}>
-                                    New Project
-                                </Button>
-                                <Button startIcon={<SearchIcon />} onClick={openCommandPalette}>
-                                    Search
-                                </Button>
-                            </ButtonGroup>
-                        </Box>
-                    ) : (
-                        tabGroups.map((group, groupIdx) => (
-                            <Box
-                                key={group.id || groupIdx}
-                                sx={{
-                                    flex: workspaceLayout === 'split' && tabGroups.length > 1 ? '1 1 0' : 1,
-                                    minWidth: workspaceLayout === 'split' ? '400px' : '300px',
-                                    maxWidth: workspaceLayout === 'single' ? '100%' : 'none',
+                            {tabGroups.length === 0 ? (
+                                <Box sx={{
+                                    flexGrow: 1,
                                     display: 'flex',
-                                    flexDirection: 'column'
-                                }}
-                            >
-                                <WorkspacePanel
-                                    group={group}
-                                    onTabSelect={(tabKey) => handleTabSelect(groupIdx, tabKey)}
-                                    onTabClose={(tabKey) => handleTabClose(groupIdx, tabKey)}
-                                    onSplit={handleSplitPanel}
-                                    onMinimize={() => {
-                                        setTabGroups(prev => {
-                                            const groups = [...prev];
-                                            if (groups[groupIdx]) {
-                                                groups[groupIdx].isMinimized = !groups[groupIdx].isMinimized;
-                                            }
-                                            return groups;
-                                        });
-                                    }}
-                                    onClose={() => {
-                                        setTabGroups(prev => prev.filter((_, idx) => idx !== groupIdx));
-                                    }}
-                                    onTabPin={(tabKey) => handleTabPin(groupIdx, tabKey)}
-                                    onTabDuplicate={(tabKey) => handleTabDuplicate(groupIdx, tabKey)}
-                                />
-                            </Box>
-                        ))
-                    )}
-                </Box>
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexDirection: 'column',
+                                    gap: 2
+                                }}>
+                                    <Typography variant="h4" color="text.secondary" gutterBottom>
+                                        Welcome to your Research Workspace
+                                    </Typography>
+                                    <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                                        Press Ctrl+K to open the command palette or use the sidebar to get started
+                                    </Typography>
+                                    <ButtonGroup variant="contained">
+                                        <Button startIcon={<NoteIcon />} onClick={handleNewNote}>
+                                            New Note
+                                        </Button>
+                                        <Button startIcon={<ProjectIcon />} onClick={handleNewProject}>
+                                            New Project
+                                        </Button>
+                                        <Button startIcon={<SearchIcon />} onClick={openCommandPalette}>
+                                            Search
+                                        </Button>
+                                    </ButtonGroup>
+                                </Box>
+                            ) : (
+                                tabGroups.map((group, groupIdx) => (
+                                    <Box
+                                        key={group.id || groupIdx}
+                                        sx={{
+                                            flex: workspaceLayout === 'split' && tabGroups.length > 1 ? '1 1 0' : 1,
+                                            minWidth: workspaceLayout === 'split' ? '400px' : '300px',
+                                            maxWidth: workspaceLayout === 'single' ? '100%' : 'none',
+                                            display: 'flex',
+                                            flexDirection: 'column'
+                                        }}
+                                    >
+                                        <WorkspacePanel
+                                            group={group}
+                                            onTabSelect={(tabKey) => handleTabSelect(groupIdx, tabKey)}
+                                            onTabClose={(tabKey) => handleTabClose(groupIdx, tabKey)}
+                                            onSplit={handleSplitPanel}
+                                            onMinimize={() => {
+                                                setTabGroups(prev => {
+                                                    const groups = [...prev];
+                                                    if (groups[groupIdx]) {
+                                                        groups[groupIdx].isMinimized = !groups[groupIdx].isMinimized;
+                                                    }
+                                                    return groups;
+                                                });
+                                            }}
+                                            onClose={() => {
+                                                setTabGroups(prev => prev.filter((_, idx) => idx !== groupIdx));
+                                            }}
+                                            onTabPin={(tabKey) => handleTabPin(groupIdx, tabKey)}
+                                            onTabDuplicate={(tabKey) => handleTabDuplicate(groupIdx, tabKey)}
+                                        />
+                                    </Box>
+                                ))
+                            )}
+                        </Box>
+                    </WorkspaceIntegration>
+                )}
             </Box>
 
             {/* Floating Action Panel */}
             <FloatingActionPanel
                 onNewNote={handleNewNote}
                 onNewProject={handleNewProject}
+                onNewWorkspace={handleNewWorkspace}
                 onSearch={openCommandPalette}
                 onCommandPalette={openCommandPalette}
                 onFileTree={() => setSidebarOpen(true)}

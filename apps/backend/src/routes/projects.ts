@@ -70,7 +70,7 @@ router.get('/:id', authenticateToken, async (req: any, res) => {
         const { id } = req.params;
 
         const project = await prisma.project.findFirst({
-            where: { 
+            where: {
                 id,
                 userId: req.user.userId
             },
@@ -100,7 +100,14 @@ router.get('/:id', authenticateToken, async (req: any, res) => {
 // Create a new project
 router.post('/', authenticateToken, async (req: any, res) => {
     try {
-        const validatedData = createProjectSchema.parse(req.body);
+        // Transform empty strings to null for date fields
+        const transformedBody = {
+            ...req.body,
+            startDate: req.body.startDate === '' ? null : req.body.startDate,
+            lastActivity: req.body.lastActivity === '' ? null : req.body.lastActivity,
+        };
+
+        const validatedData = createProjectSchema.parse(transformedBody);
 
         const project = await prisma.project.create({
             data: {
@@ -126,7 +133,7 @@ router.put('/:id', authenticateToken, async (req: any, res) => {
         const validatedData = updateProjectSchema.parse(req.body);
 
         const project = await prisma.project.update({
-            where: { 
+            where: {
                 id,
                 userId: req.user.userId
             },
@@ -150,7 +157,7 @@ router.delete('/:id', authenticateToken, async (req: any, res) => {
 
         // Verify the project belongs to the user
         const project = await prisma.project.findFirst({
-            where: { 
+            where: {
                 id,
                 userId: req.user.userId
             }

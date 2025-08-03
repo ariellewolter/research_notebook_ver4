@@ -13,8 +13,25 @@ import {
     ListItemText,
     Snackbar,
     Alert,
-    CircularProgress
+    CircularProgress,
+    Switch,
+    FormControlLabel,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    Divider,
+    Accordion,
+    AccordionSummary,
+    AccordionDetails
 } from '@mui/material';
+import {
+    Notifications as NotificationsIcon,
+    Email as EmailIcon,
+    Phone as PhoneIcon,
+    Settings as SettingsIcon,
+    ExpandMore as ExpandMoreIcon
+} from '@mui/icons-material';
 import { colorPalettes, Palette, PaletteRole } from '../services/colorPalettes';
 import { useThemePalette } from '../services/ThemePaletteContext';
 import { zoteroApi, googleCalendarApi, outlookCalendarApi, appleCalendarApi } from '../services/api';
@@ -110,6 +127,30 @@ const Settings: React.FC = () => {
     const [appleEndDate, setAppleEndDate] = useState('');
     const [isExportingApple, setIsExportingApple] = useState(false);
 
+    // Notification settings state
+    const [notificationSettings, setNotificationSettings] = useState({
+        enableNotifications: true,
+        enableEmailNotifications: false,
+        enablePushNotifications: false,
+        enableSMSNotifications: false,
+        emailAddress: '',
+        phoneNumber: '',
+        defaultDeliveryMethod: 'in_app' as 'in_app' | 'email' | 'push' | 'sms',
+        enableTaskReminders: true,
+        enableOverdueAlerts: true,
+        enableCompletionNotifications: true,
+        enableAssignmentNotifications: true,
+        enableCommentNotifications: true,
+        reminderTime: '09:00',
+        overdueAlertTime: '18:00',
+        priorityFilter: 'all' as 'all' | 'high' | 'normal' | 'low',
+        quietHours: {
+            enabled: false,
+            start: '22:00',
+            end: '08:00'
+        }
+    });
+
     const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
         open: false,
         message: '',
@@ -134,6 +175,7 @@ const Settings: React.FC = () => {
         loadGoogleCredentials();
         loadOutlookCredentials();
         loadZoteroConfig();
+        loadNotificationSettings();
     }, []);
 
     const loadZoteroConfig = () => {
@@ -383,7 +425,7 @@ const Settings: React.FC = () => {
         setIsExportingApple(true);
         try {
             const response = await appleCalendarApi.exportICS(appleStartDate, appleEndDate);
-            
+
             // Create download link
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
@@ -408,6 +450,39 @@ const Settings: React.FC = () => {
         } finally {
             setIsExportingApple(false);
         }
+    };
+
+    // Notification settings functions
+    const loadNotificationSettings = () => {
+        const saved = localStorage.getItem('notificationSettings');
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                setNotificationSettings(prev => ({ ...prev, ...parsed }));
+            } catch (error) {
+                console.error('Failed to parse notification settings:', error);
+            }
+        }
+    };
+
+    const saveNotificationSettings = () => {
+        localStorage.setItem('notificationSettings', JSON.stringify(notificationSettings));
+        setSnackbar({
+            open: true,
+            message: 'Notification settings saved successfully!',
+            severity: 'success'
+        });
+    };
+
+    const handleNotificationSettingChange = (key: string, value: any) => {
+        setNotificationSettings(prev => ({ ...prev, [key]: value }));
+    };
+
+    const handleQuietHoursChange = (key: string, value: any) => {
+        setNotificationSettings(prev => ({
+            ...prev,
+            quietHours: { ...prev.quietHours, [key]: value }
+        }));
     };
 
     return (
@@ -518,6 +593,311 @@ const Settings: React.FC = () => {
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                         This style will be used for all Zotero citations and bibliographies in your notes and protocols.
                     </Typography>
+                </CardContent>
+            </Card>
+
+            {/* Notification Settings */}
+            <Card sx={{ mb: 3 }}>
+                <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                        <NotificationsIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                        Notification Settings
+                    </Typography>
+
+                    <Grid container spacing={3}>
+                        {/* General Notification Settings */}
+                        <Grid item xs={12}>
+                            <Typography variant="subtitle1" gutterBottom>
+                                General Settings
+                            </Typography>
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={notificationSettings.enableNotifications}
+                                        onChange={(e) => handleNotificationSettingChange('enableNotifications', e.target.checked)}
+                                    />
+                                }
+                                label="Enable Notifications"
+                            />
+                        </Grid>
+
+                        {/* Delivery Methods */}
+                        <Grid item xs={12}>
+                            <Typography variant="subtitle1" gutterBottom>
+                                Delivery Methods
+                            </Typography>
+                            <Grid container spacing={2}>
+                                <Grid item xs={12} sm={6}>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={notificationSettings.enableEmailNotifications}
+                                                onChange={(e) => handleNotificationSettingChange('enableEmailNotifications', e.target.checked)}
+                                                disabled={!notificationSettings.enableNotifications}
+                                            />
+                                        }
+                                        label="Email Notifications"
+                                    />
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={notificationSettings.enablePushNotifications}
+                                                onChange={(e) => handleNotificationSettingChange('enablePushNotifications', e.target.checked)}
+                                                disabled={!notificationSettings.enableNotifications}
+                                            />
+                                        }
+                                        label="Push Notifications"
+                                    />
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={notificationSettings.enableSMSNotifications}
+                                                onChange={(e) => handleNotificationSettingChange('enableSMSNotifications', e.target.checked)}
+                                                disabled={!notificationSettings.enableNotifications}
+                                            />
+                                        }
+                                        label="SMS Notifications"
+                                    />
+                                </Grid>
+                            </Grid>
+                        </Grid>
+
+                        {/* Contact Information */}
+                        {(notificationSettings.enableEmailNotifications || notificationSettings.enableSMSNotifications) && (
+                            <Grid item xs={12}>
+                                <Typography variant="subtitle1" gutterBottom>
+                                    Contact Information
+                                </Typography>
+                                <Grid container spacing={2}>
+                                    {notificationSettings.enableEmailNotifications && (
+                                        <Grid item xs={12} sm={6}>
+                                            <TextField
+                                                fullWidth
+                                                label="Email Address"
+                                                value={notificationSettings.emailAddress}
+                                                onChange={(e) => handleNotificationSettingChange('emailAddress', e.target.value)}
+                                                placeholder="your.email@example.com"
+                                                InputProps={{
+                                                    startAdornment: <EmailIcon sx={{ mr: 1, color: 'action.active' }} />
+                                                }}
+                                            />
+                                        </Grid>
+                                    )}
+                                    {notificationSettings.enableSMSNotifications && (
+                                        <Grid item xs={12} sm={6}>
+                                            <TextField
+                                                fullWidth
+                                                label="Phone Number"
+                                                value={notificationSettings.phoneNumber}
+                                                onChange={(e) => handleNotificationSettingChange('phoneNumber', e.target.value)}
+                                                placeholder="+1 (555) 123-4567"
+                                                InputProps={{
+                                                    startAdornment: <PhoneIcon sx={{ mr: 1, color: 'action.active' }} />
+                                                }}
+                                            />
+                                        </Grid>
+                                    )}
+                                </Grid>
+                            </Grid>
+                        )}
+
+                        {/* Default Delivery Method */}
+                        <Grid item xs={12} sm={6}>
+                            <FormControl fullWidth>
+                                <InputLabel>Default Delivery Method</InputLabel>
+                                <Select
+                                    value={notificationSettings.defaultDeliveryMethod}
+                                    onChange={(e) => handleNotificationSettingChange('defaultDeliveryMethod', e.target.value)}
+                                    label="Default Delivery Method"
+                                >
+                                    <MenuItem value="in_app">In App</MenuItem>
+                                    <MenuItem value="email">Email</MenuItem>
+                                    <MenuItem value="push">Push Notification</MenuItem>
+                                    <MenuItem value="sms">SMS</MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Grid>
+
+                        {/* Notification Types */}
+                        <Grid item xs={12}>
+                            <Typography variant="subtitle1" gutterBottom>
+                                Notification Types
+                            </Typography>
+                            <Grid container spacing={2}>
+                                <Grid item xs={12} sm={6}>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={notificationSettings.enableTaskReminders}
+                                                onChange={(e) => handleNotificationSettingChange('enableTaskReminders', e.target.checked)}
+                                                disabled={!notificationSettings.enableNotifications}
+                                            />
+                                        }
+                                        label="Task Reminders"
+                                    />
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={notificationSettings.enableOverdueAlerts}
+                                                onChange={(e) => handleNotificationSettingChange('enableOverdueAlerts', e.target.checked)}
+                                                disabled={!notificationSettings.enableNotifications}
+                                            />
+                                        }
+                                        label="Overdue Alerts"
+                                    />
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={notificationSettings.enableCompletionNotifications}
+                                                onChange={(e) => handleNotificationSettingChange('enableCompletionNotifications', e.target.checked)}
+                                                disabled={!notificationSettings.enableNotifications}
+                                            />
+                                        }
+                                        label="Completion Notifications"
+                                    />
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={notificationSettings.enableAssignmentNotifications}
+                                                onChange={(e) => handleNotificationSettingChange('enableAssignmentNotifications', e.target.checked)}
+                                                disabled={!notificationSettings.enableNotifications}
+                                            />
+                                        }
+                                        label="Assignment Notifications"
+                                    />
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={notificationSettings.enableCommentNotifications}
+                                                onChange={(e) => handleNotificationSettingChange('enableCommentNotifications', e.target.checked)}
+                                                disabled={!notificationSettings.enableNotifications}
+                                            />
+                                        }
+                                        label="Comment Notifications"
+                                    />
+                                </Grid>
+                            </Grid>
+                        </Grid>
+
+                        {/* Timing Settings */}
+                        <Grid item xs={12}>
+                            <Typography variant="subtitle1" gutterBottom>
+                                Timing Settings
+                            </Typography>
+                            <Grid container spacing={2}>
+                                <Grid item xs={12} sm={6}>
+                                    <TextField
+                                        fullWidth
+                                        label="Reminder Time"
+                                        type="time"
+                                        value={notificationSettings.reminderTime}
+                                        onChange={(e) => handleNotificationSettingChange('reminderTime', e.target.value)}
+                                        InputLabelProps={{ shrink: true }}
+                                    />
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                    <TextField
+                                        fullWidth
+                                        label="Overdue Alert Time"
+                                        type="time"
+                                        value={notificationSettings.overdueAlertTime}
+                                        onChange={(e) => handleNotificationSettingChange('overdueAlertTime', e.target.value)}
+                                        InputLabelProps={{ shrink: true }}
+                                    />
+                                </Grid>
+                            </Grid>
+                        </Grid>
+
+                        {/* Quiet Hours */}
+                        <Grid item xs={12}>
+                            <Accordion>
+                                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                    <Typography variant="subtitle1">
+                                        <SettingsIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                                        Quiet Hours
+                                    </Typography>
+                                </AccordionSummary>
+                                <AccordionDetails>
+                                    <Grid container spacing={2}>
+                                        <Grid item xs={12}>
+                                            <FormControlLabel
+                                                control={
+                                                    <Switch
+                                                        checked={notificationSettings.quietHours.enabled}
+                                                        onChange={(e) => handleQuietHoursChange('enabled', e.target.checked)}
+                                                    />
+                                                }
+                                                label="Enable Quiet Hours"
+                                            />
+                                        </Grid>
+                                        {notificationSettings.quietHours.enabled && (
+                                            <>
+                                                <Grid item xs={12} sm={6}>
+                                                    <TextField
+                                                        fullWidth
+                                                        label="Start Time"
+                                                        type="time"
+                                                        value={notificationSettings.quietHours.start}
+                                                        onChange={(e) => handleQuietHoursChange('start', e.target.value)}
+                                                        InputLabelProps={{ shrink: true }}
+                                                    />
+                                                </Grid>
+                                                <Grid item xs={12} sm={6}>
+                                                    <TextField
+                                                        fullWidth
+                                                        label="End Time"
+                                                        type="time"
+                                                        value={notificationSettings.quietHours.end}
+                                                        onChange={(e) => handleQuietHoursChange('end', e.target.value)}
+                                                        InputLabelProps={{ shrink: true }}
+                                                    />
+                                                </Grid>
+                                            </>
+                                        )}
+                                    </Grid>
+                                </AccordionDetails>
+                            </Accordion>
+                        </Grid>
+
+                        {/* Priority Filter */}
+                        <Grid item xs={12} sm={6}>
+                            <FormControl fullWidth>
+                                <InputLabel>Priority Filter</InputLabel>
+                                <Select
+                                    value={notificationSettings.priorityFilter}
+                                    onChange={(e) => handleNotificationSettingChange('priorityFilter', e.target.value)}
+                                    label="Priority Filter"
+                                >
+                                    <MenuItem value="all">All Priorities</MenuItem>
+                                    <MenuItem value="high">High Priority Only</MenuItem>
+                                    <MenuItem value="normal">Normal & High Priority</MenuItem>
+                                    <MenuItem value="low">All Priorities</MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                    </Grid>
+
+                    <Box sx={{ mt: 3 }}>
+                        <Button
+                            variant="contained"
+                            onClick={saveNotificationSettings}
+                            sx={{ mr: 2 }}
+                        >
+                            Save Notification Settings
+                        </Button>
+                    </Box>
                 </CardContent>
             </Card>
 

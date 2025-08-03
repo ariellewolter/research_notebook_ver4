@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Box,
     Button,
@@ -147,6 +148,7 @@ const LITNOTE_FIELDS = [
 ];
 
 const LiteratureNotes: React.FC = () => {
+    const navigate = useNavigate();
     const [notes, setNotes] = useState<LiteratureNote[]>([]);
     const [loading, setLoading] = useState(true);
     const [open, setOpen] = useState(false);
@@ -201,7 +203,31 @@ const LiteratureNotes: React.FC = () => {
 
     const handleOpenEntity = (entry: any) => {
         console.log('Opening entity:', entry);
-        // TODO: Implement navigation to entity details
+        // Navigate to entity details based on type
+        if (entry.type === 'note') {
+            navigate(`/notes/${entry.id}`);
+        } else if (entry.type === 'project') {
+            navigate(`/projects/${entry.id}`);
+        } else if (entry.type === 'protocol') {
+            navigate(`/protocols/${entry.id}`);
+        } else if (entry.type === 'recipe') {
+            navigate(`/recipes/${entry.id}`);
+        } else if (entry.type === 'experiment') {
+            navigate(`/experiments/${entry.id}`);
+        } else if (entry.type === 'task') {
+            navigate(`/tasks/${entry.id}`);
+        } else if (entry.type === 'databaseEntry') {
+            navigate(`/database/${entry.id}`);
+        } else if (entry.type === 'table') {
+            navigate(`/tables/${entry.id}`);
+        } else if (entry.type === 'pdf') {
+            navigate(`/pdfs/${entry.id}`);
+        } else if (entry.type === 'literatureNote') {
+            navigate(`/literature/${entry.id}`);
+        } else {
+            // Default fallback - could be expanded for other entity types
+            console.warn('Unknown entity type for navigation:', entry.type);
+        }
     };
 
     const handleOpen = (note?: LiteratureNote) => {

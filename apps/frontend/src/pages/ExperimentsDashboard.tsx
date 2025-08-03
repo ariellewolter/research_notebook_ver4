@@ -13,7 +13,14 @@ const statusOptions = [
     { value: 'completed', label: 'Completed' },
 ];
 
-function ExecutionStepCompletionView({ execution, steps, protocolId, onExecutionUpdated }) {
+interface ExecutionStepCompletionViewProps {
+    execution: any;
+    steps: any[];
+    protocolId: string;
+    onExecutionUpdated: () => void;
+}
+
+function ExecutionStepCompletionView({ execution, steps, protocolId, onExecutionUpdated }: ExecutionStepCompletionViewProps) {
     const [editing, setEditing] = React.useState(false);
     const [completedSteps, setCompletedSteps] = React.useState(execution.completedSteps || []);
     const [saving, setSaving] = React.useState(false);

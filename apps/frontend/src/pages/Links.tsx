@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Box,
     Typography,
@@ -94,6 +95,7 @@ interface LinkFormData {
 }
 
 const Links: React.FC = () => {
+    const navigate = useNavigate();
     const [links, setLinks] = useState<Link[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -197,6 +199,16 @@ const Links: React.FC = () => {
     };
 
     const handleSubmit = async () => {
+        // Validate form data
+        if (!formData.sourceType || !formData.sourceId || !formData.targetType || !formData.targetId) {
+            setSnackbar({
+                open: true,
+                message: 'Please fill in all required fields',
+                severity: 'error'
+            });
+            return;
+        }
+
         try {
             if (editingLink) {
                 // Since update is not supported, delete and recreate
@@ -229,7 +241,7 @@ const Links: React.FC = () => {
 
     const getDisplayName = (item: any, type: string) => {
         if (!item) return 'Unknown';
-        
+
         switch (type) {
             case 'note':
                 return item.title || 'Untitled Note';
@@ -312,8 +324,32 @@ const Links: React.FC = () => {
                                         variant="outlined"
                                         clickable
                                         onClick={() => {
-                                            // TODO: Navigate to source item
-                                            console.log('Navigate to source:', link.source);
+                                            // Navigate to source item based on type
+                                            if (link.sourceType === 'note') {
+                                                navigate(`/notes/${link.sourceId}`);
+                                            } else if (link.sourceType === 'project') {
+                                                navigate(`/projects/${link.sourceId}`);
+                                            } else if (link.sourceType === 'protocol') {
+                                                navigate(`/protocols/${link.sourceId}`);
+                                            } else if (link.sourceType === 'recipe') {
+                                                navigate(`/recipes/${link.sourceId}`);
+                                            } else if (link.sourceType === 'pdf') {
+                                                navigate(`/pdfs/${link.sourceId}`);
+                                            } else if (link.sourceType === 'table') {
+                                                navigate(`/tables/${link.sourceId}`);
+                                            } else if (link.sourceType === 'experiment') {
+                                                navigate(`/experiments/${link.sourceId}`);
+                                            } else if (link.sourceType === 'literatureNote') {
+                                                navigate(`/literature/${link.sourceId}`);
+                                            } else if (link.sourceType === 'highlight') {
+                                                navigate(`/pdfs/${link.sourceId}`);
+                                            } else if (link.sourceType === 'databaseEntry') {
+                                                navigate(`/database/${link.sourceId}`);
+                                            } else if (link.sourceType === 'task') {
+                                                navigate(`/tasks/${link.sourceId}`);
+                                            } else {
+                                                console.warn('Unknown source type for navigation:', link.sourceType);
+                                            }
                                         }}
                                     />
                                 </Box>
@@ -335,8 +371,32 @@ const Links: React.FC = () => {
                                         variant="outlined"
                                         clickable
                                         onClick={() => {
-                                            // TODO: Navigate to target item
-                                            console.log('Navigate to target:', link.target);
+                                            // Navigate to target item based on type
+                                            if (link.targetType === 'note') {
+                                                navigate(`/notes/${link.targetId}`);
+                                            } else if (link.targetType === 'project') {
+                                                navigate(`/projects/${link.targetId}`);
+                                            } else if (link.targetType === 'protocol') {
+                                                navigate(`/protocols/${link.targetId}`);
+                                            } else if (link.targetType === 'recipe') {
+                                                navigate(`/recipes/${link.targetId}`);
+                                            } else if (link.targetType === 'pdf') {
+                                                navigate(`/pdfs/${link.targetId}`);
+                                            } else if (link.targetType === 'table') {
+                                                navigate(`/tables/${link.targetId}`);
+                                            } else if (link.targetType === 'experiment') {
+                                                navigate(`/experiments/${link.targetId}`);
+                                            } else if (link.targetType === 'literatureNote') {
+                                                navigate(`/literature/${link.targetId}`);
+                                            } else if (link.targetType === 'highlight') {
+                                                navigate(`/pdfs/${link.targetId}`);
+                                            } else if (link.targetType === 'databaseEntry') {
+                                                navigate(`/database/${link.targetId}`);
+                                            } else if (link.targetType === 'task') {
+                                                navigate(`/tasks/${link.targetId}`);
+                                            } else {
+                                                console.warn('Unknown target type for navigation:', link.targetType);
+                                            }
                                         }}
                                     />
                                 </Box>
@@ -381,8 +441,8 @@ const Links: React.FC = () => {
         <Grid container spacing={2}>
             {filteredLinks.map((link) => (
                 <Grid item xs={12} sm={6} md={4} key={link.id}>
-                    <Card 
-                        sx={{ 
+                    <Card
+                        sx={{
                             height: '100%',
                             '&:hover': { boxShadow: 4 }
                         }}
@@ -401,21 +461,93 @@ const Links: React.FC = () => {
                                     style={{ backgroundColor: getTypeColor(link.targetType), color: 'white' }}
                                 />
                             </Box>
-                            
+
                             <Typography variant="subtitle2" gutterBottom>
                                 Source
                             </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                            <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                sx={{
+                                    mb: 2,
+                                    cursor: 'pointer',
+                                    '&:hover': { color: 'primary.main', textDecoration: 'underline' }
+                                }}
+                                onClick={() => {
+                                    // Navigate to source item based on type
+                                    if (link.sourceType === 'note') {
+                                        navigate(`/notes/${link.sourceId}`);
+                                    } else if (link.sourceType === 'project') {
+                                        navigate(`/projects/${link.sourceId}`);
+                                    } else if (link.sourceType === 'protocol') {
+                                        navigate(`/protocols/${link.sourceId}`);
+                                    } else if (link.sourceType === 'recipe') {
+                                        navigate(`/recipes/${link.sourceId}`);
+                                    } else if (link.sourceType === 'pdf') {
+                                        navigate(`/pdfs/${link.sourceId}`);
+                                    } else if (link.sourceType === 'table') {
+                                        navigate(`/tables/${link.sourceId}`);
+                                    } else if (link.sourceType === 'experiment') {
+                                        navigate(`/experiments/${link.sourceId}`);
+                                    } else if (link.sourceType === 'literatureNote') {
+                                        navigate(`/literature/${link.sourceId}`);
+                                    } else if (link.sourceType === 'highlight') {
+                                        navigate(`/pdfs/${link.sourceId}`);
+                                    } else if (link.sourceType === 'databaseEntry') {
+                                        navigate(`/database/${link.sourceId}`);
+                                    } else if (link.sourceType === 'task') {
+                                        navigate(`/tasks/${link.sourceId}`);
+                                    } else {
+                                        console.warn('Unknown source type for navigation:', link.sourceType);
+                                    }
+                                }}
+                            >
                                 {getDisplayName(link.source, link.sourceType)}
                             </Typography>
-                            
+
                             <Typography variant="subtitle2" gutterBottom>
                                 Target
                             </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                            <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                sx={{
+                                    mb: 2,
+                                    cursor: 'pointer',
+                                    '&:hover': { color: 'primary.main', textDecoration: 'underline' }
+                                }}
+                                onClick={() => {
+                                    // Navigate to target item based on type
+                                    if (link.targetType === 'note') {
+                                        navigate(`/notes/${link.targetId}`);
+                                    } else if (link.targetType === 'project') {
+                                        navigate(`/projects/${link.targetId}`);
+                                    } else if (link.targetType === 'protocol') {
+                                        navigate(`/protocols/${link.targetId}`);
+                                    } else if (link.targetType === 'recipe') {
+                                        navigate(`/recipes/${link.targetId}`);
+                                    } else if (link.targetType === 'pdf') {
+                                        navigate(`/pdfs/${link.targetId}`);
+                                    } else if (link.targetType === 'table') {
+                                        navigate(`/tables/${link.targetId}`);
+                                    } else if (link.targetType === 'experiment') {
+                                        navigate(`/experiments/${link.targetId}`);
+                                    } else if (link.targetType === 'literatureNote') {
+                                        navigate(`/literature/${link.targetId}`);
+                                    } else if (link.targetType === 'highlight') {
+                                        navigate(`/pdfs/${link.targetId}`);
+                                    } else if (link.targetType === 'databaseEntry') {
+                                        navigate(`/database/${link.targetId}`);
+                                    } else if (link.targetType === 'task') {
+                                        navigate(`/tasks/${link.targetId}`);
+                                    } else {
+                                        console.warn('Unknown target type for navigation:', link.targetType);
+                                    }
+                                }}
+                            >
                                 {getDisplayName(link.target, link.targetType)}
                             </Typography>
-                            
+
                             <Typography variant="caption" color="text.secondary">
                                 Created: {new Date(link.createdAt).toLocaleDateString()}
                             </Typography>
@@ -650,7 +782,7 @@ const Links: React.FC = () => {
                 {/* Tabs */}
                 <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
                     <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
-                        <Tab 
+                        <Tab
                             label={
                                 <Box display="flex" alignItems="center" gap={1}>
                                     <LinkIcon />
@@ -659,15 +791,15 @@ const Links: React.FC = () => {
                                         <Badge badgeContent={links.length} color="primary" />
                                     )}
                                 </Box>
-                            } 
+                            }
                         />
-                        <Tab 
+                        <Tab
                             label={
                                 <Box display="flex" alignItems="center" gap={1}>
                                     <AnalyticsIcon />
                                     Statistics
                                 </Box>
-                            } 
+                            }
                         />
                     </Tabs>
                 </Box>
@@ -682,8 +814,8 @@ const Links: React.FC = () => {
                             No links found
                         </Typography>
                         <Typography variant="body2" color="textSecondary">
-                            {searchQuery || filterType !== 'all' || dateFilter 
-                                ? 'Try adjusting your filters' 
+                            {searchQuery || filterType !== 'all' || dateFilter
+                                ? 'Try adjusting your filters'
                                 : 'Create your first link to get started'
                             }
                         </Typography>
@@ -720,6 +852,7 @@ const Links: React.FC = () => {
                                     value={formData.sourceId}
                                     onChange={(e) => setFormData({ ...formData, sourceId: e.target.value })}
                                     helperText="Enter the ID of the source item"
+                                    required
                                 />
                             </Grid>
                             <Grid item xs={12} md={6}>
@@ -745,13 +878,18 @@ const Links: React.FC = () => {
                                     value={formData.targetId}
                                     onChange={(e) => setFormData({ ...formData, targetId: e.target.value })}
                                     helperText="Enter the ID of the target item"
+                                    required
                                 />
                             </Grid>
                         </Grid>
                     </DialogContent>
                     <DialogActions>
                         <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleSubmit} variant="contained">
+                        <Button
+                            onClick={handleSubmit}
+                            variant="contained"
+                            disabled={!formData.sourceType || !formData.sourceId || !formData.targetType || !formData.targetId}
+                        >
                             {editingLink ? 'Update' : 'Create'}
                         </Button>
                     </DialogActions>

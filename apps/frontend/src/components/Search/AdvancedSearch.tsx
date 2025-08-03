@@ -85,7 +85,9 @@ import {
     TrendingUp as TrendingUpIcon,
     FilterAlt as FilterAltIcon,
     SearchOff as SearchOffIcon,
-    AutoAwesome as AutoAwesomeIcon
+    AutoAwesome as AutoAwesomeIcon,
+    Analytics as AnalyticsIcon,
+    Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -144,6 +146,25 @@ interface SearchFilters {
     includeArchived: boolean;
     exactMatch: boolean;
     caseSensitive: boolean;
+    minScore: number;
+    groupResults: boolean;
+}
+
+interface SearchCluster {
+    name: string;
+    type: string;
+    results: SearchResult[];
+    count: number;
+    color: string;
+}
+
+interface SearchAnalytics {
+    totalSearches: number;
+    popularQueries: { query: string; count: number }[];
+    searchTrends: { date: string; count: number }[];
+    resultTypes: { type: string; count: number }[];
+    averageResults: number;
+    mostSearchedTags: { tag: string; count: number }[];
 }
 
 interface AdvancedSearchProps {
@@ -153,11 +174,11 @@ interface AdvancedSearchProps {
     onClose?: () => void;
 }
 
-const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ 
-    onResultSelect, 
-    initialQuery = '', 
+const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
+    onResultSelect,
+    initialQuery = '',
     showDrawer = false,
-    onClose 
+    onClose
 }) => {
     const { token } = useAuth();
     const [activeTab, setActiveTab] = useState(0);
@@ -170,7 +191,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
     const [saveDialogOpen, setSaveDialogOpen] = useState(false);
     const [saveSearchName, setSaveSearchName] = useState('');
     const [saveSearchDescription, setSaveSearchDescription] = useState('');
-    const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+    const [viewMode, setViewMode] = useState<'list' | 'grid' | 'clustered'>('list');
     const [selectedResults, setSelectedResults] = useState<string[]>([]);
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
@@ -188,13 +209,27 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
         limit: 50,
         includeArchived: false,
         exactMatch: false,
-        caseSensitive: false
+        caseSensitive: false,
+        minScore: 0,
+        groupResults: false
     });
     const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
         open: false,
         message: '',
         severity: 'success'
     });
+
+    // Enhanced features state
+    const [searchAnalytics, setSearchAnalytics] = useState<SearchAnalytics>({
+        totalSearches: 0,
+        popularQueries: [],
+        searchTrends: [],
+        resultTypes: [],
+        averageResults: 0,
+        mostSearchedTags: []
+    });
+    const [showAnalytics, setShowAnalytics] = useState(false);
+    const [clusteredResults, setClusteredResults] = useState<SearchCluster[]>([]);
 
     // Available search types
     const searchTypes = [
@@ -261,6 +296,50 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
         }
     };
 
+    const loadSearchAnalytics = async () => {
+        try {
+            // TODO: Implement getSearchAnalytics API
+            // const response = await searchApi.getSearchAnalytics();
+            // setSearchAnalytics(response.data);
+            console.log('Search analytics not yet implemented');
+        } catch (error) {
+            console.error('Failed to load search analytics:', error);
+        }
+    };
+
+    const groupResultsByType = (results: SearchResult[]): SearchCluster[] => {
+        const clusters: { [key: string]: SearchResult[] } = {};
+
+        results.forEach(result => {
+            if (!clusters[result.type]) {
+                clusters[result.type] = [];
+            }
+            clusters[result.type].push(result);
+        });
+
+        return Object.entries(clusters).map(([type, typeResults]) => ({
+            name: type.charAt(0).toUpperCase() + type.slice(1),
+            type,
+            results: typeResults,
+            count: typeResults.length,
+            color: getTypeColor(type)
+        }));
+    };
+
+    const saveSearchHistory = async (searchQuery: string, searchFilters: SearchFilters) => {
+        try {
+            // TODO: Implement saveSearchHistory API
+            // await searchApi.saveSearchHistory({
+            //     query: searchQuery,
+            //     filters: searchFilters,
+            //     timestamp: new Date().toISOString()
+            // });
+            console.log('Search history saving not yet implemented');
+        } catch (error) {
+            console.error('Failed to save search history:', error);
+        }
+    };
+
     const performSearch = async (query?: string, searchFilters?: SearchFilters) => {
         const searchParams = {
             query: query || searchQuery,
@@ -283,10 +362,10 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
         try {
             setLoading(true);
             const response = await searchApi.advanced(searchParams);
-            
+
             // Flatten and transform results
             const allResults: SearchResult[] = [];
-            
+
             Object.entries(response.data).forEach(([type, items]: [string, any]) => {
                 if (Array.isArray(items) && type !== 'totalResults' && type !== 'searchTime') {
                     items.forEach((item: any) => {
@@ -310,6 +389,15 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
             });
 
             setResults(allResults);
+
+            // Enhanced features: clustering and analytics
+            if (filters.groupResults) {
+                setClusteredResults(groupResultsByType(allResults));
+            }
+
+            // Save search history
+            await saveSearchHistory(query || searchQuery, searchFilters || filters);
+
             setShowSuggestions(false);
         } catch (error) {
             console.error('Search failed:', error);
@@ -368,7 +456,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
             setSaveSearchName('');
             setSaveSearchDescription('');
             loadSavedSearches();
-            
+
             setSnackbar({
                 open: true,
                 message: 'Search saved successfully!',
@@ -405,7 +493,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
                 exactMatch: searchParams.exactMatch || false,
                 caseSensitive: searchParams.caseSensitive || false
             }));
-            
+
             if (searchParams.query) {
                 performSearch(searchParams.query, searchParams);
             }
@@ -453,7 +541,9 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
             limit: 50,
             includeArchived: false,
             exactMatch: false,
-            caseSensitive: false
+            caseSensitive: false,
+            minScore: 0,
+            groupResults: false
         });
     };
 
@@ -527,8 +617,8 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
     };
 
     const toggleResultSelection = (resultId: string) => {
-        setSelectedResults(prev => 
-            prev.includes(resultId) 
+        setSelectedResults(prev =>
+            prev.includes(resultId)
                 ? prev.filter(id => id !== resultId)
                 : [...prev, resultId]
         );
@@ -540,11 +630,11 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
                 <Box display="flex" alignItems="center" gap={1}>
                     <FilterAltIcon />
                     <Typography>Advanced Filters</Typography>
-                    {Object.values(filters).some(v => 
+                    {Object.values(filters).some(v =>
                         Array.isArray(v) ? v.length > 0 : v !== null && v !== false && v !== 'relevance' && v !== 'desc' && v !== 50
                     ) && (
-                        <Badge badgeContent="!" color="error" />
-                    )}
+                            <Badge badgeContent="!" color="error" />
+                        )}
                 </Box>
             </AccordionSummary>
             <AccordionDetails>
@@ -781,7 +871,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
     const renderSearchResults = () => (
         <Box>
             {loading && <LinearProgress />}
-            
+
             {results.length > 0 && (
                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                     <Typography variant="body2" color="text.secondary">
@@ -804,6 +894,15 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
                                 color={viewMode === 'grid' ? 'primary' : 'default'}
                             >
                                 <ViewModuleIcon />
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Clustered View">
+                            <IconButton
+                                size="small"
+                                onClick={() => setViewMode('clustered')}
+                                color={viewMode === 'clustered' ? 'primary' : 'default'}
+                            >
+                                <CategoryIcon />
                             </IconButton>
                         </Tooltip>
                         <Tooltip title="Export Results">
@@ -909,7 +1008,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
                     {results.map((result) => (
                         <Grid item xs={12} sm={6} md={4} key={`${result.type}-${result.id}`}>
                             <Card
-                                sx={{ 
+                                sx={{
                                     cursor: 'pointer',
                                     '&:hover': { boxShadow: 4 },
                                     border: selectedResults.includes(result.id) ? 2 : 1,
@@ -973,6 +1072,67 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
                 </Grid>
             )}
 
+            {viewMode === 'clustered' && (
+                <Grid container spacing={2}>
+                    {clusteredResults.map((cluster) => (
+                        <Grid item xs={12} key={cluster.type}>
+                            <Card>
+                                <CardContent>
+                                    <Box display="flex" alignItems="center" gap={2} mb={2}>
+                                        <Avatar sx={{ bgcolor: cluster.color }}>
+                                            {getTypeIcon(cluster.type)}
+                                        </Avatar>
+                                        <Box>
+                                            <Typography variant="h6">
+                                                {cluster.name}
+                                            </Typography>
+                                            <Typography variant="body2" color="text.secondary">
+                                                {cluster.count} results
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                    <List dense>
+                                        {cluster.results.slice(0, 5).map((result) => (
+                                            <ListItem
+                                                key={result.id}
+                                                button
+                                                onClick={() => handleResultSelect(result)}
+                                            >
+                                                <ListItemIcon>
+                                                    {getTypeIcon(result.type)}
+                                                </ListItemIcon>
+                                                <ListItemText
+                                                    primary={result.title}
+                                                    secondary={
+                                                        <Box>
+                                                            <Typography variant="body2" color="text.secondary">
+                                                                {result.content.substring(0, 100)}...
+                                                            </Typography>
+                                                            <Box display="flex" gap={1} mt={1}>
+                                                                {result.tags?.slice(0, 2).map((tag) => (
+                                                                    <Chip key={tag} label={tag} size="small" variant="outlined" />
+                                                                ))}
+                                                            </Box>
+                                                        </Box>
+                                                    }
+                                                />
+                                            </ListItem>
+                                        ))}
+                                    </List>
+                                    {cluster.results.length > 5 && (
+                                        <Box textAlign="center" mt={2}>
+                                            <Typography variant="body2" color="text.secondary">
+                                                +{cluster.results.length - 5} more results
+                                            </Typography>
+                                        </Box>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                    ))}
+                </Grid>
+            )}
+
             {results.length === 0 && !loading && searchQuery && (
                 <Box textAlign="center" py={4}>
                     <SearchOffIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
@@ -1000,7 +1160,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
                     Save Current Search
                 </Button>
             </Box>
-            
+
             {savedSearches.length === 0 ? (
                 <Box textAlign="center" py={4}>
                     <BookmarkIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
@@ -1064,7 +1224,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
                     Clear History
                 </Button>
             </Box>
-            
+
             {searchHistory.length === 0 ? (
                 <Box textAlign="center" py={4}>
                     <HistoryIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
@@ -1104,6 +1264,96 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
                     ))}
                 </List>
             )}
+        </Box>
+    );
+
+    const renderSearchAnalytics = () => (
+        <Box>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="h6">Search Analytics</Typography>
+                <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={loadSearchAnalytics}
+                    startIcon={<RefreshIcon />}
+                >
+                    Refresh
+                </Button>
+            </Box>
+
+            <Grid container spacing={3}>
+                {/* Overview Stats */}
+                <Grid item xs={12} md={6}>
+                    <Card>
+                        <CardContent>
+                            <Typography variant="h6" gutterBottom>Overview</Typography>
+                            <Box display="flex" justifyContent="space-between" mb={2}>
+                                <Typography>Total Searches:</Typography>
+                                <Typography variant="h6">{searchAnalytics.totalSearches}</Typography>
+                            </Box>
+                            <Box display="flex" justifyContent="space-between" mb={2}>
+                                <Typography>Average Results:</Typography>
+                                <Typography variant="h6">{searchAnalytics.averageResults.toFixed(1)}</Typography>
+                            </Box>
+                        </CardContent>
+                    </Card>
+                </Grid>
+
+                {/* Popular Queries */}
+                <Grid item xs={12} md={6}>
+                    <Card>
+                        <CardContent>
+                            <Typography variant="h6" gutterBottom>Popular Queries</Typography>
+                            {searchAnalytics.popularQueries.slice(0, 5).map((query, index) => (
+                                <Box key={index} display="flex" justifyContent="space-between" mb={1}>
+                                    <Typography variant="body2" noWrap sx={{ maxWidth: '70%' }}>
+                                        {query.query}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        {query.count}
+                                    </Typography>
+                                </Box>
+                            ))}
+                        </CardContent>
+                    </Card>
+                </Grid>
+
+                {/* Result Types */}
+                <Grid item xs={12} md={6}>
+                    <Card>
+                        <CardContent>
+                            <Typography variant="h6" gutterBottom>Result Types</Typography>
+                            {searchAnalytics.resultTypes.map((type, index) => (
+                                <Box key={index} display="flex" justifyContent="space-between" mb={1}>
+                                    <Typography variant="body2">
+                                        {type.type}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        {type.count}
+                                    </Typography>
+                                </Box>
+                            ))}
+                        </CardContent>
+                    </Card>
+                </Grid>
+
+                {/* Popular Tags */}
+                <Grid item xs={12} md={6}>
+                    <Card>
+                        <CardContent>
+                            <Typography variant="h6" gutterBottom>Popular Tags</Typography>
+                            {searchAnalytics.mostSearchedTags.slice(0, 5).map((tag, index) => (
+                                <Chip
+                                    key={index}
+                                    label={`${tag.tag} (${tag.count})`}
+                                    size="small"
+                                    sx={{ mr: 1, mb: 1 }}
+                                />
+                            ))}
+                        </CardContent>
+                    </Card>
+                </Grid>
+            </Grid>
         </Box>
     );
 
@@ -1150,7 +1400,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
                         }}
                         size="medium"
                     />
-                    
+
                     {/* Search Suggestions */}
                     {showSuggestions && suggestions.length > 0 && (
                         <Paper
@@ -1215,7 +1465,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
             {/* Tabs */}
             <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
                 <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
-                    <Tab 
+                    <Tab
                         label={
                             <Box display="flex" alignItems="center" gap={1}>
                                 <SearchIcon />
@@ -1224,9 +1474,9 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
                                     <Badge badgeContent={results.length} color="primary" />
                                 )}
                             </Box>
-                        } 
+                        }
                     />
-                    <Tab 
+                    <Tab
                         label={
                             <Box display="flex" alignItems="center" gap={1}>
                                 <BookmarkIcon />
@@ -1235,9 +1485,9 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
                                     <Badge badgeContent={savedSearches.length} color="secondary" />
                                 )}
                             </Box>
-                        } 
+                        }
                     />
-                    <Tab 
+                    <Tab
                         label={
                             <Box display="flex" alignItems="center" gap={1}>
                                 <HistoryIcon />
@@ -1246,7 +1496,15 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
                                     <Badge badgeContent={searchHistory.length} color="info" />
                                 )}
                             </Box>
-                        } 
+                        }
+                    />
+                    <Tab
+                        label={
+                            <Box display="flex" alignItems="center" gap={1}>
+                                <AnalyticsIcon />
+                                Analytics
+                            </Box>
+                        }
                     />
                 </Tabs>
             </Box>
@@ -1255,6 +1513,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
             {activeTab === 0 && renderSearchResults()}
             {activeTab === 1 && renderSavedSearches()}
             {activeTab === 2 && renderSearchHistory()}
+            {activeTab === 3 && renderSearchAnalytics()}
         </Box>
     );
 

@@ -1,5 +1,4 @@
-export { default as NotionWorkspace } from './NotionWorkspace';
-export { default as ColumnComponent } from './Column';
-export { default as BlockComponent } from './Block';
-export type { Block } from './Block';
-export type { Column } from './Column'; 
+export { default as NotionPage } from './NotionPage';
+export { default as BlockEditor } from './BlockEditor';
+export { default as NotionWorkspaceTab } from './NotionWorkspaceTab';
+export * from './types'; 

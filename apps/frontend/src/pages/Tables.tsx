@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Box,
     Typography,
@@ -157,6 +158,7 @@ const TABLE_FIELDS = [
 ];
 
 const Tables: React.FC = () => {
+    const navigate = useNavigate();
     const [tables, setTables] = useState<Table[]>([]);
     const [filteredTables, setFilteredTables] = useState<Table[]>([]);
     const [experiments, setExperiments] = useState<Experiment[]>([]);
@@ -594,7 +596,32 @@ const Tables: React.FC = () => {
         );
     }
 
-    const handleOpenEntity = (entry: any) => { };
+    const handleOpenEntity = (entry: any) => {
+        // Navigate to entity details based on type
+        if (entry.type === 'note') {
+            navigate(`/notes/${entry.id}`);
+        } else if (entry.type === 'project') {
+            navigate(`/projects/${entry.id}`);
+        } else if (entry.type === 'protocol') {
+            navigate(`/protocols/${entry.id}`);
+        } else if (entry.type === 'recipe') {
+            navigate(`/recipes/${entry.id}`);
+        } else if (entry.type === 'experiment') {
+            navigate(`/experiments/${entry.id}`);
+        } else if (entry.type === 'task') {
+            navigate(`/tasks/${entry.id}`);
+        } else if (entry.type === 'databaseEntry') {
+            navigate(`/database/${entry.id}`);
+        } else if (entry.type === 'table') {
+            navigate(`/tables/${entry.id}`);
+        } else if (entry.type === 'pdf') {
+            navigate(`/pdfs/${entry.id}`);
+        } else if (entry.type === 'literatureNote') {
+            navigate(`/literature/${entry.id}`);
+        } else {
+            console.warn('Unknown entity type for navigation:', entry.type);
+        }
+    };
 
     return (
         <Box>

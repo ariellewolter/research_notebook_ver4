@@ -117,13 +117,17 @@ const ZoteroMetadataDisplay: React.FC<ZoteroMetadataDisplayProps> = ({
     const formatDate = (date?: string) => {
         if (!date) return 'Unknown Date';
         try {
-            return new Date(date).toLocaleDateString('en-US', {
+            const parsedDate = new Date(date);
+            if (isNaN(parsedDate.getTime())) {
+                return 'Invalid Date';
+            }
+            return parsedDate.toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric'
             });
         } catch {
-            return date;
+            return 'Invalid Date';
         }
     };
 

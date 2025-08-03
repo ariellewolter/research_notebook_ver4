@@ -43,7 +43,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 const userData = JSON.parse(savedUser);
                 setToken(savedToken);
                 setUser(userData);
-                
+
                 // Verify token is still valid
                 verifyToken(savedToken);
             } catch (error) {
@@ -76,10 +76,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
 
     const login = (newToken: string, userData: User) => {
+        console.log('AuthContext login called with:', { newToken, userData });
         setToken(newToken);
         setUser(userData);
         localStorage.setItem('authToken', newToken);
         localStorage.setItem('authUser', JSON.stringify(userData));
+        console.log('Login completed, user state updated');
     };
 
     const logout = () => {
@@ -96,6 +98,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         logout,
         isAuthenticated: !!token && !!user,
     };
+
+    // Debug logging
+    console.log('AuthContext state:', {
+        user,
+        token: token ? 'present' : 'null',
+        isAuthenticated: !!token && !!user,
+        hasUser: !!user,
+        hasToken: !!token
+    });
 
     if (isLoading) {
         return <div>Loading...</div>; // You can replace this with a proper loading component

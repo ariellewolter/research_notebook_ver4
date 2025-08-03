@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Box,
     Typography,
@@ -112,7 +112,7 @@ const Journal: React.FC = () => {
         loadNotes();
     }, []);
 
-    const loadNotes = async () => {
+    const loadNotes = useCallback(async () => {
         try {
             setLoading(true);
             const response = await notesApi.getAll();
@@ -124,7 +124,7 @@ const Journal: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
         setTabValue(newValue);
