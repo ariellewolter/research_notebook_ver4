@@ -11,6 +11,7 @@
   npm install -g pnpm
   ```
 - **Git**: [Download Git](https://git-scm.com/)
+- **Electron** (for desktop app): Automatically installed with project dependencies
 
 ### 2. **Clone the Repository**
 ```bash
@@ -30,6 +31,8 @@ pnpm exec prisma migrate dev --name init
 ```
 
 ### 5. **Start the App**
+
+#### **Option A: Web Development Mode**
 - **Backend:**
   ```bash
   pnpm dev
@@ -40,7 +43,24 @@ pnpm exec prisma migrate dev --name init
   pnpm dev
   ```
 - Open your browser to [http://localhost:5173](http://localhost:5173)
-- **Calendar Setup:** Go to the Settings page to connect your Google, Outlook, or Apple Calendar.
+
+#### **Option B: Electron Desktop App**
+- **Full Stack Development:**
+  ```bash
+  pnpm start
+  ```
+- **Electron Only (with running backend/frontend):**
+  ```bash
+  pnpm electron:dev
+  ```
+- **Build and Package Desktop App:**
+  ```bash
+  pnpm frontend:build
+  pnpm electron:build
+  ```
+
+#### **Calendar Setup:** 
+Go to the Settings page to connect your Google, Outlook, or Apple Calendar.
 
 ### 6. **Environment Variables (Optional)**
 Create a `.env` file in `apps/backend/` for custom DB or Zotero integration (see below for details).
@@ -49,6 +69,42 @@ Create a `.env` file in `apps/backend/` for custom DB or Zotero integration (see
 - All data is stored locally in `apps/backend/prisma/dev.db` (SQLite).
 - Uploaded files (PDFs, etc.) are stored in `apps/backend/uploads/`.
 - To move your data to another computer, copy these files/directories.
+
+### 8. **Desktop App Features**
+- **OS File Handler:** Double-click PDF files to open them in the Research Notebook app
+- **System Tray:** App runs in system tray with quick access menu
+- **Auto-Start:** Option to start app automatically on system login
+- **Multi-Window Support:** Open multiple windows for different tasks
+- **Native File Dialogs:** Use system file dialogs for opening and saving files
+
+---
+
+## 🖥️ Desktop App Features
+
+### **OS File Handler Integration**
+- **PDF File Association:** Double-click any PDF file to open it directly in Research Notebook
+- **Cross-Platform Support:** Works on Windows, macOS, and Linux
+- **Smart File Handling:** If app is closed, launches and opens the file; if running, opens in new window
+- **File Type Registration:** Automatically registers PDF files with the app during installation
+
+### **System Integration**
+- **System Tray:** App runs in system tray with quick access menu
+- **Auto-Start:** Option to start app automatically on system login
+- **Native Notifications:** System-level notifications for app events
+- **Window Management:** Minimize to tray, restore from tray, and proper app lifecycle
+
+### **Multi-Window System**
+- **Popout Windows:** Open any route in a separate window
+- **PDF Viewer Windows:** Dedicated windows for PDF viewing
+- **Editor Windows:** Separate windows for document editing
+- **Settings Windows:** Modal settings dialogs
+- **Window Management:** Close, focus, minimize, and restore individual windows
+
+### **Native File Operations**
+- **File Dialogs:** Use system file dialogs for opening and saving files
+- **Save File Dialog:** Native save dialog with content writing
+- **Local Settings:** Persistent app settings stored in user data directory
+- **File System Access:** Direct file system access for better performance
 
 ---
 
@@ -93,15 +149,22 @@ A modular, extensible research notebook built for PhD-level scientific workflows
 - **📋 Task Management** - Complete task system with natural language date parsing, recurring tasks, templates, time tracking, and workflow management
 - **🔍 Advanced Search** - Multi-type search with clustering, analytics, and saved searches
 - **📤 Import/Export** - Comprehensive data import/export with field mapping and validation
-- **📚 PDF Management** - Unified PDF interface with Zotero integration
+- **📚 PDF Management** - Unified PDF interface with Zotero integration and PDF download functionality
 - **🧮 Built-In Tools** - Scientific calculators and data visualization
 - **🗓️ Calendar Integrations** - Google, Outlook, and Apple Calendar support
 - **🔔 Notification System** - Comprehensive notification settings with multiple delivery methods
 - **📊 Analytics Dashboard** - Experiment success tracking, productivity metrics, interactive charts, and predictive analytics
+- **🔧 Type Safety** - Comprehensive TypeScript interfaces for all API entities and improved error handling
 - **🔗 Cross-Linking System** - Obsidian-style bidirectional linking
 - **🎨 UI/UX** - Modern Material-UI interface with responsive design
 - **🔐 Authentication System** - JWT-based authentication with protected routes
 - **🔄 API Integration** - Complete frontend-backend integration with all 19 routes
+- **🖥️ Desktop App** - Electron-based desktop application with native OS integration
+- **📁 OS File Handler** - Double-click PDF files to open in Research Notebook
+- **🪟 Multi-Window System** - Open multiple windows for different tasks and workflows
+- **🔔 System Notifications** - Native OS notifications for app events
+- **💾 Local Settings** - Persistent app settings with auto-save functionality
+- **🚀 Auto-Start** - Option to start app automatically on system login
 
 ### 📋 **Planned Future Features**
 - **🎯 Advanced Features** - Shared review mode, visual pathway editor, AI suggestions
@@ -165,6 +228,11 @@ A modular, extensible research notebook built for PhD-level scientific workflows
 - **React PDF** - PDF viewing and annotation
 - **Recharts** - Data visualization and analytics
 
+### **Desktop App**
+- **Electron** - Cross-platform desktop application framework
+- **electron-builder** - App packaging and distribution
+- **System Integration** - Native OS file handlers, notifications, and tray support
+
 ### **Development Tools**
 - **pnpm** - Fast, disk space efficient package manager
 - **ESLint** & **Prettier** - Code quality and formatting
@@ -192,11 +260,29 @@ notebook-notion-app/
 │   │   │   │   ├── notifications.ts # Notification system
 │   │   │   │   ├── importExport.ts # Data import/export
 │   │   │   │   └── zotero.ts    # Zotero API integration
-│   │   │   └── app.ts           # Express app configuration
+│   │   │   ├── app.ts           # Express app configuration
+│   │   │   └── simple-app.ts    # Simplified backend for development
 │   │   ├── prisma/
 │   │   │   └── schema.prisma    # Database schema
 │   │   └── uploads/             # PDF file storage
 │   └── frontend/                # React frontend
+│       ├── src/
+│       │   ├── components/      # React components
+│       │   ├── hooks/           # Custom React hooks
+│       │   │   ├── useWindowManager.ts # Multi-window management
+│       │   │   ├── useNotification.ts # Notification system
+│       │   │   └── useAppSettings.ts # App settings management
+│       │   └── utils/
+│       │       └── fileSystemAPI.ts # File system abstraction
+├── electron/                    # Electron desktop app
+│   ├── main.js                  # Main process
+│   ├── preload.js               # Preload script for IPC
+│   ├── utils/
+│   │   ├── spawnBackend.js      # Backend process management
+│   │   └── fileUtils.js         # File system utilities
+│   └── assets/                  # App icons and resources
+├── electron-builder.json        # Electron build configuration
+└── package.json                 # Root package configuration
 │       ├── src/
 │       │   ├── components/      # React components
 │       │   │   ├── NotionWorkspace/ # Advanced workspace interface

@@ -20,6 +20,7 @@ import LinkRenderer from '../components/UniversalLinking/LinkRenderer';
 import { notesApi, linksApi, databaseApi, projectsApi } from '../services/api';
 import { useThemePalette } from '../services/ThemePaletteContext';
 import { NOTE_TYPE_TO_PALETTE_ROLE } from '../services/colorPalettes';
+import { saveFileDialog } from '../utils/fileSystemAPI';
 
 interface Note {
     id: string;
@@ -128,7 +129,7 @@ const NotesView = () => {
         }
     };
 
-    const handleExportNotes = () => {
+    const handleExportNotes = async () => {
         const exportData = {
             notes: filteredNotes,
             exportDate: new Date().toISOString(),
@@ -139,16 +140,22 @@ const NotesView = () => {
             }
         };
 
-        const dataStr = JSON.stringify(exportData, null, 2);
-        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-        const url = URL.createObjectURL(dataBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `notes-export-${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        const content = JSON.stringify(exportData, null, 2);
+        const filename = `notes-export-${new Date().toISOString().split('T')[0]}.json`;
+        
+        try {
+            const result = await saveFileDialog(content, filename);
+            
+            if (result.success) {
+                console.log('Notes exported successfully');
+            } else if (result.canceled) {
+                console.log('Export canceled');
+            } else {
+                console.error('Export failed:', result.error);
+            }
+        } catch (error) {
+            console.error('Error exporting notes:', error);
+        }
     };
 
     const getTypeColor = (type: string) => {

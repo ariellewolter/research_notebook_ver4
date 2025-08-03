@@ -5,7 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- Initial setup for automated releases.
+
+## [1.0.2] - 2025-08-03
+### Fixed
+- **PDF Download Feature**: Implemented missing PDF download functionality in Zotero integration
+- **Debug Logging Cleanup**: Removed excessive debug logging from production code
+- **API Response Handling**: Improved inconsistent API response structure handling
+- **Navigation Error Handling**: Enhanced entity navigation error handling with route validation
+- **Type Safety Issues**: Replaced 'any' types with proper TypeScript interfaces
+
+### Added
+- PDF download functionality with proper error handling and file validation
+- Comprehensive TypeScript interfaces for all API entities
+- Route validation before navigation attempts
+- Development-only debug logging to prevent production performance issues
+
+### Improved
+- Type safety across the entire application with proper interfaces
+- API response handling consistency across different endpoints
+- Error handling and user feedback for navigation failures
+- Code maintainability and reduced runtime errors
 
 ## [1.0.1] - 2025-08-03
 ### Fixed

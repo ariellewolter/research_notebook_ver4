@@ -42,7 +42,7 @@ import {
 } from '@mui/icons-material';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
-import { saveAs } from 'file-saver';
+import { saveFileDialog } from '@/utils/fileSystemAPI';
 
 interface ExportEntity {
     key: string;
@@ -281,14 +281,13 @@ const DataExport: React.FC<DataExportProps> = ({ open, onClose }) => {
                 });
             }
 
-            // Generate file based on format
-            let blob: Blob;
+            // Generate file content based on format
+            let content: string;
             let filename: string;
 
             switch (config.format) {
                 case 'json':
-                    const jsonData = JSON.stringify(exportData, null, 2);
-                    blob = new Blob([jsonData], { type: 'application/json' });
+                    content = JSON.stringify(exportData, null, 2);
                     filename = `${config.filename}.json`;
                     break;
 
@@ -305,7 +304,7 @@ const DataExport: React.FC<DataExportProps> = ({ open, onClose }) => {
                         return csv;
                     }).join('\n\n');
                     
-                    blob = new Blob([csvData], { type: 'text/csv' });
+                    content = csvData;
                     filename = `${config.filename}.csv`;
                     break;
 
@@ -320,7 +319,9 @@ const DataExport: React.FC<DataExportProps> = ({ open, onClose }) => {
                     });
                     
                     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-                    blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
+                    // Convert ArrayBuffer to string for fileSystemAPI
+                    const uint8Array = new Uint8Array(excelBuffer);
+                    content = Array.from(uint8Array, byte => String.fromCharCode(byte)).join('');
                     filename = `${config.filename}.xlsx`;
                     break;
 
@@ -328,8 +329,16 @@ const DataExport: React.FC<DataExportProps> = ({ open, onClose }) => {
                     throw new Error('Unsupported format');
             }
 
-            saveAs(blob, filename);
-            setSuccess(`Successfully exported ${config.entities.length} entities to ${filename}`);
+            // Use fileSystemAPI for native file dialog
+            const result = await saveFileDialog(content, filename);
+            
+            if (result.success) {
+                setSuccess(`Successfully exported ${config.entities.length} entities to ${filename}`);
+            } else if (result.canceled) {
+                setSuccess('Export canceled');
+            } else {
+                setError(result.error || 'Export failed');
+            }
 
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Export failed');

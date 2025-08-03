@@ -14,7 +14,7 @@ import {
     ExpandMore as ExpandMoreIcon, CheckCircle as CheckIcon,
     Warning as WarningIcon, Info as InfoIcon
 } from '@mui/icons-material';
-import { saveAs } from 'file-saver';
+import { saveFileDialog } from '../../utils/fileSystemAPI';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import { format } from 'date-fns';
@@ -331,34 +331,30 @@ const PublicationReadyExport: React.FC<PublicationReadyExportProps> = ({
             if (!template) throw new Error('Template not found');
 
             const content = generatePublicationContent(template);
-            let blob: Blob;
+            let fileContent: string;
             let filename: string;
 
             switch (exportConfig.format) {
                 case 'pdf':
                     // For now, we'll create a JSON file that can be converted to PDF
                     // In a real implementation, you'd use a PDF library like jsPDF or puppeteer
-                    const pdfContent = JSON.stringify(content, null, 2);
-                    blob = new Blob([pdfContent], { type: 'application/json' });
+                    fileContent = JSON.stringify(content, null, 2);
                     filename = `${exportConfig.filename}.json`;
                     break;
 
                 case 'docx':
                     // Similar approach for DOCX - would use a library like docx
-                    const docxContent = JSON.stringify(content, null, 2);
-                    blob = new Blob([docxContent], { type: 'application/json' });
+                    fileContent = JSON.stringify(content, null, 2);
                     filename = `${exportConfig.filename}.json`;
                     break;
 
                 case 'html':
-                    const htmlContent = generateHTMLContent(content, template);
-                    blob = new Blob([htmlContent], { type: 'text/html' });
+                    fileContent = generateHTMLContent(content, template);
                     filename = `${exportConfig.filename}.html`;
                     break;
 
                 case 'json':
-                    const jsonContent = JSON.stringify(content, null, 2);
-                    blob = new Blob([jsonContent], { type: 'application/json' });
+                    fileContent = JSON.stringify(content, null, 2);
                     filename = `${exportConfig.filename}.json`;
                     break;
 
@@ -366,8 +362,16 @@ const PublicationReadyExport: React.FC<PublicationReadyExportProps> = ({
                     throw new Error('Unsupported format');
             }
 
-            saveAs(blob, filename);
-            setSuccess(`Export completed successfully! File saved as ${filename}`);
+            // Use fileSystemAPI for native file dialog
+            const result = await saveFileDialog(fileContent, filename);
+            
+            if (result.success) {
+                setSuccess(`Export completed successfully! File saved as ${filename}`);
+            } else if (result.canceled) {
+                setSuccess('Export canceled');
+            } else {
+                setError(result.error || 'Export failed');
+            }
         } catch (err: any) {
             setError(err.message || 'Export failed');
         } finally {

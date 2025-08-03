@@ -2,6 +2,7 @@
     "name": "notebook-notion-app",
     "private": true,
     "version": "0.1.0",
+    "main": "electron/main.js",
     "workspaces": [
         "apps/*",
         "packages/*"
@@ -12,9 +13,27 @@
         "dev": "pnpm -r dev",
         "build": "pnpm -r build",
         "lint": "pnpm -r lint",
-        "format": "pnpm -r format"
+        "format": "pnpm -r format",
+        "frontend:build": "pnpm --filter @notebook-notion-app/frontend build",
+        "backend:start": "pnpm --filter @notebook-notion-app/backend dev",
+        "backend:simple": "pnpm --filter @notebook-notion-app/backend simple-dev",
+        "electron:dev": "cross-env ELECTRON_START_URL=http://localhost:5173 electron .",
+        "start": "concurrently \"pnpm --filter @notebook-notion-app/frontend dev\" \"pnpm --filter @notebook-notion-app/backend dev\" \"pnpm electron:dev\"",
+        "start:simple": "concurrently \"pnpm --filter @notebook-notion-app/frontend dev\" \"pnpm --filter @notebook-notion-app/backend simple-dev\" \"pnpm electron:dev\"",
+        "electron:build": "electron-builder",
+        "electron:package": "pnpm frontend:build && pnpm electron:build",
+        "prisma:generate": "cd apps/backend && pnpm exec prisma generate",
+        "prisma:migrate": "cd apps/backend && pnpm exec prisma migrate dev",
+        "test:file-handler": "echo 'Test file handler by double-clicking a PDF file after building the app'"
     },
     "dependencies": {
         "bcryptjs": "^3.0.2"
+    },
+    "devDependencies": {
+        "concurrently": "^8.2.2",
+        "cross-env": "^7.0.3",
+        "electron": "^28.3.3",
+        "electron-builder": "^24.9.1",
+        "sharp": "^0.34.3"
     }
 }

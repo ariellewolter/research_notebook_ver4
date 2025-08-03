@@ -97,23 +97,28 @@ const ResearchDashboard: React.FC = () => {
                 recipesApi.getAll({ limit: 1 }),
             ]);
             // Helper function to safely extract count from API response
-            const getCount = (response: any, possiblePaths: string[]): number => {
+            const getCount = (response: any): number => {
                 if (response.status !== 'fulfilled') return 0;
                 const data = response.value.data;
-                for (const path of possiblePaths) {
-                    const value = path.split('.').reduce((obj, key) => obj?.[key], data);
-                    if (Array.isArray(value)) return value.length;
+                // Handle different response structures consistently
+                if (Array.isArray(data)) return data.length;
+                if (data && typeof data === 'object') {
+                    // Check for common array properties
+                    const possibleArrays = ['notes', 'pdfs', 'entries', 'tables', 'protocols', 'recipes', 'data'];
+                    for (const key of possibleArrays) {
+                        if (Array.isArray(data[key])) return data[key].length;
+                    }
                 }
                 return 0;
             };
 
-            const notesCount = getCount(notesRes, ['notes', 'data']);
-            const projectsCount = getCount(projectsRes, ['data']);
-            const pdfsCount = getCount(pdfsRes, ['pdfs', 'data']);
-            const databaseCount = getCount(databaseRes, ['entries', 'data']);
-            const tablesCount = getCount(tablesRes, ['tables', 'data']);
-            const protocolsCount = getCount(protocolsRes, ['protocols', 'data']);
-            const recipesCount = getCount(recipesRes, ['recipes', 'data']);
+            const notesCount = getCount(notesRes);
+            const projectsCount = getCount(projectsRes);
+            const pdfsCount = getCount(pdfsRes);
+            const databaseCount = getCount(databaseRes);
+            const tablesCount = getCount(tablesRes);
+            const protocolsCount = getCount(protocolsRes);
+            const recipesCount = getCount(recipesRes);
             setStats({
                 notes: notesCount,
                 projects: projectsCount,
@@ -124,22 +129,27 @@ const ResearchDashboard: React.FC = () => {
                 recipes: recipesCount,
             });
             // Helper function to safely extract array from API response
-            const getArray = (response: any, possiblePaths: string[]): any[] => {
+            const getArray = (response: any): any[] => {
                 if (response.status !== 'fulfilled') return [];
                 const data = response.value.data;
-                for (const path of possiblePaths) {
-                    const value = path.split('.').reduce((obj, key) => obj?.[key], data);
-                    if (Array.isArray(value)) return value;
+                // Handle different response structures consistently
+                if (Array.isArray(data)) return data;
+                if (data && typeof data === 'object') {
+                    // Check for common array properties
+                    const possibleArrays = ['notes', 'pdfs', 'entries', 'tables', 'protocols', 'recipes', 'data'];
+                    for (const key of possibleArrays) {
+                        if (Array.isArray(data[key])) return data[key];
+                    }
                 }
                 return [];
             };
 
             if (notesRes.status === 'fulfilled') {
-                const notes = getArray(notesRes, ['notes', 'data']);
+                const notes = getArray(notesRes);
                 setRecentNotes(notes.slice(0, 3));
             }
             if (projectsRes.status === 'fulfilled') {
-                const projects = getArray(projectsRes, ['data']);
+                const projects = getArray(projectsRes);
                 setRecentProjects(projects.slice(0, 3));
                 // Fetch experiments for the first project as a demo
                 if (projects.length > 0) {

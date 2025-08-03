@@ -1,0 +1,159 @@
+{
+    "appId": "com.researchnotebook.app",
+    "productName": "Research Notebook",
+    "directories": {
+        "output": "dist-electron",
+        "buildResources": "electron/assets"
+    },
+    "files": [
+        "electron/**/*",
+        "apps/frontend/dist/**/*",
+        "apps/backend/**/*",
+        "node_modules/**/*",
+        "package.json"
+    ],
+    "extraResources": [
+        {
+            "from": "apps/backend/prisma",
+            "to": "prisma"
+        },
+        {
+            "from": "apps/backend/uploads",
+            "to": "uploads"
+        }
+    ],
+    "mac": {
+        "category": "public.app-category.productivity",
+        "target": [
+            {
+                "target": "dmg",
+                "arch": [
+                    "x64",
+                    "arm64"
+                ]
+            }
+        ],
+        "icon": "electron/assets/app-icon.icns",
+        "darkModeSupport": true,
+        "hardenedRuntime": true,
+        "gatekeeperAssess": false,
+        "entitlements": "electron/assets/entitlements.mac.plist",
+        "entitlementsInherit": "electron/assets/entitlements.mac.plist",
+        "extendInfo": {
+            "CFBundleDisplayName": "Research Notebook",
+            "CFBundleName": "Research Notebook",
+            "CFBundleIdentifier": "com.researchnotebook.app",
+            "CFBundleDocumentTypes": [
+                {
+                    "CFBundleTypeName": "PDF Document",
+                    "CFBundleTypeRole": "Viewer",
+                    "CFBundleTypeExtensions": ["pdf"],
+                    "CFBundleTypeIconFile": "app-icon.icns",
+                    "LSHandlerRank": "Owner",
+                    "LSItemContentTypes": ["com.adobe.pdf"]
+                }
+            ],
+            "UTExportedTypeDeclarations": [
+                {
+                    "UTTypeIdentifier": "com.researchnotebook.pdf",
+                    "UTTypeDescription": "PDF Document",
+                    "UTTypeConformsTo": ["public.data", "public.content"],
+                    "UTTypeTagSpecification": {
+                        "public.filename-extension": "pdf",
+                        "public.mime-type": "application/pdf"
+                    }
+                }
+            ]
+        }
+    },
+    "win": {
+        "target": [
+            {
+                "target": "nsis",
+                "arch": [
+                    "x64"
+                ]
+            }
+        ],
+        "icon": "electron/assets/app-icon.ico",
+        "requestedExecutionLevel": "asInvoker",
+        "publisherName": "Research Notebook Team",
+        "verifyUpdateCodeSignature": false,
+        "signingHashAlgorithms": [
+            "sha256"
+        ],
+        "fileAssociations": [
+            {
+                "ext": "pdf",
+                "name": "PDF Document",
+                "description": "PDF Document",
+                "icon": "electron/assets/app-icon.ico",
+                "role": "Viewer"
+            }
+        ]
+    },
+    "linux": {
+        "target": [
+            {
+                "target": "AppImage",
+                "arch": [
+                    "x64"
+                ]
+            },
+            {
+                "target": "deb",
+                "arch": [
+                    "x64"
+                ]
+            }
+        ],
+        "icon": "electron/assets/app-icon.png",
+        "category": "Science",
+        "desktop": {
+            "Name": "Research Notebook",
+            "Comment": "Research Notebook Application",
+            "Type": "Application",
+            "Categories": "Science;Education;Office;",
+            "Terminal": false,
+            "StartupWMClass": "Research Notebook"
+        },
+        "fileAssociations": [
+            {
+                "ext": "pdf",
+                "name": "PDF Document",
+                "description": "PDF Document",
+                "icon": "electron/assets/app-icon.png",
+                "role": "Viewer",
+                "mimeType": "application/pdf"
+            }
+        ]
+    },
+    "nsis": {
+        "oneClick": false,
+        "allowToChangeInstallationDirectory": true,
+        "createDesktopShortcut": true,
+        "createStartMenuShortcut": true,
+        "shortcutName": "Research Notebook",
+        "installerIcon": "electron/assets/app-icon.ico",
+        "uninstallerIcon": "electron/assets/app-icon.ico",
+        "installerHeaderIcon": "electron/assets/app-icon.ico",
+        "deleteAppDataOnUninstall": false,
+        "include": "electron/assets/installer.nsh"
+    },
+    "dmg": {
+        "title": "Research Notebook",
+        "icon": "electron/assets/app-icon.icns",
+        "background": "electron/assets/dmg-background.png",
+        "window": {
+            "width": 540,
+            "height": 380
+        }
+    },
+    "appImage": {
+        "category": "Science"
+    },
+    "publish": {
+        "provider": "github",
+        "releaseType": "release"
+    }
+}

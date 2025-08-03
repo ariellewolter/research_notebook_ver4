@@ -99,14 +99,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isAuthenticated: !!token && !!user,
     };
 
-    // Debug logging
-    console.log('AuthContext state:', {
-        user,
-        token: token ? 'present' : 'null',
-        isAuthenticated: !!token && !!user,
-        hasUser: !!user,
-        hasToken: !!token
-    });
+    // Debug logging - only in development
+    if (process.env.NODE_ENV === 'development') {
+        console.log('AuthContext state:', {
+            user,
+            token: token ? 'present' : 'null',
+            isAuthenticated: !!token && !!user,
+            hasUser: !!user,
+            hasToken: !!token
+        });
+    }
 
     if (isLoading) {
         return <div>Loading...</div>; // You can replace this with a proper loading component

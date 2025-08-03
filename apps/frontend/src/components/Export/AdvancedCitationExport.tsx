@@ -1,16 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, 
-    FormControl, InputLabel, Select, MenuItem, Box, Typography, Chip, 
-    CircularProgress, Alert, Tabs, Tab, List, ListItem, ListItemText,
-    ListItemIcon, Checkbox, FormControlLabel, Divider, IconButton
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Button,
+    TextField,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    List,
+    ListItem,
+    ListItemText,
+    ListItemIcon,
+    Checkbox,
+    Box,
+    Typography,
+    Chip,
+    CircularProgress,
+    Alert,
+    Divider,
+    Tabs,
+    Tab
 } from '@mui/material';
 import {
-    Download as DownloadIcon, FileDownload as FileDownloadIcon, 
-    Timeline as TimelineIcon, Assessment as AssessmentIcon,
-    Description as DescriptionIcon, Code as CodeIcon
+    Download as DownloadIcon,
+    FileDownload as FileDownloadIcon,
+    Bookmark as LiteratureIcon,
+    Science as ProtocolIcon,
+    Folder as ProjectIcon,
+    CheckBox as TaskIcon
 } from '@mui/icons-material';
-import { saveAs } from 'file-saver';
+import { saveFileDialog } from '@/utils/fileSystemAPI';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 
@@ -68,6 +90,7 @@ const AdvancedCitationExport: React.FC<AdvancedCitationExportProps> = ({
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [timelineData, setTimelineData] = useState<any[]>([]);
+    const [success, setSuccess] = useState<string | null>(null);
 
     useEffect(() => {
         if (open) {
@@ -226,39 +249,43 @@ const AdvancedCitationExport: React.FC<AdvancedCitationExportProps> = ({
             const citations = selectedNotes.map(note => formatCitation(note, selectedStyle));
 
             let content = '';
-            let mimeType = '';
             let extension = '';
 
             switch (format) {
                 case 'txt':
                     content = citations.join('\n\n');
-                    mimeType = 'text/plain';
                     extension = 'txt';
                     break;
                 case 'rtf':
                     content = generateRTF(citations);
-                    mimeType = 'application/rtf';
                     extension = 'rtf';
                     break;
                 case 'html':
                     content = generateHTML(citations, selectedStyle);
-                    mimeType = 'text/html';
                     extension = 'html';
                     break;
                 case 'docx':
                     content = generateDocx(citations);
-                    mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
                     extension = 'docx';
                     break;
                 case 'bibtex':
                     content = generateBibTeX(selectedNotes);
-                    mimeType = 'application/x-bibtex';
                     extension = 'bib';
                     break;
             }
 
-            const blob = new Blob([content], { type: mimeType });
-            saveAs(blob, `${filename}.${extension}`);
+            const exportFilename = `${filename}.${extension}`;
+            
+            // Use fileSystemAPI for native file dialog
+            const result = await saveFileDialog(content, exportFilename);
+            
+            if (result.success) {
+                setSuccess(`Successfully exported citations to ${exportFilename}`);
+            } else if (result.canceled) {
+                setSuccess('Export canceled');
+            } else {
+                setError(result.error || 'Export failed');
+            }
         } catch (err) {
             setError('Failed to export citations. Please try again.');
         } finally {
@@ -555,6 +582,11 @@ const AdvancedCitationExport: React.FC<AdvancedCitationExportProps> = ({
                 {error && (
                     <Alert severity="error" sx={{ mt: 2 }}>
                         {error}
+                    </Alert>
+                )}
+                {success && (
+                    <Alert severity="success" sx={{ mt: 2 }}>
+                        {success}
                     </Alert>
                 )}
             </DialogContent>

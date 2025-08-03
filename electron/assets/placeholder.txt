@@ -1,0 +1,32 @@
+# Electron Assets Directory
+
+This directory should contain the following files for proper app packaging:
+
+## Required Files:
+- icon.png (512x512 PNG for Linux)
+- icon.ico (256x256 ICO for Windows)
+- icon.icns (1024x1024 ICNS for macOS)
+
+## Optional Files:
+- dmg-background.png (Background image for macOS DMG installer)
+- entitlements.mac.plist (macOS entitlements file)
+
+## Icon Specifications:
+- PNG: 512x512 pixels, transparent background
+- ICO: 256x256 pixels, multiple sizes included
+- ICNS: 1024x1024 pixels, multiple sizes included
+
+You can generate these from a single high-resolution image using tools like:
+- https://www.electron.build/icons
+- https://cloudconvert.com/
+- Image editing software like Photoshop, GIMP, or Sketch
+
+## Example Icon Generation:
+```bash
+# Using ImageMagick (if installed)
+convert icon.png -resize 512x512 icon.png
+convert icon.png -resize 256x256 icon.ico
+convert icon.png -resize 1024x1024 icon.icns
+```
+
+Replace this placeholder file with your actual app icons. 

@@ -8,7 +8,7 @@ import {
     Timeline as TimelineIcon, Download as DownloadIcon,
     Assessment as AssessmentIcon, CalendarToday as CalendarIcon
 } from '@mui/icons-material';
-import { saveAs } from 'file-saver';
+import { saveFileDialog } from '../../utils/fileSystemAPI';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 
@@ -42,6 +42,7 @@ const GanttChartExport: React.FC<GanttChartExportProps> = ({
     const [filename, setFilename] = useState('research-gantt-chart');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState<string | null>(null);
     const [selectedTypes, setSelectedTypes] = useState<string[]>(['project', 'experiment', 'protocol', 'task']);
 
     useEffect(() => {
@@ -150,6 +151,7 @@ const GanttChartExport: React.FC<GanttChartExportProps> = ({
     const exportGanttChart = async () => {
         setLoading(true);
         setError(null);
+        setSuccess(null);
 
         try {
             const exportData = ganttData.map(item => ({
@@ -165,38 +167,46 @@ const GanttChartExport: React.FC<GanttChartExportProps> = ({
                 duration_days: Math.ceil((new Date(item.end).getTime() - new Date(item.start).getTime()) / (1000 * 60 * 60 * 24))
             }));
 
-            let content: any;
-            let mimeType: string;
+            let content: string;
             let extension: string;
 
             switch (exportFormat) {
                 case 'csv':
                     content = Papa.unparse(exportData);
-                    mimeType = 'text/csv';
                     extension = 'csv';
                     break;
                 case 'json':
                     content = JSON.stringify(exportData, null, 2);
-                    mimeType = 'application/json';
                     extension = 'json';
                     break;
                 case 'xlsx':
                     const ws = XLSX.utils.json_to_sheet(exportData);
                     const wb = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(wb, ws, 'Gantt Chart');
-                    content = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-                    mimeType = 'application/octet-stream';
+                    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                    // Convert ArrayBuffer to string for fileSystemAPI
+                    const uint8Array = new Uint8Array(excelBuffer);
+                    content = Array.from(uint8Array, byte => String.fromCharCode(byte)).join('');
                     extension = 'xlsx';
                     break;
                 case 'html':
                     content = generateHTMLGanttChart(exportData);
-                    mimeType = 'text/html';
                     extension = 'html';
                     break;
             }
 
-            const blob = new Blob([content], { type: mimeType });
-            saveAs(blob, `${filename}.${extension}`);
+            const exportFilename = `${filename}.${extension}`;
+            
+            // Use fileSystemAPI for native file dialog
+            const result = await saveFileDialog(content, exportFilename);
+            
+            if (result.success) {
+                setSuccess(`Successfully exported Gantt chart to ${exportFilename}`);
+            } else if (result.canceled) {
+                setSuccess('Export canceled');
+            } else {
+                setError(result.error || 'Export failed');
+            }
         } catch (err) {
             setError('Failed to export Gantt chart. Please try again.');
         } finally {
@@ -421,6 +431,11 @@ const GanttChartExport: React.FC<GanttChartExportProps> = ({
                 {error && (
                     <Alert severity="error" sx={{ mt: 2 }}>
                         {error}
+                    </Alert>
+                )}
+                {success && (
+                    <Alert severity="success" sx={{ mt: 2 }}>
+                        {success}
                     </Alert>
                 )}
             </DialogContent>

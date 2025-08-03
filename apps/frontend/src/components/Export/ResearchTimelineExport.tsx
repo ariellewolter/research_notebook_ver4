@@ -1,20 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Dialog, DialogTitle, DialogContent, DialogActions, Button, 
-    Box, Typography, FormControl, InputLabel, Select, MenuItem,
-    TextField, Chip, Alert, CircularProgress, Grid, Card, CardContent,
-    List, ListItem, ListItemText, ListItemIcon, Divider
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Button,
+    TextField,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    List,
+    ListItem,
+    ListItemText,
+    ListItemIcon,
+    Checkbox,
+    Box,
+    Typography,
+    Chip,
+    CircularProgress,
+    Alert,
+    Divider,
+    Tabs,
+    Tab,
+    Grid,
+    Card,
+    CardContent
 } from '@mui/material';
 import {
-    Timeline as TimelineIcon, Download as DownloadIcon,
-    Assessment as AssessmentIcon, CalendarToday as CalendarIcon,
-    TrendingUp as TrendingUpIcon, CheckCircle as CheckCircleIcon,
-    Schedule as ScheduleIcon
+    Download as DownloadIcon,
+    FileDownload as FileDownloadIcon,
+    Timeline as TimelineIcon,
+    Assessment as AssessmentIcon,
+    Description as DescriptionIcon,
+    Code as CodeIcon
 } from '@mui/icons-material';
-import { saveAs } from 'file-saver';
+import { saveFileDialog } from '../../utils/fileSystemAPI';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
-import { format, differenceInDays, isAfter, isBefore, startOfDay } from 'date-fns';
+import { format, differenceInDays, isAfter, isBefore } from 'date-fns';
 
 interface TimelineItem {
     id: string;
@@ -53,6 +77,7 @@ const ResearchTimelineExport: React.FC<ResearchTimelineExportProps> = ({
         start: format(new Date(new Date().getFullYear(), 0, 1), 'yyyy-MM-dd'),
         end: format(new Date(new Date().getFullYear(), 11, 31), 'yyyy-MM-dd')
     });
+    const [success, setSuccess] = useState<string | null>(null);
 
     useEffect(() => {
         if (open) {
@@ -181,6 +206,7 @@ const ResearchTimelineExport: React.FC<ResearchTimelineExportProps> = ({
     const exportTimeline = async () => {
         setLoading(true);
         setError(null);
+        setSuccess(null);
 
         try {
             const exportData = timelineData.map(item => ({
@@ -199,38 +225,46 @@ const ResearchTimelineExport: React.FC<ResearchTimelineExportProps> = ({
                 assignee: item.assignee || ''
             }));
 
-            let content: any;
-            let mimeType: string;
+            let content: string;
             let extension: string;
 
             switch (exportFormat) {
                 case 'csv':
                     content = Papa.unparse(exportData);
-                    mimeType = 'text/csv';
                     extension = 'csv';
                     break;
                 case 'json':
                     content = JSON.stringify(exportData, null, 2);
-                    mimeType = 'application/json';
                     extension = 'json';
                     break;
                 case 'xlsx':
                     const ws = XLSX.utils.json_to_sheet(exportData);
                     const wb = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(wb, ws, 'Research Timeline');
-                    content = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-                    mimeType = 'application/octet-stream';
+                    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                    // Convert ArrayBuffer to string for fileSystemAPI
+                    const uint8Array = new Uint8Array(excelBuffer);
+                    content = Array.from(uint8Array, byte => String.fromCharCode(byte)).join('');
                     extension = 'xlsx';
                     break;
                 case 'html':
                     content = generateHTMLTimeline(exportData);
-                    mimeType = 'text/html';
                     extension = 'html';
                     break;
             }
 
-            const blob = new Blob([content], { type: mimeType });
-            saveAs(blob, `${filename}.${extension}`);
+            const exportFilename = `${filename}.${extension}`;
+            
+            // Use fileSystemAPI for native file dialog
+            const result = await saveFileDialog(content, exportFilename);
+            
+            if (result.success) {
+                setSuccess(`Successfully exported timeline to ${exportFilename}`);
+            } else if (result.canceled) {
+                setSuccess('Export canceled');
+            } else {
+                setError(result.error || 'Export failed');
+            }
         } catch (err) {
             setError('Failed to export timeline. Please try again.');
         } finally {
@@ -562,6 +596,11 @@ const ResearchTimelineExport: React.FC<ResearchTimelineExportProps> = ({
                 {error && (
                     <Alert severity="error" sx={{ mt: 2 }}>
                         {error}
+                    </Alert>
+                )}
+                {success && (
+                    <Alert severity="success" sx={{ mt: 2 }}>
+                        {success}
                     </Alert>
                 )}
             </DialogContent>

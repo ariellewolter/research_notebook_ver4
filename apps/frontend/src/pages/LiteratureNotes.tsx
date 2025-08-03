@@ -233,7 +233,12 @@ const LiteratureNotes: React.FC = () => {
 
         if (route) {
             try {
-                navigate(route);
+                // Validate that the route is safe before navigation
+                if (typeof route === 'string' && route.startsWith('/')) {
+                    navigate(route);
+                } else {
+                    throw new Error('Invalid route format');
+                }
             } catch (error) {
                 console.error('Navigation error:', error);
                 setSnackbar({

@@ -1,4 +1,17 @@
 import axios from 'axios';
+import {
+    Project, ProjectParams, ProjectCreateData, ProjectUpdateData,
+    Experiment, ExperimentCreateData, ExperimentUpdateData,
+    SearchParams, DatabaseEntry, DatabaseEntryCreateData, DatabaseEntryUpdateData,
+    Task, TaskCreateData, TaskUpdateData,
+    Protocol, ProtocolCreateData, ProtocolUpdateData,
+    Recipe, RecipeCreateData, RecipeUpdateData,
+    LiteratureNote, LiteratureNoteCreateData, LiteratureNoteUpdateData,
+    Table, TableCreateData, TableUpdateData,
+    PDF, PDFCreateData, PDFUpdateData,
+    Highlight, HighlightCreateData, HighlightUpdateData,
+    ApiParams
+} from '../types/api';
 
 // Create axios instance with base configuration
 const api = axios.create({
@@ -51,21 +64,21 @@ export const notesApi = {
 
 // Projects API
 export const projectsApi = {
-    getAll: (params?: any) => api.get('/projects', { params }),
-    getById: (id: string) => api.get(`/projects/${id}`),
-    create: (data: any) => api.post('/projects', data),
-    update: (id: string, data: any) => api.put(`/projects/${id}`, data),
+    getAll: (params?: ProjectParams) => api.get<Project[]>('/projects', { params }),
+    getById: (id: string) => api.get<Project>(`/projects/${id}`),
+    create: (data: ProjectCreateData) => api.post<Project>('/projects', data),
+    update: (id: string, data: ProjectUpdateData) => api.put<Project>(`/projects/${id}`, data),
     delete: (id: string) => api.delete(`/projects/${id}`),
-    getExperiments: (projectId: string) => api.get(`/projects/${projectId}/experiments`),
-    getAllExperiments: () => api.get('/projects/experiments/all'),
-    createExperiment: (projectId: string, data: { name: string; description?: string; protocolIds?: string[]; recipeIds?: string[]; noteIds?: string[]; pdfIds?: string[]; literatureNoteIds?: string[] }) =>
-        api.post(`/projects/${projectId}/experiments`, data),
-    updateExperiment: (id: string, data: { name?: string; description?: string; protocolIds?: string[]; noteIds?: string[]; literatureNoteIds?: string[] }) =>
-        api.put(`/projects/experiments/${id}`, data),
+    getExperiments: (projectId: string) => api.get<Experiment[]>(`/projects/${projectId}/experiments`),
+    getAllExperiments: () => api.get<Experiment[]>('/projects/experiments/all'),
+    createExperiment: (projectId: string, data: ExperimentCreateData) =>
+        api.post<Experiment>(`/projects/${projectId}/experiments`, data),
+    updateExperiment: (id: string, data: ExperimentUpdateData) =>
+        api.put<Experiment>(`/projects/experiments/${id}`, data),
     deleteExperiment: (id: string) => api.delete(`/projects/experiments/${id}`),
     getExperimentExecutions: (experimentId: string) => api.get(`/projects/experiments/${experimentId}/executions`),
     getStats: () => api.get('/projects/stats'),
-    search: (query: string, params?: any) => api.get(`/projects/search/${query}`, { params }),
+    search: (query: string, params?: SearchParams) => api.get<Project[]>(`/projects/search/${query}`, { params }),
 };
 
 // PDFs API

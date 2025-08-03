@@ -28,6 +28,7 @@ import {
     Description as DocumentIcon,
     FolderOpen as FolderOpenIcon,
     Rocket as RocketIcon,
+    Schedule as TimeBlockingIcon,
 } from '@mui/icons-material';
 
 // Import our new UI components
@@ -153,6 +154,7 @@ const RefactoredSidebar = () => {
                 },
                 { path: '/tasks', icon: CheckBoxIcon, label: 'Tasks', badge: 3 },
                 { path: '/calendar', icon: CalendarIcon, label: 'Calendar', badge: null },
+                { path: '/time-blocking', icon: TimeBlockingIcon, label: 'Time Blocking', badge: 'new' },
             ]
         },
         {

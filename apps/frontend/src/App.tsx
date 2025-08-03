@@ -30,7 +30,9 @@ import Settings from './pages/Settings';
 import AdvancedFeatures from './pages/AdvancedFeatures';
 import ExperimentalVariables from './pages/ExperimentalVariables';
 import AdvancedReporting from './pages/AdvancedReporting';
+import TimeBlocking from './pages/TimeBlocking';
 import Login from './components/Auth/Login';
+import ElectronFeatureTest from './components/ElectronFeatureTest';
 
 // Protected route wrapper
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -102,6 +104,8 @@ const ProtectedRoutes: React.FC = () => {
                 <Route path="advanced-reporting" element={<AdvancedReporting />} />
                 <Route path="advanced-features" element={<AdvancedFeatures />} />
                 <Route path="experimental-variables" element={<ExperimentalVariables />} />
+                <Route path="time-blocking" element={<TimeBlocking />} />
+                <Route path="electron-test" element={<ElectronFeatureTest />} />
 
                 {/* Workspace routes */}
                 <Route path="workspace/new" element={<div>New Workspace</div>} />

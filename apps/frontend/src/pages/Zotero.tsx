@@ -268,6 +268,32 @@ const ZoteroPage: React.FC = () => {
         }
     };
 
+    const handleDownloadPDF = async (item: ZoteroItem) => {
+        try {
+            const pdfUrl = item.pdfUrl || item.data?.url;
+            if (!pdfUrl) {
+                setError('No PDF URL available for this item');
+                return;
+            }
+
+            // Create a temporary link element to trigger download
+            const link = document.createElement('a');
+            link.href = pdfUrl;
+            link.download = `${item.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`;
+            link.target = '_blank';
+
+            // Add to DOM, click, and remove
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            setSuccess('PDF download started');
+        } catch (err) {
+            setError('Failed to download PDF');
+            console.error('Error downloading PDF:', err);
+        }
+    };
+
     const getFilteredItems = () => {
         let filtered = items;
 
@@ -1174,11 +1200,9 @@ const ZoteroPage: React.FC = () => {
                                     <Button
                                         variant="outlined"
                                         startIcon={<DownloadIcon />}
-                                        onClick={() => {
-                                            // TODO: Implement PDF download
-                                            setSuccess('PDF download feature coming soon!');
-                                        }}
+                                        onClick={() => handleDownloadPDF(selectedItem)}
                                         fullWidth
+                                        disabled={!selectedItem.data?.url && !selectedItem.pdfUrl}
                                     >
                                         Download PDF
                                     </Button>
