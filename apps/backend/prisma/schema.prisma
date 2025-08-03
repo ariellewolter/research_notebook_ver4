@@ -22,6 +22,11 @@ model User {
   outlookClientId String?
   outlookClientSecret String?
   outlookTokens String? // Encrypted JSON of tokens
+  variableCategories VariableCategory[]
+  reportTemplates ReportTemplate[]
+  customReports CustomReport[]
+  reportExecutions ReportExecution[]
+  scheduledReports ScheduledReport[]
 }
 
 model SavedSearch {
@@ -68,6 +73,7 @@ model Experiment {
   protocolExecutions ProtocolExecution[]
   tasks       Task[]
   recipeExecutions RecipeExecution[]
+  variables   ExperimentVariable[]
 }
 
 model Note {
@@ -232,6 +238,7 @@ model Link {
   table          Table?          @relation("TableLinks", fields: [sourceId], references: [id])
   protocol       Protocol?       @relation("ProtocolLinks", fields: [sourceId], references: [id])
   protocolExecution ProtocolExecution? @relation("ProtocolExecutionLinks", fields: [sourceId], references: [id])
+  recipeExecution RecipeExecution? @relation("RecipeExecutionLinks", fields: [sourceId], references: [id])
 } 
 
 model Recipe {
@@ -372,9 +379,26 @@ model TaskWorkflow {
   description String?
   type        String   // "sequential", "parallel", "conditional", "mixed"
   tasks       Task[]
+  executions  TaskWorkflowExecution[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   metadata    String?  // JSON for workflow configuration
+}
+
+// New model for workflow execution tracking
+model TaskWorkflowExecution {
+  id          String   @id @default(uuid())
+  workflow    TaskWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  workflowId  String
+  status      String   // "running", "completed", "failed", "paused", "cancelled"
+  startTime   DateTime @default(now())
+  endTime     DateTime?
+  currentNode String?  // ID of the current node being processed
+  progress    Float    @default(0) // Progress percentage (0-100)
+  logs        String?  // JSON array of execution logs
+  metadata    String?  // JSON for additional execution data
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model TaskTimeEntry {
@@ -447,14 +471,138 @@ model TaskNotification {
 model RecipeExecution {
   id            String   @id @default(uuid())
   recipe        Recipe   @relation(fields: [recipeId], references: [id])
-  recipeId      String
   experiment    Experiment? @relation(fields: [experimentId], references: [id])
+  recipeId      String
   experimentId  String?
   status        String   // "planned", "in_progress", "completed", "failed", "abandoned"
   startDate     DateTime?
   endDate       DateTime?
   notes         String?
-  completedSteps String? // JSON array of completed step IDs or numbers
+  modifications String? // JSON string of modifications
+  results     String?  // JSON string of results
+  issues      String?  // JSON string of issues
+  nextSteps   String?
+  executedBy  String?
+  completedSteps String? // JSON array of completed step IDs
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  links       Link[]   @relation("RecipeExecutionLinks")
 } 
+
+// Experimental Variable Tracking Models
+model VariableCategory {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  color       String?  // Hex color for UI display
+  icon        String?  // Icon identifier
+  unit        String?  // Default unit for this category
+  dataType    String   // "number", "text", "boolean", "date", "select"
+  options     String?  // JSON array for select type variables
+  minValue    Float?   // For numeric variables
+  maxValue    Float?   // For numeric variables
+  isRequired  Boolean  @default(false)
+  isGlobal    Boolean  @default(false) // Available across all projects
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  variables   ExperimentVariable[]
+}
+
+model ExperimentVariable {
+  id          String   @id @default(uuid())
+  experiment  Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  experimentId String
+  category    VariableCategory @relation(fields: [categoryId], references: [id])
+  categoryId  String
+  name        String
+  description String?
+  unit        String?
+  dataType    String   // Inherited from category but can be overridden
+  isRequired  Boolean  @default(false)
+  order       Int      @default(0) // For UI ordering
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  values      VariableValue[]
+}
+
+model VariableValue {
+  id          String   @id @default(uuid())
+  variable    ExperimentVariable @relation(fields: [variableId], references: [id], onDelete: Cascade)
+  variableId  String
+  value       String   // Store as string, parse based on dataType
+  timestamp   DateTime @default(now())
+  notes       String?
+  metadata    String?  // JSON string for additional data
+  createdBy   String?  // User who recorded this value
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Advanced Reporting Models
+model ReportTemplate {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  category    String   // 'project', 'experiment', 'task', 'analytics', 'custom'
+  dataSources String   // JSON array of data sources
+  layout      String   // JSON object for report layout
+  filters     String?  // JSON array of filter configurations
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  reports     CustomReport[]
+}
+
+model CustomReport {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  template    ReportTemplate? @relation(fields: [templateId], references: [id])
+  templateId  String?
+  dataSources String   // JSON array of data sources
+  layout      String   // JSON object for report layout
+  filters     String?  // JSON object for applied filters
+  schedule    String?  // JSON object for scheduling configuration
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  executions  ReportExecution[]
+  scheduledReports ScheduledReport[]
+}
+
+model ReportExecution {
+  id          String   @id @default(uuid())
+  report      CustomReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  reportId    String
+  filters     String   // JSON object of applied filters
+  format      String   // 'json', 'csv', 'pdf', 'html', 'xlsx'
+  status      String   // 'pending', 'running', 'completed', 'failed'
+  data        String?  // JSON string of generated report data
+  error       String?  // Error message if failed
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+}
+
+model ScheduledReport {
+  id          String   @id @default(uuid())
+  report      CustomReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  reportId    String
+  schedule    String   // JSON object for schedule configuration
+  lastRun     DateTime?
+  nextRun     DateTime?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+}

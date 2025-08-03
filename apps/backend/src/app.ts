@@ -1,25 +1,28 @@
 import express from 'express';
 import cors from 'cors';
 import healthRoutes from './routes/health';
+import authRoutes from './routes/auth';
 import notesRoutes from './routes/notes';
 import projectsRoutes from './routes/projects';
 import pdfsRoutes from './routes/pdfs';
 import databaseRoutes from './routes/database';
-import linksRoutes from './routes/links';
-import zoteroRoutes from './routes/zotero';
+import tasksRoutes from './routes/tasks';
+// import linksRoutes from './routes/links';
+// import zoteroRoutes from './routes/zotero';
 import tablesRoutes from './routes/tables';
 import protocolsRoutes from './routes/protocols';
-import recipesRoutes from './routes/recipes';
-import literatureNotesRouter from './routes/literatureNotes';
-import tasksRoutes from './routes/tasks';
+// import recipesRoutes from './routes/recipes';
+// import literatureNotesRouter from './routes/literatureNotes';
 import taskTemplatesRoutes from './routes/taskTemplates';
-import taskDependenciesRoutes from './routes/taskDependencies';
-import notificationsRoutes from './routes/notifications';
-import authRoutes from './routes/auth';
-import importExportRoutes from './routes/importExport';
-import searchRoutes from './routes/search';
-import analyticsRoutes from './routes/analytics';
-import calendarRoutes from './routes/calendar';
+// import taskDependenciesRoutes from './routes/taskDependencies';
+// import taskFlowManagementRoutes from './routes/taskFlowManagement';
+// import notificationsRoutes from './routes/notifications';
+// import importExportRoutes from './routes/importExport';
+// import searchRoutes from './routes/search';
+// import analyticsRoutes from './routes/analytics';
+// import calendarRoutes from './routes/calendar';
+// import experimentalVariablesRoutes from './routes/experimentalVariables';
+// import advancedReportingRoutes from './routes/advancedReporting';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -38,25 +41,28 @@ app.use(cors({
 
 // API Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/import-export', importExportRoutes);
-app.use('/api/search', searchRoutes);
-app.use('/api/analytics', analyticsRoutes);
-app.use('/api/calendar', calendarRoutes);
 app.use('/api/health', healthRoutes);
+// app.use('/api/import-export', importExportRoutes);
+// app.use('/api/search', searchRoutes);
+// app.use('/api/analytics', analyticsRoutes);
+// app.use('/api/calendar', calendarRoutes);
+// app.use('/api/experimental-variables', experimentalVariablesRoutes);
+// app.use('/api/advanced-reporting', advancedReportingRoutes);
 app.use('/api/notes', notesRoutes);
 app.use('/api/projects', projectsRoutes);
 app.use('/api/pdfs', pdfsRoutes);
 app.use('/api/database', databaseRoutes);
-app.use('/api/links', linksRoutes);
-app.use('/api/zotero', zoteroRoutes);
+app.use('/api/tasks', tasksRoutes);
+// app.use('/api/links', linksRoutes);
+// app.use('/api/zotero', zoteroRoutes);
 app.use('/api/tables', tablesRoutes);
 app.use('/api/protocols', protocolsRoutes);
-app.use('/api/recipes', recipesRoutes);
-app.use('/api/literature-notes', literatureNotesRouter);
-app.use('/api/tasks', tasksRoutes);
+// app.use('/api/recipes', recipesRoutes);
+// app.use('/api/literature-notes', literatureNotesRouter);
 app.use('/api/task-templates', taskTemplatesRoutes);
-app.use('/api/task-dependencies', taskDependenciesRoutes);
-app.use('/api/notifications', notificationsRoutes);
+// app.use('/api/task-dependencies', taskDependenciesRoutes);
+// app.use('/api/task-flow-management', taskFlowManagementRoutes);
+// app.use('/api/notifications', notificationsRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {

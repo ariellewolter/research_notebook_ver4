@@ -94,13 +94,14 @@ A modular, extensible research notebook built for PhD-level scientific workflows
 - **🧮 Built-In Tools** - Scientific calculators and data visualization
 - **🗓️ Calendar Integrations** - Google, Outlook, and Apple Calendar support
 - **🔔 Notification System** - Comprehensive notification settings with multiple delivery methods
+- **📊 Advanced Analytics Dashboard** - Experiment success tracking, productivity metrics, interactive charts, and predictive analytics
+- **🔬 Experimental Variable Tracker** - Parameter tracking across experiments with category management, value recording, and analytics
 - **📋 Core CRUD Operations** - Notes, Projects, Experiments, Database, Protocols, Recipes
 - **🔗 Cross-Linking System** - Obsidian-style bidirectional linking
 - **🎨 UI/UX** - Modern Material-UI interface with responsive design
 
 ### 🚧 **Partially Implemented Features**
 - **📊 Analytics & Reporting** - Basic dashboard exists, needs enhanced metrics
-- **📋 Task Management** - Basic tasks exist, needs dependencies and workflows
 
 ### 📋 **Planned Future Features**
 - **🎯 Advanced Features** - Shared review mode, visual pathway editor, AI suggestions
@@ -191,7 +192,7 @@ notebook-notion-app/
 - **Database Entries** - Notion-like database for chemicals, genes, growth factors, protocols
 - **Cross-linking System** - Obsidian-style bidirectional linking between all entities
 - **Zotero Integration** - Full API integration for importing references and PDFs
-- **Task Management** - Advanced task system with dependencies, time tracking, and workflows
+- **Task Management** - Complete task system with natural language date parsing, recurring tasks, templates, time tracking, and workflow management
 - **Analytics & Reporting** - Comprehensive dashboard with metrics and visualizations
 - **Advanced Search** - Multi-type search with history, saved searches, and suggestions
 - **Notification System** - Task reminders, notifications with multiple delivery methods
@@ -201,7 +202,7 @@ notebook-notion-app/
 - **Modern React App** - Full-featured interface with Material-UI components
 - **Advanced Workspace** - Notion-like workspace with rich editing capabilities
 - **Analytics Dashboard** - Interactive charts and productivity metrics
-- **Task Management UI** - Comprehensive task interface with dependencies and time tracking
+- **Task Management UI** - Complete task interface with natural language date parsing, recurring tasks, templates, time tracking, and workflow management
 - **Search Interface** - Advanced search with filters, history, and suggestions
 - **Notification Center** - Real-time notifications with priority management
 - **Data Export Tools** - Multiple export formats and visualization options
@@ -250,14 +251,15 @@ notebook-notion-app/
 ## 📋 Task Management System
 
 ### **Advanced Task Features**
-- **Task Dependencies** - Complex dependency chains with multiple relationship types
-- **Time Tracking** - Log time entries with detailed descriptions
-- **Recurring Tasks** - Set up daily, weekly, monthly, or yearly recurring tasks
+- **Natural Language Date Parsing** - Parse dates from natural language (e.g., "next Friday", "in 3 days")
+- **Recurring Tasks** - Set up daily, weekly, monthly, or yearly recurring tasks with custom patterns
 - **Task Templates** - Create reusable task templates for common workflows
+- **Time Tracking** - Log time entries with detailed descriptions and duration tracking
 - **Workflow Management** - Sequential, parallel, and conditional workflow support
 - **Priority Management** - High, medium, low priority with visual indicators
 - **Status Tracking** - Todo, in progress, done, overdue, cancelled statuses
 - **Deadline Management** - Due date tracking with overdue notifications
+- **Task Dependencies** - Complex dependency chains with multiple relationship types
 
 ### **Task Collaboration**
 - **Comments System** - Add comments and discussions to tasks
@@ -266,10 +268,10 @@ notebook-notion-app/
 - **Bulk Operations** - Update, delete, or complete multiple tasks at once
 
 ### **Natural Language Processing**
-- **Smart Task Creation** - Parse natural language for dates, times, priorities
+- **Smart Date Parsing** - Parse natural language for dates and times (e.g., "next Friday", "in 3 days", "tomorrow")
 - **Automatic Tagging** - Extract tags and categories from task descriptions
 - **Time Estimation** - Parse time estimates from natural language
-- **Recurring Pattern Recognition** - Automatically detect recurring task patterns
+- **Recurring Pattern Recognition** - Automatically detect and set up recurring task patterns
 
 ---
 
@@ -382,6 +384,55 @@ notebook-notion-app/
 
 ---
 
+## 📚 Full CSL Support (✅ Implemented)
+
+### **Complete Citation Style Language Support**
+- **15+ Citation Styles**: APA, MLA, Chicago (Author-Date & Note-Bibliography), IEEE, Nature, Science, Cell, PLOS, BMC, Vancouver, Harvard, AMA, ACS, ASA
+- **Real-time Preview**: See formatted citations instantly before export
+- **Multiple Output Formats**: Bibliography, citations, and HTML formatting
+- **Export Options**: TXT, HTML, BibTeX, RTF, and DOCX formats
+- **Integration**: Works seamlessly with Zotero items and literature notes
+- **Advanced Features**: Item selection, sorting, filtering, and copy-to-clipboard functionality
+
+---
+
+## 🔄 Task Flow Management (✅ Implemented)
+
+### **Visual Workflow Management System**
+- **Visual Workflow Designer**: Drag-and-drop interface for creating complex task workflows
+- **Multiple Node Types**: Task, Decision, Start/End, Wait, Notification, and Subprocess nodes
+- **Real-time Execution Monitoring**: Track workflow progress with live updates
+- **Execution History & Analytics**: Comprehensive logging and performance metrics
+- **Workflow Templates**: Reusable workflow patterns for common processes
+- **Automation Rules**: Conditional logic and automated task triggers
+- **Integration**: Seamless integration with existing task management system
+
+### **Key Features**
+- **Flow Types**: Sequential, Parallel, Conditional, and Mixed workflow patterns
+- **Node Palette**: Easy-to-use tools for building complex workflows
+- **Execution Control**: Start, pause, resume, and cancel workflow executions
+- **Progress Tracking**: Real-time progress indicators and status updates
+- **Error Handling**: Robust error handling and recovery mechanisms
+- **Analytics Dashboard**: Performance metrics and execution statistics
+
+### **Key Features**
+- **Style Selection**: Choose from popular academic citation styles
+- **Item Management**: Select and organize items for citation generation
+- **Preview System**: Real-time preview of formatted citations
+- **Export Capabilities**: Multiple export formats for different use cases
+- **Integration**: Available in both Zotero page and Advanced Features
+- **User-Friendly Interface**: Intuitive design with clear categorization
+
+### **How to Use CSL Support**
+1. Navigate to the Zotero page and select the "CSL Support" tab
+2. Choose your preferred citation style from the dropdown
+3. Select items you want to include in your bibliography
+4. Use the preview function to see formatted citations
+5. Export in your preferred format (TXT, HTML, BibTeX, etc.)
+6. Alternatively, access CSL Support from the Advanced Features page
+
+---
+
 ## 🗓️ Calendar Integrations (✅ Implemented)
 
 ### Google Calendar Integration
@@ -455,6 +506,16 @@ notebook-notion-app/
 6. Enable/disable specific notification types (task reminders, overdue alerts, etc.).
 7. Configure timing settings and quiet hours if desired.
 8. Save your settings - they will be applied immediately.
+
+## How to Use Task Flow Management
+
+1. **Access the Feature**: Go to Tasks page and click the "Task Flow" button, or access it from Advanced Features.
+2. **Create a New Flow**: Click "Create Flow" and provide a name, description, and flow type.
+3. **Design Your Workflow**: Use the visual designer to add nodes (tasks, decisions, etc.) and connect them with edges.
+4. **Configure Nodes**: Set up task assignments, conditions, wait times, and notifications for each node.
+5. **Save and Execute**: Save your workflow and click "Execute" to start the process.
+6. **Monitor Progress**: Track execution progress in real-time through the execution history tab.
+7. **Analyze Performance**: View analytics and metrics to optimize your workflows.
 
 ---
 
@@ -586,10 +647,17 @@ notebook-notion-app/
 - **Collection Support** - Browse and import from specific collections
 - **Search Integration** - Search Zotero library from within the app
 
+### **✅ Recently Implemented**
+- **Drag-and-Drop Interface** - Visual PDF import from Zotero with item preview
+- **Enhanced Metadata Display** - Show author, journal, DOI information with detailed previews
+- **Import Dialog** - Comprehensive import options with selection and progress tracking
+- **Item Preview** - Detailed preview of Zotero items before import
+- **Selection Management** - Multi-select items for batch import
+- **Progress Tracking** - Real-time import progress with visual feedback
+- **Full CSL Support** - Complete Citation Style Language support with 15+ citation styles, real-time preview, and multiple export formats
+
 ### **🔄 Planned Frontend Features**
-- **Drag-and-Drop Interface** - Visual PDF import from Zotero
 - **Citation Linking** - Automatic backlinks to Zotero references
-- **Metadata Display** - Show author, journal, DOI information
 - **Annotation Sync** - Visual highlight synchronization
 
 ---
@@ -634,17 +702,171 @@ ZOTERO_USER_ID="your-user-id"
 
 ---
 
+## 📊 Advanced Analytics Dashboard (✅ Implemented)
+
+The Advanced Analytics Dashboard provides comprehensive insights into research productivity, experiment success rates, and resource utilization with sophisticated data visualization and predictive capabilities.
+
+### **Key Features**
+
+#### **📈 Interactive Dashboard**
+- **Real-time Metrics**: Live updates of project status, experiment success rates, and task completion
+- **Comparative Analytics**: Period-over-period comparisons with trend analysis
+- **Custom Date Ranges**: Flexible filtering by 7, 30, 90 days or all-time data
+- **Project Filtering**: Focus on specific projects or view organization-wide metrics
+
+#### **🔬 Experiment Success Analytics**
+- **Success Rate Tracking**: Monitor experiment completion rates over time
+- **Failure Analysis**: Identify common failure reasons and patterns
+- **Top Performing Projects**: Rank projects by success rates and experiment counts
+- **Duration Analysis**: Track average experiment duration and efficiency
+
+#### **⚡ Productivity Analytics**
+- **Task Completion Rates**: Monitor task completion and overdue task tracking
+- **Time Analysis**: Identify most productive time periods and patterns
+- **Priority Distribution**: Analyze task priorities and workload distribution
+- **Efficiency Metrics**: Calculate productivity scores and trends
+
+#### **📊 Resource Usage Analytics**
+- **Utilization Tracking**: Monitor resource usage and capacity planning
+- **Category Distribution**: Analyze resource usage by type and category
+- **Top Resources**: Identify most frequently used resources and equipment
+- **Efficiency Metrics**: Radar charts showing resource efficiency across multiple dimensions
+
+#### **🔮 Predictive Analytics**
+- **30-Day Forecasting**: Predict future productivity and experiment outcomes
+- **Trend Analysis**: Identify patterns and forecast potential bottlenecks
+- **Confidence Intervals**: Upper and lower bounds for predictions
+- **Historical Pattern Recognition**: Learn from past data to improve predictions
+
+#### **📤 Export Capabilities**
+- **Multiple Formats**: Export data in CSV, JSON, or Excel (XLSX) formats
+- **Customizable Exports**: Include chart data, raw data, or both
+- **Date Range Selection**: Export specific time periods
+- **Project Filtering**: Export data for specific projects
+
+#### **🔄 Real-time Features**
+- **Live Updates**: Automatic data refresh every 30 seconds (configurable)
+- **Comparison Mode**: Compare current period with previous periods
+- **Interactive Charts**: Hover for details, zoom, and pan capabilities
+- **Responsive Design**: Works seamlessly on desktop and mobile devices
+
+### **Chart Types Available**
+- **Composed Charts**: Combined area, bar, and line charts for productivity trends
+- **Pie Charts**: Distribution analysis for projects, priorities, and status
+- **Area Charts**: Success rate tracking over time
+- **Bar Charts**: Time period analysis and resource usage
+- **Line Charts**: Predictive analytics with confidence intervals
+- **Radar Charts**: Multi-dimensional efficiency metrics
+
+### **How to Use Advanced Analytics**
+
+1. **Access the Dashboard**: Navigate to Analytics in the sidebar
+2. **Configure Filters**: Set date range and select specific projects
+3. **Enable Features**: Toggle comparison mode, real-time updates, or predictive analytics
+4. **Explore Tabs**: Switch between Dashboard, Experiment Success, Productivity, and Resource Usage
+5. **Export Data**: Use the export button to download analytics in your preferred format
+6. **Monitor Trends**: Use comparison mode to track improvements over time
+
+### **Technical Implementation**
+- **Frontend**: React with Material-UI and Recharts for advanced visualizations
+- **Backend**: Express.js with Prisma for efficient data aggregation
+- **Real-time**: WebSocket-like polling for live data updates
+- **Export**: Server-side generation of multiple file formats
+- **Performance**: Optimized queries with proper indexing and caching
+
+---
+
+## 🔬 Experimental Variable Tracker (✅ Implemented)
+
+The Experimental Variable Tracker provides comprehensive parameter tracking across experiments with sophisticated category management, real-time value recording, and analytical insights.
+
+### **Key Features**
+
+#### **📂 Variable Category Management**
+- **Custom Categories**: Create reusable variable categories with data types and validation
+- **Data Type Support**: Number, text, boolean, date, and select (dropdown) variables
+- **Validation Rules**: Min/max values for numeric variables, required field marking
+- **Global Categories**: Share categories across all projects or keep them project-specific
+- **Visual Organization**: Color-coded categories with icons for easy identification
+
+#### **🔬 Experiment Variable Tracking**
+- **Experiment-Specific Variables**: Add variables to individual experiments
+- **Category Inheritance**: Inherit data types and validation from categories
+- **Custom Units**: Define units for each variable (e.g., °C, mg/mL, pH)
+- **Ordering System**: Arrange variables in logical order for data entry
+- **Required Fields**: Mark critical variables as required for experiment completion
+
+#### **📊 Real-Time Value Recording**
+- **Multiple Data Types**: Support for numbers, text, booleans, dates, and selections
+- **Validation**: Automatic validation based on data type and category rules
+- **Notes and Metadata**: Add contextual notes and additional metadata to values
+- **Timestamp Tracking**: Automatic timestamp recording for all value entries
+- **History View**: Complete history of all values for each variable
+
+#### **📈 Analytics and Visualization**
+- **Variable Distribution**: Pie charts showing variable distribution by category
+- **Recent Values**: Table view of recent variable recordings across experiments
+- **Trend Analysis**: Track changes in variable values over time
+- **Category Insights**: Analytics on most used categories and variable types
+- **Export Capabilities**: Export variable data for external analysis
+
+### **Data Types Supported**
+
+#### **Number Variables**
+- **Examples**: Temperature, pH, concentration, time, weight
+- **Features**: Min/max validation, unit specification, decimal precision
+- **Use Cases**: Quantitative measurements, experimental parameters
+
+#### **Text Variables**
+- **Examples**: Notes, observations, sample IDs, equipment settings
+- **Features**: Free-form text entry, length validation
+- **Use Cases**: Qualitative observations, descriptive data
+
+#### **Boolean Variables**
+- **Examples**: Equipment on/off, presence/absence, success/failure
+- **Features**: True/false selection, yes/no options
+- **Use Cases**: Binary conditions, status tracking
+
+#### **Date Variables**
+- **Examples**: Sample collection date, experiment start time, measurement time
+- **Features**: Date and time picker, automatic timestamp recording
+- **Use Cases**: Temporal tracking, scheduling
+
+#### **Select Variables**
+- **Examples**: Equipment types, sample sources, experimental conditions
+- **Features**: Dropdown selection, predefined options
+- **Use Cases**: Categorical data, standardized choices
+
+### **How to Use Experimental Variable Tracker**
+
+1. **Create Categories**: Start by creating variable categories (e.g., "Temperature", "pH", "Equipment")
+2. **Define Data Types**: Set appropriate data types and validation rules for each category
+3. **Add to Experiments**: Select an experiment and add variables from your categories
+4. **Record Values**: Use the value tracking interface to record measurements and observations
+5. **Monitor Analytics**: View analytics to understand variable usage patterns
+6. **Export Data**: Export variable data for external analysis or reporting
+
+### **Technical Implementation**
+- **Database Schema**: Three-table design (VariableCategory, ExperimentVariable, VariableValue)
+- **API Endpoints**: Complete CRUD operations for categories, variables, and values
+- **Frontend**: React components with Material-UI for intuitive data entry
+- **Validation**: Client and server-side validation with Zod schemas
+- **Analytics**: Real-time analytics with Recharts visualization
+- **Performance**: Optimized queries with proper indexing and relationships
+
+---
+
 ## 🚧 Planned Future Enhancements
 
 ### **High Priority**
-- [ ] **Advanced Analytics Dashboard** - Experiment success tracking, productivity metrics, and interactive charts
-- [ ] **Task Management Enhancements** - Task dependencies, recurring tasks, and natural language processing
+- [x] **Advanced Analytics Dashboard** - Experiment success tracking, productivity metrics, and interactive charts
+- [x] **Task Management Enhancements** - Natural language date parsing, recurring tasks, templates, and workflow management
 
 ### **Medium Priority**
 - [ ] **Shared Review Mode** - Comment, suggest, resolve system for collaborative editing
 - [ ] **Visual Pathway Editor** - Biological pathway visualization and editing
-- [ ] **Experimental Variable Tracker** - Parameter tracking across experiments
-- [ ] **Full CSL Support** - Complete Citation Style Language support for bibliography formatting
+- [x] **Experimental Variable Tracker** - Parameter tracking across experiments
+- [x] **Full CSL Support** - Complete Citation Style Language support for bibliography formatting
 
 ### **Lower Priority**
 - [ ] **iPad Support** - Apple Pencil handwriting-to-text

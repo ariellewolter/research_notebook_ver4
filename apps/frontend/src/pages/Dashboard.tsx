@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Add as AddIcon,
   TrendingUp as TrendingUpIcon,
@@ -18,15 +19,18 @@ import { GridLayout, SinglePanelLayout } from '../components/Layout/Layout';
 
 // Import services
 import { notesApi, projectsApi, pdfsApi, databaseApi } from '../services/api';
+import { useWorkspaceTabs } from './WorkspaceTabsContext';
 
 const EnhancedDashboard = () => {
+  const navigate = useNavigate();
+  const { openTab } = useWorkspaceTabs();
   const [stats, setStats] = useState({
     notes: 0,
     projects: 0,
     pdfs: 0,
     database: 0
   });
-  const [recentActivity, setRecentActivity] = useState([]);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -40,10 +44,10 @@ const EnhancedDashboard = () => {
       // Simulate API calls
       const [notesRes, projectsRes, pdfsRes, databaseRes] = await Promise.all([
         // Mock data for demonstration
-        Promise.resolve({ data: Array(24).fill().map((_, i) => ({ id: i })) }),
-        Promise.resolve({ data: Array(8).fill().map((_, i) => ({ id: i })) }),
-        Promise.resolve({ data: Array(15).fill().map((_, i) => ({ id: i })) }),
-        Promise.resolve({ data: Array(156).fill().map((_, i) => ({ id: i })) })
+        Promise.resolve({ data: Array.from({ length: 24 }, (_, i) => ({ id: i })) }),
+        Promise.resolve({ data: Array.from({ length: 8 }, (_, i) => ({ id: i })) }),
+        Promise.resolve({ data: Array.from({ length: 15 }, (_, i) => ({ id: i })) }),
+        Promise.resolve({ data: Array.from({ length: 156 }, (_, i) => ({ id: i })) })
       ]);
 
       setStats({
@@ -76,38 +80,85 @@ const EnhancedDashboard = () => {
   const StatCard = ({ title, value, icon: Icon, color, trend }: {
     title: string;
     value: number;
-    icon: React.ComponentType;
+    icon: React.ComponentType<any>;
     color: string;
     trend?: number;
-  }) => (
-    <Card
-      className="hover-lift card-hover interactive"
-      hover
-    >
-      <Card.Content>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div
-              className="p-3 rounded-lg"
-              style={{ backgroundColor: `${color}20`, color: color }}
-            >
-              <Icon className="w-6 h-6" />
+  }) => {
+    const getTabData = () => {
+      switch (title.toLowerCase()) {
+        case 'notes':
+          return {
+            key: `notes-${Date.now()}`,
+            title: 'Notes',
+            path: '/notes',
+            icon: <NoteIcon />
+          };
+        case 'projects':
+          return {
+            key: `projects-${Date.now()}`,
+            title: 'Projects',
+            path: '/projects',
+            icon: <ProjectIcon />
+          };
+        case 'pdfs':
+          return {
+            key: `pdfs-${Date.now()}`,
+            title: 'PDF Management',
+            path: '/pdfs',
+            icon: <PdfIcon />
+          };
+        case 'database entries':
+          return {
+            key: `database-${Date.now()}`,
+            title: 'Database',
+            path: '/database',
+            icon: <DatabaseIcon />
+          };
+        default:
+          return {
+            key: `dashboard-${Date.now()}`,
+            title: 'Dashboard',
+            path: '/dashboard',
+            icon: <NoteIcon />
+          };
+      }
+    };
+
+    return (
+      <Card
+        className="hover-lift card-hover interactive cursor-pointer"
+        hover
+        onClick={() => {
+          const tabData = getTabData();
+          openTab(tabData);
+          navigate(tabData.path);
+        }}
+      >
+        <Card.Content>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div
+                className="p-3 rounded-lg"
+                style={{ backgroundColor: `${color}20`, color: color }}
+              >
+                <Icon className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">{title}</p>
+                <p className="text-2xl font-bold text-gray-900">{value}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600">{title}</p>
-              <p className="text-2xl font-bold text-gray-900">{value}</p>
-            </div>
+            {trend && (
+              <div className="flex items-center gap-1 text-green-600">
+                <TrendingUpIcon className="w-4 h-4" />
+                <span className="text-sm font-medium">+{trend}%</span>
+              </div>
+            )}
           </div>
-          {trend && (
-            <div className="flex items-center gap-1 text-green-600">
-              <TrendingUpIcon className="w-4 h-4" />
-              <span className="text-sm font-medium">+{trend}%</span>
-            </div>
-          )}
-        </div>
-      </Card.Content>
-    </Card>
-  );
+        </Card.Content>
+      </Card>
+    );
+  };
 
   const ActivityItem = ({ activity }: { activity: any }) => {
     const getIcon = (type: string) => {
@@ -130,8 +181,57 @@ const EnhancedDashboard = () => {
       }
     };
 
+    const handleActivityClick = () => {
+      const getTabData = () => {
+        switch (activity.type) {
+          case 'note':
+            return {
+              key: `note-${activity.id}-${Date.now()}`,
+              title: activity.title,
+              path: '/notes',
+              icon: <NoteIcon />
+            };
+          case 'project':
+            return {
+              key: `project-${activity.id}-${Date.now()}`,
+              title: activity.title,
+              path: '/projects',
+              icon: <ProjectIcon />
+            };
+          case 'pdf':
+            return {
+              key: `pdf-${activity.id}-${Date.now()}`,
+              title: activity.title,
+              path: '/pdfs',
+              icon: <PdfIcon />
+            };
+          case 'database':
+            return {
+              key: `database-${activity.id}-${Date.now()}`,
+              title: activity.title,
+              path: '/database',
+              icon: <DatabaseIcon />
+            };
+          default:
+            return {
+              key: `activity-${activity.id}-${Date.now()}`,
+              title: activity.title,
+              path: '/dashboard',
+              icon: <NoteIcon />
+            };
+        }
+      };
+
+      const tabData = getTabData();
+      openTab(tabData);
+      navigate(tabData.path);
+    };
+
     return (
-      <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors duration-200 cursor-pointer">
+      <div
+        className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors duration-200 cursor-pointer"
+        onClick={handleActivityClick}
+      >
         <div className="flex-shrink-0 p-2 bg-gray-100 rounded-full text-gray-600">
           {getIcon(activity.type)}
         </div>
@@ -158,6 +258,15 @@ const EnhancedDashboard = () => {
           <Button
             variant="outline"
             className="flex flex-col items-center gap-2 h-20 button-enhanced hover-grow"
+            onClick={() => {
+              openTab({
+                key: `notes-new-${Date.now()}`,
+                title: 'New Note',
+                path: '/notes/new',
+                icon: <NoteIcon />
+              });
+              navigate('/notes/new');
+            }}
           >
             <AddIcon className="w-5 h-5" />
             <span className="text-sm">New Note</span>
@@ -165,6 +274,15 @@ const EnhancedDashboard = () => {
           <Button
             variant="outline"
             className="flex flex-col items-center gap-2 h-20 button-enhanced hover-grow"
+            onClick={() => {
+              openTab({
+                key: `projects-new-${Date.now()}`,
+                title: 'New Project',
+                path: '/projects/new',
+                icon: <ProjectIcon />
+              });
+              navigate('/projects/new');
+            }}
           >
             <ProjectIcon className="w-5 h-5" />
             <span className="text-sm">New Project</span>
@@ -172,6 +290,15 @@ const EnhancedDashboard = () => {
           <Button
             variant="outline"
             className="flex flex-col items-center gap-2 h-20 button-enhanced hover-grow"
+            onClick={() => {
+              openTab({
+                key: `pdfs-${Date.now()}`,
+                title: 'PDF Management',
+                path: '/pdfs',
+                icon: <PdfIcon />
+              });
+              navigate('/pdfs');
+            }}
           >
             <PdfIcon className="w-5 h-5" />
             <span className="text-sm">Upload PDF</span>
@@ -179,6 +306,15 @@ const EnhancedDashboard = () => {
           <Button
             variant="outline"
             className="flex flex-col items-center gap-2 h-20 button-enhanced hover-grow"
+            onClick={() => {
+              openTab({
+                key: `database-${Date.now()}`,
+                title: 'Database',
+                path: '/database',
+                icon: <DatabaseIcon />
+              });
+              navigate('/database');
+            }}
           >
             <DatabaseIcon className="w-5 h-5" />
             <span className="text-sm">Add Entry</span>
@@ -223,21 +359,54 @@ const EnhancedDashboard = () => {
       </Card.Header>
       <Card.Content>
         <div className="space-y-3">
-          <div className="flex items-center gap-3 p-2 rounded border-l-4 border-red-400 bg-red-50">
+          <div
+            className="flex items-center gap-3 p-2 rounded border-l-4 border-red-400 bg-red-50 hover:bg-red-100 transition-colors duration-200 cursor-pointer"
+            onClick={() => {
+              openTab({
+                key: `task-lab-meeting-${Date.now()}`,
+                title: 'Lab Meeting',
+                path: '/tasks',
+                icon: <CalendarIcon />
+              });
+              navigate('/tasks');
+            }}
+          >
             <CalendarIcon className="w-4 h-4 text-red-600" />
             <div className="flex-1">
               <p className="text-sm font-medium text-red-900">Lab Meeting</p>
               <p className="text-xs text-red-700">Today at 2:00 PM</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 p-2 rounded border-l-4 border-yellow-400 bg-yellow-50">
+          <div
+            className="flex items-center gap-3 p-2 rounded border-l-4 border-yellow-400 bg-yellow-50 hover:bg-yellow-100 transition-colors duration-200 cursor-pointer"
+            onClick={() => {
+              openTab({
+                key: `task-experiment-review-${Date.now()}`,
+                title: 'Experiment Review',
+                path: '/tasks',
+                icon: <TimelineIcon />
+              });
+              navigate('/tasks');
+            }}
+          >
             <TimelineIcon className="w-4 h-4 text-yellow-600" />
             <div className="flex-1">
               <p className="text-sm font-medium text-yellow-900">Experiment Review</p>
               <p className="text-xs text-yellow-700">Tomorrow at 10:00 AM</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 p-2 rounded border-l-4 border-blue-400 bg-blue-50">
+          <div
+            className="flex items-center gap-3 p-2 rounded border-l-4 border-blue-400 bg-blue-50 hover:bg-blue-100 transition-colors duration-200 cursor-pointer"
+            onClick={() => {
+              openTab({
+                key: `task-data-analysis-${Date.now()}`,
+                title: 'Data Analysis',
+                path: '/tasks',
+                icon: <AnalyticsIcon />
+              });
+              navigate('/tasks');
+            }}
+          >
             <AnalyticsIcon className="w-4 h-4 text-blue-600" />
             <div className="flex-1">
               <p className="text-sm font-medium text-blue-900">Data Analysis</p>

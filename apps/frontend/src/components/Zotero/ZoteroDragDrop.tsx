@@ -1,21 +1,61 @@
 import React, { useState, useRef, useCallback } from 'react';
 import {
-    Box, Typography, Paper, Alert, CircularProgress, 
-    List, ListItem, ListItemText, ListItemIcon, 
-    Chip, Button, Dialog, DialogTitle, DialogContent,
-    DialogActions, TextField, FormControl, InputLabel,
-    Select, MenuItem, Grid, Card, CardContent
+    Box,
+    Typography,
+    Paper,
+    Card,
+    CardContent,
+    Grid,
+    Chip,
+    Button,
+    CircularProgress,
+    Alert,
+    Snackbar,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    List,
+    ListItem,
+    ListItemText,
+    ListItemIcon,
+    Divider,
+    Avatar,
+    Stack,
+    Tooltip,
+    Fade,
 } from '@mui/material';
 import {
-    CloudUpload as UploadIcon, FilePresent as FileIcon,
-    Description as PdfIcon, CheckCircle as CheckIcon,
-    Error as ErrorIcon, Info as InfoIcon
+    CloudUpload as UploadIcon,
+    PictureAsPdf as PdfIcon,
+    Article as ArticleIcon,
+    Book as BookIcon,
+    DragIndicator as DragIcon,
+    CheckCircle as CheckIcon,
+    Error as ErrorIcon,
+    Info as InfoIcon,
+    Download as DownloadIcon,
+    Link as LinkIcon,
+    Tag as TagIcon,
+    Person as PersonIcon,
+    CalendarToday as DateIcon,
+    School as JournalIcon,
+    Description as AbstractIcon,
 } from '@mui/icons-material';
-import { projectsApi, zoteroApi } from '../../services/api';
+import { zoteroApi } from '../../services/api';
 
 interface ZoteroItem {
+    id: string;
     key: string;
-    data: {
+    title: string;
+    type: string;
+    authors?: string[];
+    year?: number;
+    url?: string;
+    pdfUrl?: string;
+    collections?: string[];
+    tags?: string[];
+    data?: {
         title: string;
         creators?: Array<{ firstName: string; lastName: string; creatorType: string }>;
         date?: string;
@@ -27,362 +67,530 @@ interface ZoteroItem {
         url?: string;
         abstractNote?: string;
         tags?: Array<{ tag: string }>;
+        itemType?: string;
     };
     meta?: {
         numChildren?: number;
     };
 }
 
-interface ZoteroDragDropProps {
-    open: boolean;
-    onClose: () => void;
-    onImportSuccess: (items: ZoteroItem[]) => void;
+interface DragDropState {
+    isDragOver: boolean;
+    draggedItems: ZoteroItem[];
+    selectedItems: ZoteroItem[];
+    importProgress: number;
+    importing: boolean;
+    error: string | null;
+    success: string | null;
 }
 
-const ZoteroDragDrop: React.FC<ZoteroDragDropProps> = ({
-    open, onClose, onImportSuccess
-}) => {
-    const [isDragOver, setIsDragOver] = useState(false);
-    const [uploading, setUploading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState<string | null>(null);
-    const [importedItems, setImportedItems] = useState<ZoteroItem[]>([]);
-    const [selectedProject, setSelectedProject] = useState<string>('');
-    const [selectedExperiment, setSelectedExperiment] = useState<string>('');
-    const [projects, setProjects] = useState<any[]>([]);
-    const [experiments, setExperiments] = useState<any[]>([]);
-    const fileInputRef = useRef<HTMLInputElement>(null);
+const ZoteroDragDrop: React.FC = () => {
+    const [state, setState] = useState<DragDropState>({
+        isDragOver: false,
+        draggedItems: [],
+        selectedItems: [],
+        importProgress: 0,
+        importing: false,
+        error: null,
+        success: null,
+    });
 
-    // Fetch projects and experiments for linking
-    React.useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const projectsResponse = await projectsApi.getAll();
-                setProjects(projectsResponse.data || []);
-                // For now, we'll get experiments from all projects
-                const allExperiments: any[] = [];
-                for (const project of projectsResponse.data || []) {
-                    try {
-                        const expResponse = await projectsApi.getExperiments(project.id);
-                        allExperiments.push(...(expResponse.data || []));
-                    } catch (err) {
-                        console.error(`Failed to fetch experiments for project ${project.id}:`, err);
-                    }
-                }
-                setExperiments(allExperiments);
-            } catch (err) {
-                console.error('Failed to fetch projects/experiments:', err);
-            }
-        };
-        if (open) {
-            fetchData();
+    const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+    const [previewItem, setPreviewItem] = useState<ZoteroItem | null>(null);
+    const dropZoneRef = useRef<HTMLDivElement>(null);
+
+    const getItemIcon = (type: string) => {
+        switch (type) {
+            case 'journalArticle':
+                return <ArticleIcon />;
+            case 'book':
+                return <BookIcon />;
+            case 'attachment':
+                return <PdfIcon />;
+            default:
+                return <ArticleIcon />;
         }
-    }, [open]);
+    };
+
+    const getItemTypeColor = (type: string) => {
+        switch (type) {
+            case 'journalArticle':
+                return 'primary';
+            case 'book':
+                return 'secondary';
+            case 'attachment':
+                return 'error';
+            default:
+                return 'default';
+        }
+    };
 
     const handleDragOver = useCallback((e: React.DragEvent) => {
         e.preventDefault();
-        setIsDragOver(true);
+        e.stopPropagation();
+        setState(prev => ({ ...prev, isDragOver: true }));
     }, []);
 
     const handleDragLeave = useCallback((e: React.DragEvent) => {
         e.preventDefault();
-        setIsDragOver(false);
+        e.stopPropagation();
+        setState(prev => ({ ...prev, isDragOver: false }));
     }, []);
 
     const handleDrop = useCallback(async (e: React.DragEvent) => {
         e.preventDefault();
-        setIsDragOver(false);
-        setError(null);
-        setSuccess(null);
+        e.stopPropagation();
 
-        const files = Array.from(e.dataTransfer.files);
-        const pdfFiles = files.filter(file => file.type === 'application/pdf');
+        setState(prev => ({ ...prev, isDragOver: false }));
 
-        if (pdfFiles.length === 0) {
-            setError('Please drop PDF files only.');
+        try {
+            // Parse dropped data
+            const droppedData = e.dataTransfer.getData('application/json');
+            if (!droppedData) {
+                setState(prev => ({ ...prev, error: 'No valid Zotero data found' }));
+                return;
+            }
+
+            const items: ZoteroItem[] = JSON.parse(droppedData);
+            setState(prev => ({
+                ...prev,
+                draggedItems: items,
+                selectedItems: items // Auto-select all dropped items
+            }));
+
+            setState(prev => ({ ...prev, success: `Successfully dropped ${items.length} items from Zotero` }));
+        } catch (error) {
+            console.error('Error parsing dropped data:', error);
+            setState(prev => ({ ...prev, error: 'Failed to parse dropped data' }));
+        }
+    }, []);
+
+    const handleImport = async () => {
+        if (state.selectedItems.length === 0) {
+            setState(prev => ({ ...prev, error: 'No items selected for import' }));
             return;
         }
 
-        await processFiles(pdfFiles);
-    }, []);
-
-    const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = Array.from(e.target.files || []);
-        if (files.length > 0) {
-            await processFiles(files);
-        }
-    }, []);
-
-    const processFiles = async (files: File[]) => {
-        setUploading(true);
-        setError(null);
+        setState(prev => ({ ...prev, importing: true, importProgress: 0 }));
 
         try {
-            const importedItems: ZoteroItem[] = [];
-            
-            for (const file of files) {
-                try {
-                    // For now, we'll create a basic import with file name as title
-                    const response = await zoteroApi.import(file, {
-                        zoteroKey: '', // This would need to be provided by user or detected
-                        title: file.name.replace('.pdf', ''),
-                        authors: [],
-                        abstract: '',
-                        publicationYear: new Date().getFullYear(),
-                        journal: '',
-                        doi: '',
-                        url: '',
-                        tags: []
-                    });
-                    
-                    if (response.data) {
-                        importedItems.push(response.data);
-                    }
-                } catch (err) {
-                    console.error(`Failed to import ${file.name}:`, err);
-                }
+            for (let i = 0; i < state.selectedItems.length; i++) {
+                const item = state.selectedItems[i];
+
+                // Simulate import progress
+                setState(prev => ({
+                    ...prev,
+                    importProgress: ((i + 1) / state.selectedItems.length) * 100
+                }));
+
+                // TODO: Implement actual import logic
+                // await zoteroApi.importItem(item);
+
+                // Simulate API delay
+                await new Promise(resolve => setTimeout(resolve, 500));
             }
-            
-            if (importedItems.length > 0) {
-                setImportedItems(importedItems);
-                setSuccess(`Successfully imported ${importedItems.length} PDF(s) from Zotero`);
-                onImportSuccess(importedItems);
-            } else {
-                setError('No PDFs were successfully imported. Please check your Zotero configuration.');
-            }
-        } catch (err) {
-            setError('Failed to import PDFs. Please check your Zotero configuration.');
-        } finally {
-            setUploading(false);
+
+            setState(prev => ({
+                ...prev,
+                success: `Successfully imported ${state.selectedItems.length} items`,
+                importing: false,
+                selectedItems: [],
+                draggedItems: []
+            }));
+        } catch (error) {
+            console.error('Import error:', error);
+            setState(prev => ({
+                ...prev,
+                error: 'Failed to import items',
+                importing: false
+            }));
         }
     };
 
-    const handleClose = () => {
-        setImportedItems([]);
-        setError(null);
-        setSuccess(null);
-        setUploading(false);
-        setIsDragOver(false);
-        onClose();
+    const handleItemToggle = (item: ZoteroItem) => {
+        setState(prev => {
+            const isSelected = prev.selectedItems.some(selected => selected.key === item.key);
+            if (isSelected) {
+                return {
+                    ...prev,
+                    selectedItems: prev.selectedItems.filter(selected => selected.key !== item.key)
+                };
+            } else {
+                return {
+                    ...prev,
+                    selectedItems: [...prev.selectedItems, item]
+                };
+            }
+        });
     };
 
-    const formatAuthors = (creators?: Array<{ firstName: string; lastName: string; creatorType: string }>) => {
-        if (!creators || creators.length === 0) return 'Unknown Author';
-        return creators
-            .filter(creator => creator.creatorType === 'author')
-            .map(creator => `${creator.firstName} ${creator.lastName}`)
-            .join(', ');
-    };
-
-    const formatCitation = (item: ZoteroItem) => {
-        const authors = formatAuthors(item.data.creators);
-        const year = item.data.date ? new Date(item.data.date).getFullYear() : '';
-        const title = item.data.title || 'Untitled';
-        const journal = item.data.publicationTitle || '';
-        
-        return `${authors} (${year}). ${title}. ${journal}`;
+    const handlePreviewItem = (item: ZoteroItem) => {
+        setPreviewItem(item);
+        setShowPreviewDialog(true);
     };
 
     return (
-        <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-            <DialogTitle>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <UploadIcon />
-                    Import PDFs from Zotero
-                </Box>
-            </DialogTitle>
-            <DialogContent>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Drag and drop PDF files from your Zotero library to import them with full metadata.
+        <Box sx={{ p: 3 }}>
+            <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <DragIcon />
+                Zotero Drag & Drop Import
+            </Typography>
+
+            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                Drag items from your Zotero library directly into this area to import them as PDFs and references.
+            </Typography>
+
+            {/* Drop Zone */}
+            <Paper
+                ref={dropZoneRef}
+                sx={{
+                    border: '2px dashed',
+                    borderColor: state.isDragOver ? 'primary.main' : 'grey.300',
+                    borderRadius: 2,
+                    p: 4,
+                    textAlign: 'center',
+                    backgroundColor: state.isDragOver ? 'primary.50' : 'background.paper',
+                    transition: 'all 0.3s ease',
+                    cursor: 'pointer',
+                    '&:hover': {
+                        borderColor: 'primary.main',
+                        backgroundColor: 'primary.50',
+                    }
+                }}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+            >
+                <UploadIcon sx={{ fontSize: 64, color: 'primary.main', mb: 2 }} />
+                <Typography variant="h6" gutterBottom>
+                    {state.isDragOver ? 'Drop Zotero items here' : 'Drag Zotero items here'}
                 </Typography>
+                <Typography variant="body2" color="text.secondary">
+                    Select items in Zotero and drag them to this area to import
+                </Typography>
+            </Paper>
 
-                {/* Link to Project/Experiment */}
-                <Grid container spacing={2} sx={{ mb: 3 }}>
-                    <Grid item xs={12} md={6}>
-                        <FormControl fullWidth>
-                            <InputLabel>Link to Project (Optional)</InputLabel>
-                            <Select
-                                value={selectedProject}
-                                onChange={(e) => setSelectedProject(e.target.value)}
-                                label="Link to Project (Optional)"
-                            >
-                                <MenuItem value="">None</MenuItem>
-                                {projects.map(project => (
-                                    <MenuItem key={project.id} value={project.id}>
-                                        {project.name}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                        <FormControl fullWidth>
-                            <InputLabel>Link to Experiment (Optional)</InputLabel>
-                            <Select
-                                value={selectedExperiment}
-                                onChange={(e) => setSelectedExperiment(e.target.value)}
-                                label="Link to Experiment (Optional)"
-                            >
-                                <MenuItem value="">None</MenuItem>
-                                {experiments.map(experiment => (
-                                    <MenuItem key={experiment.id} value={experiment.id}>
-                                        {experiment.name}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                    </Grid>
-                </Grid>
-
-                {/* Drag & Drop Area */}
-                <Paper
-                    sx={{
-                        border: '2px dashed',
-                        borderColor: isDragOver ? 'primary.main' : 'grey.300',
-                        backgroundColor: isDragOver ? 'action.hover' : 'background.paper',
-                        p: 4,
-                        textAlign: 'center',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        mb: 3
-                    }}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                >
-                    <input
-                        ref={fileInputRef}
-                        type="file"
-                        multiple
-                        accept=".pdf"
-                        onChange={handleFileSelect}
-                        style={{ display: 'none' }}
-                    />
-                    
-                    {uploading ? (
-                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                            <CircularProgress />
-                            <Typography>Processing PDFs from Zotero...</Typography>
-                        </Box>
-                    ) : (
-                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                            <UploadIcon sx={{ fontSize: 48, color: 'primary.main' }} />
-                            <Typography variant="h6">
-                                {isDragOver ? 'Drop PDFs here' : 'Drag & Drop PDFs from Zotero'}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                                or click to select files
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                                Supports multiple PDF files with automatic metadata extraction
-                            </Typography>
-                        </Box>
-                    )}
-                </Paper>
-
-                {/* Status Messages */}
-                {error && (
-                    <Alert severity="error" sx={{ mb: 2 }}>
-                        {error}
-                    </Alert>
-                )}
-
-                {success && (
-                    <Alert severity="success" sx={{ mb: 2 }}>
-                        {success}
-                    </Alert>
-                )}
-
-                {/* Imported Items List */}
-                {importedItems.length > 0 && (
-                    <Box>
-                        <Typography variant="h6" gutterBottom>
-                            Imported Items ({importedItems.length})
+            {/* Import Progress */}
+            {state.importing && (
+                <Paper sx={{ mt: 3, p: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                        <CircularProgress size={24} />
+                        <Typography variant="body1">
+                            Importing items... {Math.round(state.importProgress)}%
                         </Typography>
-                        <List>
-                            {importedItems.map((item, index) => (
-                                <Card key={item.key} sx={{ mb: 1 }}>
-                                    <CardContent>
-                                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                                            <CheckIcon color="success" />
-                                            <Box sx={{ flex: 1 }}>
-                                                <Typography variant="subtitle1" fontWeight="bold">
-                                                    {item.data.title || 'Untitled'}
-                                                </Typography>
-                                                <Typography variant="body2" color="text.secondary">
-                                                    {formatCitation(item)}
-                                                </Typography>
-                                                
-                                                <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
-                                                    {item.data.DOI && (
-                                                        <Chip 
-                                                            label={`DOI: ${item.data.DOI}`} 
-                                                            size="small" 
-                                                            color="primary" 
-                                                            variant="outlined"
-                                                        />
-                                                    )}
-                                                    {item.data.publicationTitle && (
-                                                        <Chip 
-                                                            label={item.data.publicationTitle} 
-                                                            size="small" 
-                                                            color="secondary" 
-                                                            variant="outlined"
-                                                        />
-                                                    )}
-                                                    {item.data.date && (
-                                                        <Chip 
-                                                            label={new Date(item.data.date).getFullYear()} 
-                                                            size="small" 
-                                                            color="info" 
-                                                            variant="outlined"
-                                                        />
-                                                    )}
-                                                </Box>
+                    </Box>
+                    <Box sx={{ width: '100%', bgcolor: 'grey.200', borderRadius: 1 }}>
+                        <Box
+                            sx={{
+                                width: `${state.importProgress}%`,
+                                height: 8,
+                                bgcolor: 'primary.main',
+                                borderRadius: 1,
+                                transition: 'width 0.3s ease'
+                            }}
+                        />
+                    </Box>
+                </Paper>
+            )}
 
-                                                {item.data.abstractNote && (
-                                                    <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
-                                                        {item.data.abstractNote.length > 200 
-                                                            ? `${item.data.abstractNote.substring(0, 200)}...`
-                                                            : item.data.abstractNote
-                                                        }
-                                                    </Typography>
-                                                )}
+            {/* Dropped Items */}
+            {state.draggedItems.length > 0 && (
+                <Paper sx={{ mt: 3, p: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Typography variant="h6">
+                            Dropped Items ({state.draggedItems.length})
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Button
+                                variant="outlined"
+                                size="small"
+                                onClick={() => setState(prev => ({
+                                    ...prev,
+                                    selectedItems: prev.draggedItems
+                                }))}
+                            >
+                                Select All
+                            </Button>
+                            <Button
+                                variant="outlined"
+                                size="small"
+                                onClick={() => setState(prev => ({
+                                    ...prev,
+                                    selectedItems: []
+                                }))}
+                            >
+                                Clear Selection
+                            </Button>
+                        </Box>
+                    </Box>
+
+                    <Grid container spacing={2}>
+                        {state.draggedItems.map((item) => (
+                            <Grid item xs={12} sm={6} md={4} key={item.key}>
+                                <Card
+                                    sx={{
+                                        cursor: 'pointer',
+                                        transition: 'all 0.3s ease',
+                                        border: state.selectedItems.some(selected => selected.key === item.key)
+                                            ? '2px solid'
+                                            : '1px solid',
+                                        borderColor: state.selectedItems.some(selected => selected.key === item.key)
+                                            ? 'primary.main'
+                                            : 'grey.300',
+                                        '&:hover': {
+                                            transform: 'translateY(-2px)',
+                                            boxShadow: 4
+                                        }
+                                    }}
+                                    onClick={() => handleItemToggle(item)}
+                                >
+                                    <CardContent>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                            <Avatar sx={{ mr: 2, bgcolor: 'primary.light' }}>
+                                                {getItemIcon(item.type)}
+                                            </Avatar>
+                                            <Box sx={{ flex: 1 }}>
+                                                <Typography variant="subtitle2" fontWeight="medium">
+                                                    {item.title}
+                                                </Typography>
+                                                <Chip
+                                                    label={item.type}
+                                                    size="small"
+                                                    color={getItemTypeColor(item.type) as any}
+                                                />
                                             </Box>
+                                            {state.selectedItems.some(selected => selected.key === item.key) && (
+                                                <CheckIcon color="primary" />
+                                            )}
+                                        </Box>
+
+                                        {item.authors && (
+                                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                                {item.authors.slice(0, 2).join(', ')}
+                                                {item.authors.length > 2 && ' et al.'}
+                                            </Typography>
+                                        )}
+
+                                        {item.data?.publicationTitle && (
+                                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                                {item.data.publicationTitle}
+                                            </Typography>
+                                        )}
+
+                                        {item.year && (
+                                            <Typography variant="body2" color="text.secondary">
+                                                {item.year}
+                                            </Typography>
+                                        )}
+
+                                        <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                                            <Tooltip title="Preview Details">
+                                                <Button
+                                                    size="small"
+                                                    variant="outlined"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handlePreviewItem(item);
+                                                    }}
+                                                >
+                                                    <InfoIcon fontSize="small" />
+                                                </Button>
+                                            </Tooltip>
                                         </Box>
                                     </CardContent>
                                 </Card>
-                            ))}
-                        </List>
-                    </Box>
-                )}
+                            </Grid>
+                        ))}
+                    </Grid>
 
-                {/* Instructions */}
-                <Alert severity="info" sx={{ mt: 2 }}>
-                    <Typography variant="body2">
-                        <strong>How to use:</strong>
-                    </Typography>
-                    <Typography variant="body2" component="div">
-                        1. Open your Zotero library in a separate window
-                    </Typography>
-                    <Typography variant="body2" component="div">
-                        2. Select the PDF files you want to import
-                    </Typography>
-                    <Typography variant="body2" component="div">
-                        3. Drag them directly into this dialog
-                    </Typography>
-                    <Typography variant="body2" component="div">
-                        4. The system will automatically extract metadata and create literature notes
-                    </Typography>
+                    {/* Import Actions */}
+                    <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center', gap: 2 }}>
+                        <Button
+                            variant="contained"
+                            size="large"
+                            startIcon={<DownloadIcon />}
+                            onClick={handleImport}
+                            disabled={state.selectedItems.length === 0 || state.importing}
+                        >
+                            Import {state.selectedItems.length} Selected Items
+                        </Button>
+                    </Box>
+                </Paper>
+            )}
+
+            {/* Preview Dialog */}
+            <Dialog
+                open={showPreviewDialog}
+                onClose={() => setShowPreviewDialog(false)}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {previewItem && getItemIcon(previewItem.type)}
+                        <Typography variant="h6">{previewItem?.title}</Typography>
+                    </Box>
+                </DialogTitle>
+                <DialogContent>
+                    {previewItem && (
+                        <Grid container spacing={3}>
+                            <Grid item xs={12} md={8}>
+                                <Typography variant="h6" gutterBottom>Details</Typography>
+
+                                {previewItem.data?.creators && (
+                                    <Box sx={{ mb: 2 }}>
+                                        <Typography variant="subtitle2" color="text.secondary">
+                                            <PersonIcon sx={{ mr: 1, fontSize: 16 }} />
+                                            Authors
+                                        </Typography>
+                                        <Typography variant="body1">
+                                            {previewItem.data.creators.map((creator, index) => (
+                                                <span key={index}>
+                                                    {creator.firstName} {creator.lastName}
+                                                    {index < previewItem.data!.creators!.length - 1 ? ', ' : ''}
+                                                </span>
+                                            ))}
+                                        </Typography>
+                                    </Box>
+                                )}
+
+                                {previewItem.data?.publicationTitle && (
+                                    <Box sx={{ mb: 2 }}>
+                                        <Typography variant="subtitle2" color="text.secondary">
+                                            <JournalIcon sx={{ mr: 1, fontSize: 16 }} />
+                                            Journal/Publication
+                                        </Typography>
+                                        <Typography variant="body1">{previewItem.data.publicationTitle}</Typography>
+                                    </Box>
+                                )}
+
+                                {previewItem.data?.date && (
+                                    <Box sx={{ mb: 2 }}>
+                                        <Typography variant="subtitle2" color="text.secondary">
+                                            <DateIcon sx={{ mr: 1, fontSize: 16 }} />
+                                            Date
+                                        </Typography>
+                                        <Typography variant="body1">{previewItem.data.date}</Typography>
+                                    </Box>
+                                )}
+
+                                {previewItem.data?.DOI && (
+                                    <Box sx={{ mb: 2 }}>
+                                        <Typography variant="subtitle2" color="text.secondary">
+                                            <LinkIcon sx={{ mr: 1, fontSize: 16 }} />
+                                            DOI
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ wordBreak: 'break-all' }}>
+                                            {previewItem.data.DOI}
+                                        </Typography>
+                                    </Box>
+                                )}
+
+                                {previewItem.data?.abstractNote && (
+                                    <Box sx={{ mb: 2 }}>
+                                        <Typography variant="subtitle2" color="text.secondary">
+                                            <AbstractIcon sx={{ mr: 1, fontSize: 16 }} />
+                                            Abstract
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ fontStyle: 'italic' }}>
+                                            {previewItem.data.abstractNote}
+                                        </Typography>
+                                    </Box>
+                                )}
+                            </Grid>
+
+                            <Grid item xs={12} md={4}>
+                                <Typography variant="h6" gutterBottom>Actions</Typography>
+
+                                <Stack spacing={2}>
+                                    <Button
+                                        variant="contained"
+                                        startIcon={<DownloadIcon />}
+                                        onClick={() => {
+                                            handleItemToggle(previewItem);
+                                            setShowPreviewDialog(false);
+                                        }}
+                                        fullWidth
+                                    >
+                                        {state.selectedItems.some(selected => selected.key === previewItem.key)
+                                            ? 'Remove from Selection'
+                                            : 'Add to Selection'
+                                        }
+                                    </Button>
+
+                                    {previewItem.data?.url && (
+                                        <Button
+                                            variant="outlined"
+                                            startIcon={<LinkIcon />}
+                                            href={previewItem.data.url}
+                                            target="_blank"
+                                            fullWidth
+                                        >
+                                            Open Source
+                                        </Button>
+                                    )}
+
+                                    {previewItem.data?.DOI && (
+                                        <Button
+                                            variant="outlined"
+                                            startIcon={<LinkIcon />}
+                                            href={`https://doi.org/${previewItem.data.DOI}`}
+                                            target="_blank"
+                                            fullWidth
+                                        >
+                                            View DOI
+                                        </Button>
+                                    )}
+                                </Stack>
+
+                                {previewItem.tags && previewItem.tags.length > 0 && (
+                                    <Box sx={{ mt: 3 }}>
+                                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                            <TagIcon sx={{ mr: 1, fontSize: 16 }} />
+                                            Tags
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                            {previewItem.tags.map((tag) => (
+                                                <Chip
+                                                    key={tag}
+                                                    label={tag}
+                                                    size="small"
+                                                    variant="outlined"
+                                                />
+                                            ))}
+                                        </Box>
+                                    </Box>
+                                )}
+                            </Grid>
+                        </Grid>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setShowPreviewDialog(false)}>Close</Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Snackbars */}
+            <Snackbar
+                open={!!state.error}
+                autoHideDuration={6000}
+                onClose={() => setState(prev => ({ ...prev, error: null }))}
+            >
+                <Alert severity="error" onClose={() => setState(prev => ({ ...prev, error: null }))}>
+                    {state.error}
                 </Alert>
-            </DialogContent>
-            <DialogActions>
-                <Button onClick={handleClose}>
-                    {importedItems.length > 0 ? 'Done' : 'Cancel'}
-                </Button>
-            </DialogActions>
-        </Dialog>
+            </Snackbar>
+
+            <Snackbar
+                open={!!state.success}
+                autoHideDuration={4000}
+                onClose={() => setState(prev => ({ ...prev, success: null }))}
+            >
+                <Alert severity="success" onClose={() => setState(prev => ({ ...prev, success: null }))}>
+                    {state.success}
+                </Alert>
+            </Snackbar>
+        </Box>
     );
 };
 

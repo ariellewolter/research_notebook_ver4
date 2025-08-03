@@ -9,7 +9,7 @@ import {
 import {
   Delete, Edit, Add, FilterList, ViewList, ViewModule, Schedule, Comment,
   AttachFile, Notifications, Timer, ExpandMore, CheckCircle, Cancel,
-  PriorityHigh, MoreVert, Download, Upload, AccountTree
+  PriorityHigh, MoreVert, Download, Upload, AccountTree, AccountTree as WorkflowIcon
 } from '@mui/icons-material';
 import { projectsApi, tasksApi, taskTemplatesApi, protocolsApi, tablesApi, notesApi, pdfsApi, notificationsApi, taskDependenciesApi } from '../services/api';
 import { format, isToday, parseISO, addDays, addWeeks, addMonths, addYears, isBefore } from 'date-fns';
@@ -17,6 +17,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea
 import * as chrono from 'chrono-node';
 import TaskDependencies from '../components/Tasks/TaskDependencies';
 import CriticalPathAnalysis from '../components/Tasks/CriticalPathAnalysis';
+import TaskFlowManagement from '../components/Tasks/TaskFlowManagement';
 
 // Enhanced natural language parsing
 const parseNaturalLanguage = (text: string) => {
@@ -27,13 +28,13 @@ const parseNaturalLanguage = (text: string) => {
     recurring: undefined as any,
     priority: 'medium' as 'low' | 'medium' | 'high',
     type: 'general',
-  
+
     tags: [] as string[]
   };
 
   // Parse date patterns
   const today = new Date();
-  
+
   if (text.toLowerCase().includes('tomorrow')) {
     result.date = format(addDays(today, 1), 'yyyy-MM-dd');
     result.title = result.title.replace(/tomorrow/gi, '').trim();
@@ -54,10 +55,10 @@ const parseNaturalLanguage = (text: string) => {
     let hours = parseInt(timeMatch[1]);
     const minutes = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
     const period = timeMatch[3]?.toLowerCase();
-    
+
     if (period === 'pm' && hours !== 12) hours += 12;
     if (period === 'am' && hours === 12) hours = 0;
-    
+
     result.time = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
     result.title = result.title.replace(timeMatch[0], '').trim();
   }
@@ -104,18 +105,17 @@ interface Task {
   id: string;
   title: string;
   description?: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  status: 'todo' | 'in_progress' | 'done' | 'overdue' | 'cancelled'; // Updated to match backend
   priority: 'low' | 'medium' | 'high';
   deadline?: string;
   isRecurring: boolean;
   recurringPattern?: string;
   tags?: string;
-  projectIds?: string[]; // Changed from projectId to array
-  experimentIds?: string[]; // Changed from experimentId to array
-  protocolIds?: string[]; // Changed from protocolId to array
-  noteIds?: string[]; // Changed from noteId to array
-  tableIds?: string[]; // Changed from tableId to array
-  pdfIds?: string[]; // Changed from pdfId to array
+  // Backend uses single fields, not arrays
+  projectId?: string | null;
+  experimentId?: string | null;
+  protocolId?: string | null;
+  noteId?: string | null;
   comments?: TaskComment[];
   attachments?: TaskAttachment[];
   timeEntries?: TaskTimeEntry[];
@@ -175,7 +175,7 @@ const defaultRecurrence = { freq: 'daily', interval: 1 };
 
 // Template categories
 const templateCategories = [
-  'General', 'Research', 'Lab Work', 'Analysis', 'Writing', 'Review', 
+  'General', 'Research', 'Lab Work', 'Analysis', 'Writing', 'Review',
   'Meeting', 'Administrative', 'Data Collection', 'Equipment', 'Custom'
 ];
 
@@ -187,7 +187,8 @@ function RecurrenceRuleBuilder({ value, onChange }: { value: any, onChange: (val
   const [endValue, setEndValue] = React.useState(value?.end?.value || null);
 
   React.useEffect(() => {
-    onChange({ frequency: freq, interval, daysOfWeek, end: { type: endType, value: endValue } });
+    const pattern = { frequency: freq, interval, daysOfWeek, end: { type: endType, value: endValue } };
+    onChange(JSON.stringify(pattern));
   }, [freq, interval, daysOfWeek, endType, endValue]);
 
   const freqOptions = [
@@ -307,7 +308,7 @@ interface TaskAnalytics {
   completionRate: number;
   averageCompletionTime: number;
   tasksByPriority: { high: number; medium: number; low: number };
-  tasksByStatus: { pending: number; in_progress: number; completed: number; cancelled: number };
+  tasksByStatus: { todo: number; in_progress: number; done: number; cancelled: number };
   recentActivity: { date: string; count: number }[];
   topTags: { tag: string; count: number }[];
   topTagCategories: { category: string; count: number }[];
@@ -382,6 +383,7 @@ const Tasks: React.FC = () => {
   // Dependency and workflow states
   const [dependenciesDialogOpen, setDependenciesDialogOpen] = useState(false);
   const [criticalPathDialogOpen, setCriticalPathDialogOpen] = useState(false);
+  const [taskFlowDialogOpen, setTaskFlowDialogOpen] = useState(false);
   const [selectedTaskForDependencies, setSelectedTaskForDependencies] = useState<Task | null>(null);
   const [selectedTasksForCriticalPath, setSelectedTasksForCriticalPath] = useState<Task[]>([]);
 
@@ -389,18 +391,16 @@ const Tasks: React.FC = () => {
   const [newTask, setNewTask] = useState<Partial<Task>>({
     title: '',
     description: '',
-    status: 'pending',
+    status: 'todo', // Changed from 'pending' to 'todo' to match backend
     priority: 'medium',
     deadline: '',
     isRecurring: false,
     recurringPattern: JSON.stringify(defaultRecurrence),
     tags: '',
-    projectIds: [], // Changed from projectId to array
-    experimentIds: [], // Changed from experimentId to array
-    protocolIds: [], // Changed from protocolId to array
-    noteIds: [], // Changed from noteId to array
-    tableIds: [], // Changed from tableId to array
-    pdfIds: [], // Changed from pdfId to array
+    projectId: null,
+    experimentId: null,
+    protocolId: null,
+    noteId: null,
   });
 
   const [newTemplate, setNewTemplate] = useState({
@@ -415,8 +415,30 @@ const Tasks: React.FC = () => {
     category: 'General',
     variables: '{}',
     isPublic: false,
-  
   });
+
+  // Load task data when editing
+  useEffect(() => {
+    if (selectedTask) {
+      // Load task data for editing
+      setNewTask({
+        title: selectedTask.title,
+        description: selectedTask.description || '',
+        status: selectedTask.status,
+        priority: selectedTask.priority,
+        deadline: selectedTask.deadline || '',
+        isRecurring: selectedTask.isRecurring,
+        recurringPattern: selectedTask.recurringPattern || JSON.stringify(defaultRecurrence),
+        tags: selectedTask.tags || '',
+        projectId: selectedTask.projectId || null,
+        experimentId: selectedTask.experimentId || null,
+        protocolId: selectedTask.protocolId || null,
+        noteId: selectedTask.noteId || null,
+      });
+    } else {
+      resetNewTask();
+    }
+  }, [selectedTask]);
 
   const [newComment, setNewComment] = useState({ content: '', author: 'User' });
   const [timeEntry, setTimeEntry] = useState({ startTime: '', endTime: '', description: '' });
@@ -458,7 +480,7 @@ const Tasks: React.FC = () => {
     completionRate: 0,
     averageCompletionTime: 0,
     tasksByPriority: { high: 0, medium: 0, low: 0 },
-    tasksByStatus: { pending: 0, in_progress: 0, completed: 0, cancelled: 0 },
+    tasksByStatus: { todo: 0, in_progress: 0, done: 0, cancelled: 0 },
     recentActivity: [],
     topTags: [],
     topTagCategories: [],
@@ -473,12 +495,12 @@ const Tasks: React.FC = () => {
   // Load data
   useEffect(() => {
     loadData();
-    
+
     // Set up periodic checks for overdue notifications
     const overdueCheckInterval = setInterval(() => {
       checkAndCreateOverdueNotifications();
     }, 60000); // Check every minute
-    
+
     return () => {
       clearInterval(overdueCheckInterval);
     };
@@ -487,48 +509,48 @@ const Tasks: React.FC = () => {
   const calculateAnalytics = () => {
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    
+
     // Basic counts
     const totalTasks = tasks.length;
-    const completedTasks = tasks.filter(t => t.status === 'completed').length;
-    const pendingTasks = tasks.filter(t => t.status === 'pending').length;
+    const completedTasks = tasks.filter(t => t.status === 'done').length;
+    const pendingTasks = tasks.filter(t => t.status === 'todo').length;
     const inProgressTasks = tasks.filter(t => t.status === 'in_progress').length;
-    const overdueTasks = tasks.filter(t => 
-      t.deadline && isBefore(parseISO(t.deadline), now) && t.status !== 'completed' && t.status !== 'cancelled'
+    const overdueTasks = tasks.filter(t =>
+      t.deadline && isBefore(parseISO(t.deadline), now) && t.status !== 'done' && t.status !== 'cancelled'
     ).length;
     const cancelledTasks = tasks.filter(t => t.status === 'cancelled').length;
-    
+
     // Completion rate
     const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
-    
+
     // Average completion time (for completed tasks with creation and update dates)
-    const completedTasksWithDates = tasks.filter(t => 
-      t.status === 'completed' && t.createdAt && t.updatedAt
+    const completedTasksWithDates = tasks.filter(t =>
+      t.status === 'done' && t.createdAt && t.updatedAt
     );
     const totalCompletionTime = completedTasksWithDates.reduce((sum, task) => {
       const created = parseISO(task.createdAt);
       const updated = parseISO(task.updatedAt);
       return sum + (updated.getTime() - created.getTime());
     }, 0);
-    const averageCompletionTime = completedTasksWithDates.length > 0 
+    const averageCompletionTime = completedTasksWithDates.length > 0
       ? totalCompletionTime / completedTasksWithDates.length / (1000 * 60 * 60 * 24) // Convert to days
       : 0;
-    
+
     // Tasks by priority
     const tasksByPriority = {
       high: tasks.filter(t => t.priority === 'high').length,
       medium: tasks.filter(t => t.priority === 'medium').length,
       low: tasks.filter(t => t.priority === 'low').length
     };
-    
+
     // Tasks by status
     const tasksByStatus = {
-      pending: pendingTasks,
+      todo: pendingTasks,
       in_progress: inProgressTasks,
-      completed: completedTasks,
+      done: completedTasks,
       cancelled: cancelledTasks
     };
-    
+
     // Recent activity (last 30 days)
     const recentActivity = tasks
       .filter(t => parseISO(t.createdAt) >= thirtyDaysAgo)
@@ -544,7 +566,7 @@ const Tasks: React.FC = () => {
       }, [] as { date: string; count: number }[])
       .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, 7); // Last 7 days
-    
+
     // Top tags and tag categories
     const tagCounts: Record<string, number> = {};
     const tagCategoryCounts: Record<string, number> = {};
@@ -560,19 +582,19 @@ const Tasks: React.FC = () => {
       .map(([tag, count]) => ({ tag, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
-    
+
     const topTagCategories = Object.entries(tagCategoryCounts)
       .map(([category, count]) => ({ category, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 8);
-    
+
     // Time tracking stats
     const totalTimeSpent = tasks.reduce((sum, task) => sum + (task.totalTimeSpent || 0), 0);
     const averageTimePerTask = totalTasks > 0 ? totalTimeSpent / totalTasks : 0;
-    const mostTimeSpentTask = tasks.length > 0 ? tasks.reduce((max, task) => 
+    const mostTimeSpentTask = tasks.length > 0 ? tasks.reduce((max, task) =>
       (task.totalTimeSpent || 0) > (max.totalTimeSpent || 0) ? task : max
     ).title : 'No tasks';
-    
+
     setAnalytics({
       totalTasks,
       completedTasks,
@@ -613,9 +635,9 @@ const Tasks: React.FC = () => {
         templatesResponse,
         statsResponse
       ] = await Promise.all([
-        tasksApi.getAll({ 
-          ...filters, 
-          page: page + 1, 
+        tasksApi.getAll({
+          ...filters,
+          page: page + 1,
           limit: rowsPerPage,
           tags: filters.tags?.length ? filters.tags.join(',') : undefined,
           tagCategories: filters.tagCategories?.length ? filters.tagCategories.join(',') : undefined
@@ -638,7 +660,7 @@ const Tasks: React.FC = () => {
       setTemplates(templatesResponse.data || []);
       setTemplateStats(statsResponse.data);
       setTotalTasks(tasksResponse.data.pagination?.total || tasksResponse.data.length || 0);
-      
+
       // Load experiments for all projects
       const experimentsPromises = (projectsResponse.data.projects || projectsResponse.data || []).map(
         (project: any) => projectsApi.getExperiments(project.id)
@@ -646,7 +668,7 @@ const Tasks: React.FC = () => {
       const experimentsResponses = await Promise.all(experimentsPromises);
       const allExperiments = experimentsResponses.flatMap(response => response.data || []);
       setExperiments(allExperiments);
-      
+
     } catch (error) {
       console.error('Error loading data:', error);
       showNotification('Failed to load data', 'error');
@@ -662,19 +684,36 @@ const Tasks: React.FC = () => {
   // Task operations
   const handleCreateTask = async () => {
     try {
-      const taskData = {
-        ...newTask,
-        projectIds: newTask.projectIds?.length ? newTask.projectIds : undefined,
-        experimentIds: newTask.experimentIds?.length ? newTask.experimentIds : undefined,
-        protocolIds: newTask.protocolIds?.length ? newTask.protocolIds : undefined,
-        noteIds: newTask.noteIds?.length ? newTask.noteIds : undefined,
-        tableIds: newTask.tableIds?.length ? newTask.tableIds : undefined,
-        pdfIds: newTask.pdfIds?.length ? newTask.pdfIds : undefined,
+      // Only send fields that the backend expects
+      const taskData: any = {
+        title: newTask.title || 'Untitled Task', // Ensure title is not empty
+        status: newTask.status,
+        priority: newTask.priority,
+        isRecurring: newTask.isRecurring,
+        projectId: newTask.projectId,
+        experimentId: newTask.experimentId,
+        protocolId: newTask.protocolId,
+        noteId: newTask.noteId,
       };
 
+      // Only add optional fields if they have values
+      if (newTask.description) {
+        taskData.description = newTask.description;
+      }
+      if (newTask.deadline) {
+        taskData.deadline = newTask.deadline;
+      }
+      if (newTask.recurringPattern) {
+        taskData.recurringPattern = newTask.recurringPattern;
+      }
+      if (newTask.tags) {
+        taskData.tags = newTask.tags;
+      }
+
+      console.log('Sending task data:', taskData);
       const response = await tasksApi.create(taskData);
       const createdTask = response.data;
-      
+
       // Create notifications for the new task
       if (createdTask.deadline) {
         await createTaskNotifications(createdTask.id, createdTask.deadline);
@@ -682,6 +721,7 @@ const Tasks: React.FC = () => {
 
       setTasks(prev => [...prev, createdTask]);
       setTaskDialogOpen(false);
+      setSelectedTask(null);
       resetNewTask();
       showNotification('Task created successfully');
     } catch (error) {
@@ -692,21 +732,51 @@ const Tasks: React.FC = () => {
 
   const handleUpdateTask = async (taskId: string, updates: any) => {
     try {
-      const response = await tasksApi.update(taskId, updates);
+      // Convert frontend data to backend format
+      const taskData: any = {
+        title: updates.title || 'Untitled Task',
+        status: updates.status,
+        priority: updates.priority,
+        isRecurring: updates.isRecurring,
+        projectId: updates.projectId,
+        experimentId: updates.experimentId,
+        protocolId: updates.protocolId,
+        noteId: updates.noteId,
+      };
+
+      // Only add optional fields if they have values
+      if (updates.description) {
+        taskData.description = updates.description;
+      }
+      if (updates.deadline) {
+        taskData.deadline = updates.deadline;
+      }
+      if (updates.recurringPattern) {
+        taskData.recurringPattern = updates.recurringPattern;
+      }
+      if (updates.tags) {
+        taskData.tags = updates.tags;
+      }
+
+      console.log('Sending update data:', taskData);
+      const response = await tasksApi.update(taskId, taskData);
       const updatedTask = response.data;
-      
+
       // Handle status change notifications
       const originalTask = tasks.find(t => t.id === taskId);
-      if (originalTask && updates.status === 'completed' && originalTask.status !== 'completed') {
+      if (originalTask && updates.status === 'done' && originalTask.status !== 'done') {
         await createCompletionNotification(taskId, updatedTask.title);
       }
-      
+
       // Handle deadline changes
       if (updates.deadline && updates.deadline !== originalTask?.deadline) {
         await createTaskNotifications(taskId, updates.deadline);
       }
 
       setTasks(prev => prev.map(task => task.id === taskId ? updatedTask : task));
+      setTaskDialogOpen(false);
+      setSelectedTask(null);
+      resetNewTask();
       showNotification('Task updated successfully');
     } catch (error) {
       console.error('Error updating task:', error);
@@ -785,10 +855,10 @@ const Tasks: React.FC = () => {
   const handleCreateTaskFromTemplate = async (templateId: string) => {
     try {
       await taskTemplatesApi.createTaskFromTemplate(templateId, {
-        projectId: newTask.projectIds?.[0] || '',
-        experimentId: newTask.experimentIds?.[0] || '',
-        protocolId: newTask.protocolIds?.[0] || '',
-        noteId: newTask.noteIds?.[0] || '',
+        projectId: newTask.projectId || '',
+        experimentId: newTask.experimentId || '',
+        protocolId: newTask.protocolId || '',
+        noteId: newTask.noteId || '',
         deadline: newTask.deadline,
         customTitle: newTask.title
       });
@@ -823,7 +893,7 @@ const Tasks: React.FC = () => {
 
   const handleUpdateTemplate = async () => {
     if (!selectedTemplateForEdit) return;
-    
+
     try {
       const templateData = {
         name: newTemplate.name,
@@ -865,14 +935,14 @@ const Tasks: React.FC = () => {
   const processTemplateVariables = (template: TaskTemplate, variables: Record<string, string>) => {
     let processedTitle = template.title;
     let processedDescription = template.description || '';
-    
+
     // Replace variables in title and description
     Object.entries(variables).forEach(([key, value]) => {
       const placeholder = `{{${key}}}`;
       processedTitle = processedTitle.replace(new RegExp(placeholder, 'g'), value);
       processedDescription = processedDescription.replace(new RegExp(placeholder, 'g'), value);
     });
-    
+
     return { title: processedTitle, description: processedDescription };
   };
 
@@ -880,21 +950,21 @@ const Tasks: React.FC = () => {
     try {
       // Process variables if any
       const processed = processTemplateVariables(template, templateVariables);
-      
+
       await taskTemplatesApi.createTaskFromTemplate(template.id, {
-        projectId: newTask.projectIds?.[0] || '',
-        experimentId: newTask.experimentIds?.[0] || '',
-        protocolId: newTask.protocolIds?.[0] || '',
-        noteId: newTask.noteIds?.[0] || '',
+        projectId: newTask.projectId || '',
+        experimentId: newTask.experimentId || '',
+        protocolId: newTask.protocolId || '',
+        noteId: newTask.noteId || '',
         deadline: newTask.deadline,
         customTitle: processed.title
       });
-      
+
       // Update the task description if it was modified by variables
       if (processed.description !== template.description) {
         // You might want to update the task description here
       }
-      
+
       loadData();
       showNotification(`Task created from template "${template.name}" successfully`);
     } catch (error) {
@@ -905,8 +975,8 @@ const Tasks: React.FC = () => {
 
   const filteredTemplates = templates.filter(template => {
     const matchesSearch = template.name.toLowerCase().includes(templateSearchTerm.toLowerCase()) ||
-                         template.title.toLowerCase().includes(templateSearchTerm.toLowerCase()) ||
-                         (template.description && template.description.toLowerCase().includes(templateSearchTerm.toLowerCase()));
+      template.title.toLowerCase().includes(templateSearchTerm.toLowerCase()) ||
+      (template.description && template.description.toLowerCase().includes(templateSearchTerm.toLowerCase()));
     const matchesCategory = !templateCategoryFilter || template.category === templateCategoryFilter;
     return matchesSearch && matchesCategory;
   });
@@ -1014,23 +1084,23 @@ const Tasks: React.FC = () => {
   const handleFileUpload = async (taskId: string, file: File) => {
     try {
       setFileUploadProgress({ ...fileUploadProgress, [taskId]: 0 });
-      
+
       await tasksApi.uploadAttachment(taskId, file, (progress) => {
         setFileUploadProgress(prev => ({ ...prev, [taskId]: progress }));
       });
-      
+
       setFileUploadProgress(prev => {
         const newState = { ...prev };
         delete newState[taskId];
         return newState;
       });
-      
+
       loadData();
       showNotification('File uploaded successfully');
     } catch (error) {
       console.error('Error uploading file:', error);
       showNotification('Failed to upload file', 'error');
-      
+
       setFileUploadProgress(prev => {
         const newState = { ...prev };
         delete newState[taskId];
@@ -1089,16 +1159,16 @@ const Tasks: React.FC = () => {
     setNewTask({
       title: '',
       description: '',
-      status: 'pending',
+      status: 'todo', // Changed from 'pending' to 'todo' to match backend
       priority: 'medium',
       deadline: '',
       isRecurring: false,
       recurringPattern: JSON.stringify(defaultRecurrence),
       tags: '',
-      projectIds: [], // Changed from projectId to array
-      experimentIds: [], // Changed from experimentId to array
-      protocolIds: [], // Changed from protocolId to array
-      noteIds: [], // Changed from noteId to array
+      projectId: null,
+      experimentId: null,
+      protocolId: null,
+      noteId: null,
       tableIds: [], // Changed from tableId to array
       pdfIds: [], // Changed from pdfId to array
     });
@@ -1116,7 +1186,7 @@ const Tasks: React.FC = () => {
       title: '',
       defaultPriority: 'medium',
       defaultStatus: 'pending',
-      
+
       isRecurring: false,
       recurringPattern: '',
       tags: '',
@@ -1182,7 +1252,7 @@ const Tasks: React.FC = () => {
               }
             }}
           />
-          <Typography variant="h6" sx={{ flexGrow: 1, textDecoration: task.status === 'completed' ? 'line-through' : 'none' }}>
+          <Typography variant="h6" sx={{ flexGrow: 1, textDecoration: task.status === 'done' ? 'line-through' : 'none' }}>
             {task.title}
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1200,54 +1270,54 @@ const Tasks: React.FC = () => {
 
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1 }}>
           {task.projectIds && task.projectIds.length > 0 && (
-            <Chip 
-              label={`Projects: ${task.projectIds.map(id => projects.find(p => p.id === id)?.name).filter(Boolean).join(', ')}`} 
-              size="small" 
-              variant="outlined" 
+            <Chip
+              label={`Projects: ${task.projectIds.map(id => projects.find(p => p.id === id)?.name).filter(Boolean).join(', ')}`}
+              size="small"
+              variant="outlined"
             />
           )}
           {task.experimentIds && task.experimentIds.length > 0 && (
-            <Chip 
-              label={`Experiments: ${task.experimentIds.map(id => experiments.find(e => e.id === id)?.name).filter(Boolean).join(', ')}`} 
-              size="small" 
-              variant="outlined" 
+            <Chip
+              label={`Experiments: ${task.experimentIds.map(id => experiments.find(e => e.id === id)?.name).filter(Boolean).join(', ')}`}
+              size="small"
+              variant="outlined"
             />
           )}
           {task.protocolIds && task.protocolIds.length > 0 && (
-            <Chip 
-              label={`Protocols: ${task.protocolIds.map(id => protocols.find(p => p.id === id)?.name).filter(Boolean).join(', ')}`} 
-              size="small" 
-              variant="outlined" 
+            <Chip
+              label={`Protocols: ${task.protocolIds.map(id => protocols.find(p => p.id === id)?.name).filter(Boolean).join(', ')}`}
+              size="small"
+              variant="outlined"
             />
           )}
           {task.noteIds && task.noteIds.length > 0 && (
-            <Chip 
-              label={`Notes: ${task.noteIds.map(id => notes.find(n => n.id === id)?.title).filter(Boolean).join(', ')}`} 
-              size="small" 
-              variant="outlined" 
+            <Chip
+              label={`Notes: ${task.noteIds.map(id => notes.find(n => n.id === id)?.title).filter(Boolean).join(', ')}`}
+              size="small"
+              variant="outlined"
             />
           )}
           {task.tableIds && task.tableIds.length > 0 && (
-            <Chip 
-              label={`Tables: ${task.tableIds.map(id => tables.find(t => t.id === id)?.name).filter(Boolean).join(', ')}`} 
-              size="small" 
-              variant="outlined" 
+            <Chip
+              label={`Tables: ${task.tableIds.map(id => tables.find(t => t.id === id)?.name).filter(Boolean).join(', ')}`}
+              size="small"
+              variant="outlined"
             />
           )}
           {task.pdfIds && task.pdfIds.length > 0 && (
-            <Chip 
-              label={`PDFs: ${task.pdfIds.map(id => pdfs.find(p => p.id === id)?.title).filter(Boolean).join(', ')}`} 
-              size="small" 
-              variant="outlined" 
+            <Chip
+              label={`PDFs: ${task.pdfIds.map(id => pdfs.find(p => p.id === id)?.title).filter(Boolean).join(', ')}`}
+              size="small"
+              variant="outlined"
             />
           )}
           {task.deadline && (
-             <Chip 
-               label={format(new Date(task.deadline), 'MMM dd')} 
-               size="small" 
-               color={isBefore(new Date(task.deadline), new Date()) ? 'error' : 'default'}
-             />
-           )}
+            <Chip
+              label={format(new Date(task.deadline), 'MMM dd, yyyy HH:mm')}
+              size="small"
+              color={isBefore(new Date(task.deadline), new Date()) ? 'error' : 'default'}
+            />
+          )}
         </Box>
 
         {/* Tags Display with Category Colors */}
@@ -1271,7 +1341,7 @@ const Tasks: React.FC = () => {
                       default: return 'default';
                     }
                   };
-                  
+
                   return (
                     <Chip
                       key={`${task.id}-tag-${index}`}
@@ -1279,7 +1349,7 @@ const Tasks: React.FC = () => {
                       size="small"
                       color={getCategoryColor(category)}
                       variant="outlined"
-                      sx={{ 
+                      sx={{
                         fontSize: '0.7rem',
                         '& .MuiChip-label': { px: 1 }
                       }}
@@ -1293,56 +1363,56 @@ const Tasks: React.FC = () => {
         })()}
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                     <Box sx={{ display: 'flex', gap: 1 }}>
-             <Tooltip title="Add Comment">
-               <IconButton size="small" onClick={() => { setSelectedTaskId(task.id); setCommentDialogOpen(true); }}>
-                 <Comment />
-               </IconButton>
-             </Tooltip>
-             <Tooltip title="Time Tracking">
-               <IconButton size="small" onClick={() => { setSelectedTaskId(task.id); setTimeTrackingDialogOpen(true); }}>
-                 <Timer />
-               </IconButton>
-             </Tooltip>
-             <Tooltip title="Attachments">
-               <IconButton size="small" onClick={() => { setSelectedTaskId(task.id); }}>
-                 <AttachFile />
-               </IconButton>
-             </Tooltip>
-           </Box>
-           <Box sx={{ display: 'flex', gap: 1 }}>
-             <Tooltip title="Edit">
-               <IconButton size="small" onClick={() => { setSelectedTask(task); setTaskDialogOpen(true); }}>
-                 <Edit />
-               </IconButton>
-             </Tooltip>
-             <Tooltip title="Delete">
-               <IconButton size="small" onClick={() => handleDeleteTask(task.id)}>
-                 <Delete />
-               </IconButton>
-             </Tooltip>
-             <Tooltip title="Dependencies">
-               <IconButton 
-                 size="small" 
-                 onClick={() => {
-                   setSelectedTaskForDependencies(task);
-                   setDependenciesDialogOpen(true);
-                 }}
-               >
-                 <AccountTree />
-               </IconButton>
-             </Tooltip>
-             <IconButton 
-               onClick={() => {
-                 setSelectedTaskForDetails(task);
-                 setTaskDetailsDialogOpen(true);
-               }} 
-               size="small"
-               color="primary"
-             >
-               <MoreVert />
-             </IconButton>
-           </Box>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Tooltip title="Add Comment">
+              <IconButton size="small" onClick={() => { setSelectedTaskId(task.id); setCommentDialogOpen(true); }}>
+                <Comment />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Time Tracking">
+              <IconButton size="small" onClick={() => { setSelectedTaskId(task.id); setTimeTrackingDialogOpen(true); }}>
+                <Timer />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Attachments">
+              <IconButton size="small" onClick={() => { setSelectedTaskId(task.id); }}>
+                <AttachFile />
+              </IconButton>
+            </Tooltip>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Tooltip title="Edit">
+              <IconButton size="small" onClick={() => { setSelectedTask(task); setTaskDialogOpen(true); }}>
+                <Edit />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Delete">
+              <IconButton size="small" onClick={() => handleDeleteTask(task.id)}>
+                <Delete />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Dependencies">
+              <IconButton
+                size="small"
+                onClick={() => {
+                  setSelectedTaskForDependencies(task);
+                  setDependenciesDialogOpen(true);
+                }}
+              >
+                <AccountTree />
+              </IconButton>
+            </Tooltip>
+            <IconButton
+              onClick={() => {
+                setSelectedTaskForDetails(task);
+                setTaskDetailsDialogOpen(true);
+              }}
+              size="small"
+              color="primary"
+            >
+              <MoreVert />
+            </IconButton>
+          </Box>
         </Box>
       </CardContent>
     </Card>
@@ -1351,9 +1421,9 @@ const Tasks: React.FC = () => {
   // Render kanban board
   const renderKanbanBoard = () => {
     const columns = [
-      { id: 'pending', title: 'To Do', tasks: tasks.filter(t => t.status === 'pending') },
+      { id: 'todo', title: 'To Do', tasks: tasks.filter(t => t.status === 'todo') },
       { id: 'in_progress', title: 'In Progress', tasks: tasks.filter(t => t.status === 'in_progress') },
-      { id: 'completed', title: 'Done', tasks: tasks.filter(t => t.status === 'completed') },
+      { id: 'done', title: 'Done', tasks: tasks.filter(t => t.status === 'done') },
       { id: 'cancelled', title: 'Cancelled', tasks: tasks.filter(t => t.status === 'cancelled') }
     ];
     return (
@@ -1449,22 +1519,22 @@ const Tasks: React.FC = () => {
   const filteredTasks = tasks.filter(task => {
     const matchesStatus = !filters.status || task.status === filters.status;
     const matchesPriority = !filters.priority || task.priority === filters.priority;
-    const matchesProject = !filters.projectIds.length || 
+    const matchesProject = !filters.projectIds.length ||
       (task.projectIds && task.projectIds.some(id => filters.projectIds.includes(id)));
-    const matchesSearch = !filters.search || 
+    const matchesSearch = !filters.search ||
       task.title.toLowerCase().includes(filters.search.toLowerCase()) ||
       (task.description && task.description.toLowerCase().includes(filters.search.toLowerCase()));
-    
+
     // Tag filtering
     const taskTags = getTaskTags(task);
-    const matchesTags = !filters.tags.length || 
+    const matchesTags = !filters.tags.length ||
       filters.tags.some(filterTag => taskTags.includes(filterTag));
-    
+
     // Tag category filtering
     const taskTagCategories = Array.from(new Set(taskTags.map(tag => categorizeTag(tag))));
-    const matchesTagCategories = !filters.tagCategories.length || 
+    const matchesTagCategories = !filters.tagCategories.length ||
       filters.tagCategories.some(category => taskTagCategories.includes(category));
-    
+
     return matchesStatus && matchesPriority && matchesProject && matchesSearch && matchesTags && matchesTagCategories;
   });
 
@@ -1544,10 +1614,10 @@ const Tasks: React.FC = () => {
   };
 
   const checkAndCreateOverdueNotifications = async () => {
-    const overdueTasks = tasks.filter(task => 
-      task.deadline && 
-      isBefore(parseISO(task.deadline), new Date()) && 
-      task.status !== 'completed' && 
+    const overdueTasks = tasks.filter(task =>
+      task.deadline &&
+      isBefore(parseISO(task.deadline), new Date()) &&
+      task.status !== 'done' &&
       task.status !== 'cancelled'
     );
 
@@ -1602,71 +1672,79 @@ const Tasks: React.FC = () => {
 
       {/* Controls */}
       <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-                 <Button
-           variant="contained"
-           startIcon={<Add />}
-           onClick={() => setTaskDialogOpen(true)}
-         >
-           New Task
-         </Button>
-         <Button
-           variant="outlined"
-           startIcon={<Add />}
-           onClick={() => setTemplateDialogOpen(true)}
-           sx={{ mr: 1 }}
-         >
-           Create Template
-         </Button>
-         <Button
-           variant="outlined"
-           startIcon={<ViewList />}
-           onClick={() => setTemplateManagementDialogOpen(true)}
-           sx={{ mr: 1 }}
-         >
-           Manage Templates
-         </Button>
-         <Button
-           variant="outlined"
-           startIcon={<Schedule />}
-           onClick={() => setAnalyticsDialogOpen(true)}
-           sx={{ mr: 1 }}
-         >
-           Analytics
-         </Button>
-         <Button
-           variant="outlined"
-           startIcon={<AccountTree />}
-           onClick={() => {
-             setSelectedTasksForCriticalPath(filteredTasks);
-             setCriticalPathDialogOpen(true);
-           }}
-           sx={{ mr: 1 }}
-         >
-           Critical Path
-         </Button>
-         <Button
-           variant="outlined"
-           startIcon={<FilterList />}
-           onClick={() => {/* Toggle filter panel */}}
-         >
-           Filters
-         </Button>
-         <Box sx={{ display: 'flex', gap: 1 }}>
-           <Button
-             variant={viewMode === 'list' ? 'contained' : 'outlined'}
-             startIcon={<ViewList />}
-             onClick={() => setViewMode('list')}
-           >
-             List
-           </Button>
-           <Button
-             variant={viewMode === 'kanban' ? 'contained' : 'outlined'}
-             startIcon={<ViewModule />}
-             onClick={() => setViewMode('kanban')}
-           >
-             Kanban
-           </Button>
-         </Box>
+        <Button
+          variant="contained"
+          startIcon={<Add />}
+          onClick={() => setTaskDialogOpen(true)}
+        >
+          New Task
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<Add />}
+          onClick={() => setTemplateDialogOpen(true)}
+          sx={{ mr: 1 }}
+        >
+          Create Template
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<ViewList />}
+          onClick={() => setTemplateManagementDialogOpen(true)}
+          sx={{ mr: 1 }}
+        >
+          Manage Templates
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<Schedule />}
+          onClick={() => setAnalyticsDialogOpen(true)}
+          sx={{ mr: 1 }}
+        >
+          Analytics
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<AccountTree />}
+          onClick={() => {
+            setSelectedTasksForCriticalPath(filteredTasks);
+            setCriticalPathDialogOpen(true);
+          }}
+          sx={{ mr: 1 }}
+        >
+          Critical Path
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<WorkflowIcon />}
+          onClick={() => setTaskFlowDialogOpen(true)}
+          sx={{ mr: 1 }}
+        >
+          Task Flow
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<FilterList />}
+          onClick={() => {/* Toggle filter panel */ }}
+        >
+          Filters
+        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant={viewMode === 'list' ? 'contained' : 'outlined'}
+            startIcon={<ViewList />}
+            onClick={() => setViewMode('list')}
+          >
+            List
+          </Button>
+          <Button
+            variant={viewMode === 'kanban' ? 'contained' : 'outlined'}
+            startIcon={<ViewModule />}
+            onClick={() => setViewMode('kanban')}
+          >
+            Kanban
+          </Button>
+        </Box>
       </Box>
 
       {/* Filters */}
@@ -1690,9 +1768,10 @@ const Tasks: React.FC = () => {
                 label="Status"
               >
                 <MenuItem value="">All</MenuItem>
-                <MenuItem value="pending">Pending</MenuItem>
+                <MenuItem value="todo">To Do</MenuItem>
                 <MenuItem value="in_progress">In Progress</MenuItem>
-                <MenuItem value="completed">Completed</MenuItem>
+                <MenuItem value="done">Done</MenuItem>
+                <MenuItem value="overdue">Overdue</MenuItem>
                 <MenuItem value="cancelled">Cancelled</MenuItem>
               </Select>
             </FormControl>
@@ -1782,7 +1861,7 @@ const Tasks: React.FC = () => {
             />
           </Grid>
         </Grid>
-        
+
         {/* Active Filters Display */}
         {(filters.tagCategories.length > 0 || filters.tags.length > 0) && (
           <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
@@ -1814,37 +1893,37 @@ const Tasks: React.FC = () => {
                 handleFilterChange('tags', []);
               }}
               sx={{ ml: 1 }}
-                     >
-           Clear All
-         </Button>
-       </Box>
-     )}
+            >
+              Clear All
+            </Button>
+          </Box>
+        )}
 
-     {/* Tag Category Legend */}
-     <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
-       <Typography variant="caption" sx={{ mr: 1 }}>
-         Tag Categories:
-       </Typography>
-       {Object.entries(tagCategories).map(([category, tags]) => (
-         <Chip
-           key={category}
-           label={category}
-           size="small"
-           color={
-             category === 'Work' ? 'primary' :
-             category === 'Personal' ? 'success' :
-             category === 'Urgent' ? 'error' :
-             category === 'Project' ? 'warning' :
-             category === 'Learning' ? 'info' :
-             category === 'Communication' ? 'secondary' :
-             'default'
-           }
-           variant="outlined"
-           sx={{ fontSize: '0.7rem' }}
-         />
-       ))}
-     </Box>
-   </Paper>
+        {/* Tag Category Legend */}
+        <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+          <Typography variant="caption" sx={{ mr: 1 }}>
+            Tag Categories:
+          </Typography>
+          {Object.entries(tagCategories).map(([category, tags]) => (
+            <Chip
+              key={category}
+              label={category}
+              size="small"
+              color={
+                category === 'Work' ? 'primary' :
+                  category === 'Personal' ? 'success' :
+                    category === 'Urgent' ? 'error' :
+                      category === 'Project' ? 'warning' :
+                        category === 'Learning' ? 'info' :
+                          category === 'Communication' ? 'secondary' :
+                            'default'
+              }
+              variant="outlined"
+              sx={{ fontSize: '0.7rem' }}
+            />
+          ))}
+        </Box>
+      </Paper>
 
       {/* Bulk Actions */}
       {selectedTasks.length > 0 && (
@@ -1872,7 +1951,7 @@ const Tasks: React.FC = () => {
       ) : (
         <Box>
           {filteredTasks.map(task => renderTaskCard(task))}
-          
+
           {/* Pagination */}
           <TablePagination
             component="div"
@@ -1921,126 +2000,80 @@ const Tasks: React.FC = () => {
                   <Grid container spacing={2}>
                     <Grid item xs={12} sm={6}>
                       <Autocomplete
-                        multiple
                         options={projects}
                         getOptionLabel={(option) => option.name}
-                        value={projects.filter(p => newTask.projectIds?.includes(p.id))}
+                        value={projects.find(p => p.id === newTask.projectId) || null}
                         onChange={(_, newValue) => {
                           setNewTask({
                             ...newTask,
-                            projectIds: newValue.map(p => p.id)
+                            projectId: newValue?.id || null
                           });
                         }}
                         renderInput={(params) => (
                           <TextField
                             {...params}
-                            label="Projects"
-                            placeholder="Select projects..."
+                            label="Project"
+                            placeholder="Select project..."
                           />
                         )}
                       />
                     </Grid>
                     <Grid item xs={12} sm={6}>
                       <Autocomplete
-                        multiple
                         options={experiments}
                         getOptionLabel={(option) => option.name}
-                        value={experiments.filter(e => newTask.experimentIds?.includes(e.id))}
+                        value={experiments.find(e => e.id === newTask.experimentId) || null}
                         onChange={(_, newValue) => {
                           setNewTask({
                             ...newTask,
-                            experimentIds: newValue.map(e => e.id)
+                            experimentId: newValue?.id || null
                           });
                         }}
                         renderInput={(params) => (
                           <TextField
                             {...params}
-                            label="Experiments"
-                            placeholder="Select experiments..."
+                            label="Experiment"
+                            placeholder="Select experiment..."
                           />
                         )}
                       />
                     </Grid>
                     <Grid item xs={12} sm={6}>
                       <Autocomplete
-                        multiple
                         options={protocols}
                         getOptionLabel={(option) => option.name}
-                        value={protocols.filter(p => newTask.protocolIds?.includes(p.id))}
+                        value={protocols.find(p => p.id === newTask.protocolId) || null}
                         onChange={(_, newValue) => {
                           setNewTask({
                             ...newTask,
-                            protocolIds: newValue.map(p => p.id)
+                            protocolId: newValue?.id || null
                           });
                         }}
                         renderInput={(params) => (
                           <TextField
                             {...params}
-                            label="Protocols"
-                            placeholder="Select protocols..."
+                            label="Protocol"
+                            placeholder="Select protocol..."
                           />
                         )}
                       />
                     </Grid>
                     <Grid item xs={12} sm={6}>
                       <Autocomplete
-                        multiple
                         options={notes}
                         getOptionLabel={(option) => option.title}
-                        value={notes.filter(n => newTask.noteIds?.includes(n.id))}
+                        value={notes.find(n => n.id === newTask.noteId) || null}
                         onChange={(_, newValue) => {
                           setNewTask({
                             ...newTask,
-                            noteIds: newValue.map(n => n.id)
+                            noteId: newValue?.id || null
                           });
                         }}
                         renderInput={(params) => (
                           <TextField
                             {...params}
-                            label="Notes"
-                            placeholder="Select notes..."
-                          />
-                        )}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <Autocomplete
-                        multiple
-                        options={tables}
-                        getOptionLabel={(option) => option.name}
-                        value={tables.filter(t => newTask.tableIds?.includes(t.id))}
-                        onChange={(_, newValue) => {
-                          setNewTask({
-                            ...newTask,
-                            tableIds: newValue.map(t => t.id)
-                          });
-                        }}
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            label="Tables"
-                            placeholder="Select tables..."
-                          />
-                        )}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <Autocomplete
-                        multiple
-                        options={pdfs}
-                        getOptionLabel={(option) => option.title}
-                        value={pdfs.filter(p => newTask.pdfIds?.includes(p.id))}
-                        onChange={(_, newValue) => {
-                          setNewTask({
-                            ...newTask,
-                            pdfIds: newValue.map(p => p.id)
-                          });
-                        }}
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            label="PDFs"
-                            placeholder="Select PDFs..."
+                            label="Note"
+                            placeholder="Select note..."
                           />
                         )}
                       />
@@ -2108,15 +2141,17 @@ const Tasks: React.FC = () => {
                 label="Recurring Task"
               />
             </Grid>
-            {newTask.isRecurring && (
-              <Grid item xs={12}>
-                <RecurrenceRuleBuilder
-                  value={newTask.recurringPattern}
-                  onChange={(value) => setNewTask({ ...newTask, recurringPattern: value })}
-                />
-              </Grid>
-            )}
-            
+            {
+              newTask.isRecurring && (
+                <Grid item xs={12}>
+                  <RecurrenceRuleBuilder
+                    value={newTask.recurringPattern ? JSON.parse(newTask.recurringPattern) : null}
+                    onChange={(value) => setNewTask({ ...newTask, recurringPattern: value })}
+                  />
+                </Grid>
+              )
+            }
+
             {/* Notification Settings */}
             <Grid item xs={12}>
               <Accordion>
@@ -2214,18 +2249,22 @@ const Tasks: React.FC = () => {
                 </AccordionDetails>
               </Accordion>
             </Grid>
-          </Grid>
-        </DialogContent>
+          </Grid >
+        </DialogContent >
         <DialogActions>
-          <Button onClick={() => setTaskDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleCreateTask} variant="contained">
+          <Button onClick={() => {
+            setTaskDialogOpen(false);
+            setSelectedTask(null);
+            resetNewTask();
+          }}>Cancel</Button>
+          <Button onClick={selectedTask ? () => handleUpdateTask(selectedTask.id, newTask) : handleCreateTask} variant="contained">
             {selectedTask ? 'Update' : 'Create'}
           </Button>
         </DialogActions>
-      </Dialog>
+      </Dialog >
 
       {/* Template Dialog */}
-      <Dialog open={templateDialogOpen} onClose={() => setTemplateDialogOpen(false)} maxWidth="md" fullWidth>
+      < Dialog open={templateDialogOpen} onClose={() => setTemplateDialogOpen(false)} maxWidth="md" fullWidth >
         <DialogTitle>
           {selectedTemplateForEdit ? 'Edit Task Template' : 'Create Task Template'}
         </DialogTitle>
@@ -2348,17 +2387,17 @@ const Tasks: React.FC = () => {
             setSelectedTemplateForEdit(null);
             resetNewTemplate();
           }}>Cancel</Button>
-          <Button 
-            onClick={selectedTemplateForEdit ? handleUpdateTemplate : handleCreateTemplate} 
+          <Button
+            onClick={selectedTemplateForEdit ? handleUpdateTemplate : handleCreateTemplate}
             variant="contained"
           >
             {selectedTemplateForEdit ? 'Update Template' : 'Create Template'}
           </Button>
         </DialogActions>
-      </Dialog>
+      </Dialog >
 
       {/* Template Management Dialog */}
-      <Dialog open={templateManagementDialogOpen} onClose={() => setTemplateManagementDialogOpen(false)} maxWidth="lg" fullWidth>
+      < Dialog open={templateManagementDialogOpen} onClose={() => setTemplateManagementDialogOpen(false)} maxWidth="lg" fullWidth >
         <DialogTitle>Template Management</DialogTitle>
         <DialogContent sx={{ maxHeight: '70vh', overflowY: 'auto' }}>
           <Grid container spacing={2} sx={{ mb: 2 }}>
@@ -2387,7 +2426,7 @@ const Tasks: React.FC = () => {
               </FormControl>
             </Grid>
           </Grid>
-          
+
           {/* Template Statistics */}
           {templateStats && (
             <Box sx={{ mb: 3, p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
@@ -2420,13 +2459,13 @@ const Tasks: React.FC = () => {
                   </Box>
                 </Grid>
               </Grid>
-              
+
               {templateStats.mostUsedTemplates && templateStats.mostUsedTemplates.length > 0 && (
                 <Box sx={{ mt: 2 }}>
                   <Typography variant="subtitle1" gutterBottom>Most Used Templates</Typography>
                   <Box display="flex" gap={1} flexWrap="wrap">
                     {templateStats.mostUsedTemplates.map((template: any) => (
-                      <Chip 
+                      <Chip
                         key={template.id}
                         label={`${template.name} (${template.usageCount}x)`}
                         size="small"
@@ -2439,7 +2478,7 @@ const Tasks: React.FC = () => {
               )}
             </Box>
           )}
-          
+
           <Grid container spacing={2}>
             {filteredTemplates.map(template => (
               <Grid item xs={12} md={6} key={template.id}>
@@ -2475,8 +2514,8 @@ const Tasks: React.FC = () => {
                     </Box>
                   </CardContent>
                   <CardActions>
-                    <Button 
-                      size="small" 
+                    <Button
+                      size="small"
                       onClick={() => handleQuickTemplateApply(template)}
                       startIcon={<Add />}
                     >
@@ -2487,7 +2526,7 @@ const Tasks: React.FC = () => {
               </Grid>
             ))}
           </Grid>
-          
+
           {filteredTemplates.length === 0 && (
             <Box textAlign="center" py={4}>
               <Typography variant="body1" color="textSecondary">
@@ -2505,10 +2544,10 @@ const Tasks: React.FC = () => {
             Create New Template
           </Button>
         </DialogActions>
-      </Dialog>
+      </Dialog >
 
       {/* Comment Dialog */}
-      <Dialog open={commentDialogOpen} onClose={() => setCommentDialogOpen(false)} maxWidth="sm" fullWidth>
+      < Dialog open={commentDialogOpen} onClose={() => setCommentDialogOpen(false)} maxWidth="sm" fullWidth >
         <DialogTitle>Add Comment</DialogTitle>
         <DialogContent>
           <TextField
@@ -2525,10 +2564,10 @@ const Tasks: React.FC = () => {
           <Button onClick={() => setCommentDialogOpen(false)}>Cancel</Button>
           <Button onClick={handleAddComment} variant="contained">Add Comment</Button>
         </DialogActions>
-      </Dialog>
+      </Dialog >
 
       {/* Time Tracking Dialog */}
-      <Dialog open={timeTrackingDialogOpen} onClose={() => setTimeTrackingDialogOpen(false)} maxWidth="sm" fullWidth>
+      < Dialog open={timeTrackingDialogOpen} onClose={() => setTimeTrackingDialogOpen(false)} maxWidth="sm" fullWidth >
         <DialogTitle>Add Time Entry</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
@@ -2566,10 +2605,10 @@ const Tasks: React.FC = () => {
           <Button onClick={() => setTimeTrackingDialogOpen(false)}>Cancel</Button>
           <Button onClick={handleAddTimeEntry} variant="contained">Add Time Entry</Button>
         </DialogActions>
-      </Dialog>
+      </Dialog >
 
       {/* Snackbar */}
-      <Snackbar
+      < Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
@@ -2577,10 +2616,10 @@ const Tasks: React.FC = () => {
         <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity}>
           {snackbar.message}
         </Alert>
-      </Snackbar>
+      </Snackbar >
 
       {/* Task Details Dialog */}
-      <Dialog open={taskDetailsDialogOpen} onClose={() => setTaskDetailsDialogOpen(false)} maxWidth="lg" fullWidth>
+      < Dialog open={taskDetailsDialogOpen} onClose={() => setTaskDetailsDialogOpen(false)} maxWidth="lg" fullWidth >
         <DialogTitle>
           Task Details: {selectedTaskForDetails?.title}
         </DialogTitle>
@@ -2631,7 +2670,7 @@ const Tasks: React.FC = () => {
                     Add Comment
                   </Button>
                 </Box>
-                
+
                 {selectedTaskForDetails.comments && selectedTaskForDetails.comments.length > 0 ? (
                   <Box>
                     {selectedTaskForDetails.comments.map((comment) => (
@@ -2691,16 +2730,16 @@ const Tasks: React.FC = () => {
                 {/* Upload Progress */}
                 {fileUploadProgress[selectedTaskForDetails.id] !== undefined && (
                   <Box sx={{ mb: 2 }}>
-                    <LinearProgress 
-                      variant="determinate" 
-                      value={fileUploadProgress[selectedTaskForDetails.id]} 
+                    <LinearProgress
+                      variant="determinate"
+                      value={fileUploadProgress[selectedTaskForDetails.id]}
                     />
                     <Typography variant="caption">
                       Uploading... {fileUploadProgress[selectedTaskForDetails.id]}%
                     </Typography>
                   </Box>
                 )}
-                
+
                 {selectedTaskForDetails.attachments && selectedTaskForDetails.attachments.length > 0 ? (
                   <Box>
                     {selectedTaskForDetails.attachments.map((attachment) => (
@@ -2788,7 +2827,7 @@ const Tasks: React.FC = () => {
                     </Typography>
                   </Alert>
                 )}
-                
+
                 {selectedTaskForDetails.timeEntries && selectedTaskForDetails.timeEntries.length > 0 ? (
                   <Box>
                     {selectedTaskForDetails.timeEntries.map((timeEntry) => (
@@ -2837,10 +2876,10 @@ const Tasks: React.FC = () => {
         <DialogActions>
           <Button onClick={() => setTaskDetailsDialogOpen(false)}>Close</Button>
         </DialogActions>
-      </Dialog>
+      </Dialog >
 
       {/* Analytics Dialog */}
-      <Dialog open={analyticsDialogOpen} onClose={() => setAnalyticsDialogOpen(false)} maxWidth="lg" fullWidth>
+      < Dialog open={analyticsDialogOpen} onClose={() => setAnalyticsDialogOpen(false)} maxWidth="lg" fullWidth >
         <DialogTitle>
           <Box display="flex" justifyContent="space-between" alignItems="center">
             <Typography variant="h6">Task Analytics & Statistics</Typography>
@@ -3018,12 +3057,12 @@ const Tasks: React.FC = () => {
                         size="small"
                         color={
                           category.category === 'Work' ? 'primary' :
-                          category.category === 'Personal' ? 'success' :
-                          category.category === 'Urgent' ? 'error' :
-                          category.category === 'Project' ? 'warning' :
-                          category.category === 'Learning' ? 'info' :
-                          category.category === 'Communication' ? 'secondary' :
-                          'default'
+                            category.category === 'Personal' ? 'success' :
+                              category.category === 'Urgent' ? 'error' :
+                                category.category === 'Project' ? 'warning' :
+                                  category.category === 'Learning' ? 'info' :
+                                    category.category === 'Communication' ? 'secondary' :
+                                      'default'
                         }
                         variant="outlined"
                       />
@@ -3054,21 +3093,23 @@ const Tasks: React.FC = () => {
         <DialogActions>
           <Button onClick={() => setAnalyticsDialogOpen(false)}>Close</Button>
         </DialogActions>
-      </Dialog>
+      </Dialog >
 
       {/* Task Dependencies Dialog */}
-      {selectedTaskForDependencies && (
-        <TaskDependencies
-          open={dependenciesDialogOpen}
-          onClose={() => {
-            setDependenciesDialogOpen(false);
-            setSelectedTaskForDependencies(null);
-          }}
-          taskId={selectedTaskForDependencies.id}
-          taskTitle={selectedTaskForDependencies.title}
-          allTasks={tasks}
-        />
-      )}
+      {
+        selectedTaskForDependencies && (
+          <TaskDependencies
+            open={dependenciesDialogOpen}
+            onClose={() => {
+              setDependenciesDialogOpen(false);
+              setSelectedTaskForDependencies(null);
+            }}
+            taskId={selectedTaskForDependencies.id}
+            taskTitle={selectedTaskForDependencies.title}
+            allTasks={tasks}
+          />
+        )
+      }
 
       {/* Critical Path Analysis Dialog */}
       <CriticalPathAnalysis
@@ -3076,7 +3117,14 @@ const Tasks: React.FC = () => {
         onClose={() => setCriticalPathDialogOpen(false)}
         selectedTasks={selectedTasksForCriticalPath}
       />
-    </Box>
+
+      {/* Task Flow Management Dialog */}
+      <TaskFlowManagement
+        open={taskFlowDialogOpen}
+        onClose={() => setTaskFlowDialogOpen(false)}
+        selectedTasks={selectedTasks}
+      />
+    </Box >
   );
 };
 

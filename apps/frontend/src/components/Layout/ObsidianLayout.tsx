@@ -63,6 +63,8 @@ import {
     Menu as PanelLeft,
     Description,
     Rocket as RocketIcon,
+    Timeline as TimelineIcon,
+    Assessment as ReportingIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
@@ -492,9 +494,11 @@ const ObsidianLayout: React.FC = () => {
         { key: 'literature', label: 'Literature Notes', icon: <JournalIcon />, path: '/literature' },
         { key: 'calculators', label: 'Calculators', icon: <CalculateIcon />, path: '/calculators' },
         { key: 'analytics', label: 'Analytics', icon: <AssessmentIcon />, path: '/analytics' },
+        { key: 'experimental-variables', label: 'Variable Tracker', icon: <TimelineIcon />, path: '/experimental-variables' },
         { key: 'search', label: 'Search', icon: <SearchIcon />, path: '/search' },
         { key: 'links', label: 'Links', icon: <LinkIcon />, path: '/links' },
         { key: 'advanced-features', label: 'Advanced Features', icon: <RocketIcon />, path: '/advanced-features' },
+        { key: 'advanced-reporting', label: 'Advanced Reporting', icon: <ReportingIcon />, path: '/advanced-reporting' },
     ];
 
     const handleSidebarItemClick = (item: any) => {

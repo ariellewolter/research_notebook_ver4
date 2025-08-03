@@ -37,6 +37,9 @@ import {
     Tooltip,
     Fade,
     Skeleton,
+    FormControlLabel,
+    Checkbox,
+    Link,
 } from '@mui/material';
 import {
     LibraryBooks as ZoteroIcon,
@@ -66,6 +69,8 @@ import {
     Info as InfoIcon,
 } from '@mui/icons-material';
 import { zoteroApi } from '../services/api';
+import ZoteroDragDrop from '../components/Zotero/ZoteroDragDrop';
+import CSLSupport from '../components/Zotero/CSLSupport';
 
 interface ZoteroItem {
     id: string;
@@ -151,6 +156,18 @@ const ZoteroPage: React.FC = () => {
     const [syncing, setSyncing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+
+    // Import dialog states
+    const [importSearchQuery, setImportSearchQuery] = useState('');
+    const [importSelectedCollection, setImportSelectedCollection] = useState<string>('all');
+    const [importFilterType, setImportFilterType] = useState<string>('all');
+    const [selectedImportItems, setSelectedImportItems] = useState<ZoteroItem[]>([]);
+    const [importOptions, setImportOptions] = useState({
+        includeMetadata: true,
+        createDatabaseEntry: true,
+        syncHighlights: false,
+        createLinks: true
+    });
 
     // Refs
     const dragOverRef = useRef<HTMLDivElement>(null);
@@ -499,6 +516,8 @@ const ZoteroPage: React.FC = () => {
                     <Tab label="Library Items" />
                     <Tab label="Collections" />
                     <Tab label="Recent Activity" />
+                    <Tab label="Drag & Drop Import" />
+                    <Tab label="CSL Support" />
                 </Tabs>
             </Paper>
 
@@ -753,6 +772,53 @@ const ZoteroPage: React.FC = () => {
                 </Paper>
             )}
 
+            {currentTab === 3 && (
+                <ZoteroDragDrop />
+            )}
+
+            {currentTab === 4 && (
+                <CSLSupport
+                    items={items.map(item => {
+                        // Map Zotero item types to CSL types
+                        const mapZoteroTypeToCSL = (zoteroType: string): 'article-journal' | 'article' | 'book' | 'chapter' | 'thesis' | 'report' | 'webpage' | 'dataset' => {
+                            switch (zoteroType) {
+                                case 'journalArticle': return 'article-journal';
+                                case 'book': return 'book';
+                                case 'bookSection': return 'chapter';
+                                case 'thesis': return 'thesis';
+                                case 'report': return 'report';
+                                case 'webpage': return 'webpage';
+                                case 'dataset': return 'dataset';
+                                default: return 'article-journal';
+                            }
+                        };
+
+                        return {
+                            id: item.id,
+                            type: mapZoteroTypeToCSL(item.data?.itemType || 'journalArticle'),
+                            title: item.title,
+                            author: item.data?.creators?.map(creator => ({
+                                family: creator.lastName,
+                                given: creator.firstName
+                            })) || undefined,
+                            'container-title': item.data?.publicationTitle,
+                            volume: item.data?.volume,
+                            issue: item.data?.issue,
+                            page: item.data?.pages,
+                            issued: item.data?.date ? { 'date-parts': [[parseInt(item.data.date)]] } : undefined,
+                            DOI: item.data?.DOI,
+                            URL: item.data?.url,
+                            abstract: item.data?.abstractNote,
+                            keyword: item.data?.tags?.map(tag => tag.tag),
+                            'publisher-place': undefined,
+                            publisher: undefined,
+                            ISBN: undefined,
+                            ISSN: undefined,
+                        };
+                    })}
+                />
+            )}
+
             {/* Configuration Dialog */}
             <Dialog open={openConfigDialog} onClose={() => setOpenConfigDialog(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Configure Zotero Integration</DialogTitle>
@@ -787,6 +853,360 @@ const ZoteroPage: React.FC = () => {
                 <DialogActions>
                     <Button onClick={() => setOpenConfigDialog(false)}>Cancel</Button>
                     <Button onClick={handleConfigSave} variant="contained">Save</Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Import Dialog */}
+            <Dialog open={openImportDialog} onClose={() => setOpenImportDialog(false)} maxWidth="lg" fullWidth>
+                <DialogTitle>Import from Zotero</DialogTitle>
+                <DialogContent>
+                    <Box sx={{ mb: 3 }}>
+                        <Typography variant="h6" gutterBottom>Select Items to Import</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                            Choose items from your Zotero library to import as PDFs and references in your research notebook.
+                        </Typography>
+
+                        {/* Search and Filter */}
+                        <Grid container spacing={2} sx={{ mb: 2 }}>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    placeholder="Search items to import..."
+                                    value={importSearchQuery}
+                                    onChange={(e) => setImportSearchQuery(e.target.value)}
+                                    InputProps={{
+                                        startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                                    }}
+                                />
+                            </Grid>
+                            <Grid item xs={12} md={3}>
+                                <FormControl fullWidth>
+                                    <InputLabel>Collection</InputLabel>
+                                    <Select
+                                        value={importSelectedCollection}
+                                        onChange={(e) => setImportSelectedCollection(e.target.value)}
+                                        label="Collection"
+                                    >
+                                        <MenuItem value="all">All Collections</MenuItem>
+                                        {collections.map((collection) => (
+                                            <MenuItem key={collection.key} value={collection.key}>
+                                                {collection.name}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            </Grid>
+                            <Grid item xs={12} md={3}>
+                                <FormControl fullWidth>
+                                    <InputLabel>Type</InputLabel>
+                                    <Select
+                                        value={importFilterType}
+                                        onChange={(e) => setImportFilterType(e.target.value)}
+                                        label="Type"
+                                    >
+                                        <MenuItem value="all">All Types</MenuItem>
+                                        <MenuItem value="journalArticle">Articles</MenuItem>
+                                        <MenuItem value="book">Books</MenuItem>
+                                        <MenuItem value="attachment">PDFs</MenuItem>
+                                    </Select>
+                                </FormControl>
+                            </Grid>
+                        </Grid>
+
+                        {/* Import Options */}
+                        <Paper sx={{ p: 2, mb: 2 }}>
+                            <Typography variant="subtitle1" gutterBottom>Import Options</Typography>
+                            <Grid container spacing={2}>
+                                <Grid item xs={12} md={6}>
+                                    <FormControlLabel
+                                        control={
+                                            <Checkbox
+                                                checked={importOptions.includeMetadata}
+                                                onChange={(e) => setImportOptions(prev => ({ ...prev, includeMetadata: e.target.checked }))}
+                                            />
+                                        }
+                                        label="Include full metadata (authors, DOI, abstract)"
+                                    />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                    <FormControlLabel
+                                        control={
+                                            <Checkbox
+                                                checked={importOptions.createDatabaseEntry}
+                                                onChange={(e) => setImportOptions(prev => ({ ...prev, createDatabaseEntry: e.target.checked }))}
+                                            />
+                                        }
+                                        label="Create database entry for reference"
+                                    />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                    <FormControlLabel
+                                        control={
+                                            <Checkbox
+                                                checked={importOptions.syncHighlights}
+                                                onChange={(e) => setImportOptions(prev => ({ ...prev, syncHighlights: e.target.checked }))}
+                                            />
+                                        }
+                                        label="Sync highlights and annotations"
+                                    />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                    <FormControlLabel
+                                        control={
+                                            <Checkbox
+                                                checked={importOptions.createLinks}
+                                                onChange={(e) => setImportOptions(prev => ({ ...prev, createLinks: e.target.checked }))}
+                                            />
+                                        }
+                                        label="Create cross-links to related items"
+                                    />
+                                </Grid>
+                            </Grid>
+                        </Paper>
+
+                        {/* Items List */}
+                        <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
+                            <List>
+                                {filteredItems.map((item) => (
+                                    <ListItem
+                                        key={item.key}
+                                        dense
+                                        button
+                                        onClick={() => {
+                                            const isSelected = selectedImportItems.some(selected => selected.key === item.key);
+                                            if (isSelected) {
+                                                setSelectedImportItems(prev => prev.filter(selected => selected.key !== item.key));
+                                            } else {
+                                                setSelectedImportItems(prev => [...prev, item]);
+                                            }
+                                        }}
+                                    >
+                                        <ListItemIcon>
+                                            <Checkbox
+                                                edge="start"
+                                                checked={selectedImportItems.some(selected => selected.key === item.key)}
+                                                tabIndex={-1}
+                                                disableRipple
+                                            />
+                                        </ListItemIcon>
+                                        <ListItemText
+                                            primary={
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                    <Typography variant="subtitle2" fontWeight="medium">
+                                                        {item.title}
+                                                    </Typography>
+                                                    <Chip
+                                                        label={item.type}
+                                                        size="small"
+                                                        color={getItemTypeColor(item.type) as any}
+                                                    />
+                                                </Box>
+                                            }
+                                            secondary={
+                                                <Box>
+                                                    {item.authors && (
+                                                        <Typography variant="body2" color="text.secondary">
+                                                            {item.authors.join(', ')}
+                                                        </Typography>
+                                                    )}
+                                                    {item.data?.publicationTitle && (
+                                                        <Typography variant="body2" color="text.secondary">
+                                                            {item.data.publicationTitle}
+                                                        </Typography>
+                                                    )}
+                                                    {item.data?.DOI && (
+                                                        <Typography variant="body2" color="text.secondary">
+                                                            DOI: {item.data.DOI}
+                                                        </Typography>
+                                                    )}
+                                                </Box>
+                                            }
+                                        />
+                                    </ListItem>
+                                ))}
+                            </List>
+                        </Box>
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenImportDialog(false)}>Cancel</Button>
+                    <Button
+                        onClick={() => handleImportItems(selectedImportItems)}
+                        variant="contained"
+                        disabled={selectedImportItems.length === 0}
+                        startIcon={<ImportIcon />}
+                    >
+                        Import {selectedImportItems.length} Items
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Item Details Dialog */}
+            <Dialog open={openItemDialog} onClose={() => setOpenItemDialog(false)} maxWidth="md" fullWidth>
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {selectedItem && getItemIcon(selectedItem.type)}
+                        <Typography variant="h6">{selectedItem?.title}</Typography>
+                    </Box>
+                </DialogTitle>
+                <DialogContent>
+                    {selectedItem && (
+                        <Grid container spacing={3}>
+                            <Grid item xs={12} md={8}>
+                                <Typography variant="h6" gutterBottom>Details</Typography>
+
+                                {selectedItem.data?.creators && (
+                                    <Box sx={{ mb: 2 }}>
+                                        <Typography variant="subtitle2" color="text.secondary">Authors</Typography>
+                                        <Typography variant="body1">
+                                            {selectedItem.data.creators.map((creator, index) => (
+                                                <span key={index}>
+                                                    {creator.firstName} {creator.lastName}
+                                                    {index < selectedItem.data!.creators!.length - 1 ? ', ' : ''}
+                                                </span>
+                                            ))}
+                                        </Typography>
+                                    </Box>
+                                )}
+
+                                {selectedItem.data?.publicationTitle && (
+                                    <Box sx={{ mb: 2 }}>
+                                        <Typography variant="subtitle2" color="text.secondary">Journal/Publication</Typography>
+                                        <Typography variant="body1">{selectedItem.data.publicationTitle}</Typography>
+                                    </Box>
+                                )}
+
+                                {selectedItem.data?.date && (
+                                    <Box sx={{ mb: 2 }}>
+                                        <Typography variant="subtitle2" color="text.secondary">Date</Typography>
+                                        <Typography variant="body1">{selectedItem.data.date}</Typography>
+                                    </Box>
+                                )}
+
+                                {selectedItem.data?.volume && (
+                                    <Box sx={{ mb: 2 }}>
+                                        <Typography variant="subtitle2" color="text.secondary">Volume/Issue</Typography>
+                                        <Typography variant="body1">
+                                            Vol. {selectedItem.data.volume}
+                                            {selectedItem.data.issue && `, Issue ${selectedItem.data.issue}`}
+                                        </Typography>
+                                    </Box>
+                                )}
+
+                                {selectedItem.data?.pages && (
+                                    <Box sx={{ mb: 2 }}>
+                                        <Typography variant="subtitle2" color="text.secondary">Pages</Typography>
+                                        <Typography variant="body1">{selectedItem.data.pages}</Typography>
+                                    </Box>
+                                )}
+
+                                {selectedItem.data?.DOI && (
+                                    <Box sx={{ mb: 2 }}>
+                                        <Typography variant="subtitle2" color="text.secondary">DOI</Typography>
+                                        <Typography variant="body1" sx={{ wordBreak: 'break-all' }}>
+                                            {selectedItem.data.DOI}
+                                        </Typography>
+                                    </Box>
+                                )}
+
+                                {selectedItem.data?.url && (
+                                    <Box sx={{ mb: 2 }}>
+                                        <Typography variant="subtitle2" color="text.secondary">URL</Typography>
+                                        <Typography variant="body1" sx={{ wordBreak: 'break-all' }}>
+                                            <Link href={selectedItem.data.url} target="_blank" rel="noopener">
+                                                {selectedItem.data.url}
+                                            </Link>
+                                        </Typography>
+                                    </Box>
+                                )}
+
+                                {selectedItem.data?.abstractNote && (
+                                    <Box sx={{ mb: 2 }}>
+                                        <Typography variant="subtitle2" color="text.secondary">Abstract</Typography>
+                                        <Typography variant="body1" sx={{ fontStyle: 'italic' }}>
+                                            {selectedItem.data.abstractNote}
+                                        </Typography>
+                                    </Box>
+                                )}
+                            </Grid>
+
+                            <Grid item xs={12} md={4}>
+                                <Typography variant="h6" gutterBottom>Actions</Typography>
+
+                                <Stack spacing={2}>
+                                    <Button
+                                        variant="contained"
+                                        startIcon={<ImportIcon />}
+                                        onClick={() => {
+                                            setOpenItemDialog(false);
+                                            setSelectedImportItems([selectedItem]);
+                                            setOpenImportDialog(true);
+                                        }}
+                                        fullWidth
+                                    >
+                                        Import Item
+                                    </Button>
+
+                                    {selectedItem.data?.url && (
+                                        <Button
+                                            variant="outlined"
+                                            startIcon={<LinkIcon />}
+                                            href={selectedItem.data.url}
+                                            target="_blank"
+                                            fullWidth
+                                        >
+                                            Open Source
+                                        </Button>
+                                    )}
+
+                                    {selectedItem.data?.DOI && (
+                                        <Button
+                                            variant="outlined"
+                                            startIcon={<LinkIcon />}
+                                            href={`https://doi.org/${selectedItem.data.DOI}`}
+                                            target="_blank"
+                                            fullWidth
+                                        >
+                                            View DOI
+                                        </Button>
+                                    )}
+
+                                    <Button
+                                        variant="outlined"
+                                        startIcon={<DownloadIcon />}
+                                        onClick={() => {
+                                            // TODO: Implement PDF download
+                                            setSuccess('PDF download feature coming soon!');
+                                        }}
+                                        fullWidth
+                                    >
+                                        Download PDF
+                                    </Button>
+                                </Stack>
+
+                                {selectedItem.tags && selectedItem.tags.length > 0 && (
+                                    <Box sx={{ mt: 3 }}>
+                                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                            Tags
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                            {selectedItem.tags.map((tag) => (
+                                                <Chip
+                                                    key={tag}
+                                                    label={tag}
+                                                    size="small"
+                                                    variant="outlined"
+                                                />
+                                            ))}
+                                        </Box>
+                                    </Box>
+                                )}
+                            </Grid>
+                        </Grid>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenItemDialog(false)}>Close</Button>
                 </DialogActions>
             </Dialog>
 

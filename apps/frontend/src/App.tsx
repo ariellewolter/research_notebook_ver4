@@ -28,6 +28,8 @@ import Search from './pages/Search';
 import Links from './pages/Links';
 import Settings from './pages/Settings';
 import AdvancedFeatures from './pages/AdvancedFeatures';
+import ExperimentalVariables from './pages/ExperimentalVariables';
+import AdvancedReporting from './pages/AdvancedReporting';
 import Login from './components/Auth/Login';
 
 // Protected route wrapper
@@ -97,7 +99,9 @@ const ProtectedRoutes: React.FC = () => {
                 <Route path="search" element={<Search />} />
                 <Route path="links" element={<Links />} />
                 <Route path="settings" element={<Settings />} />
+                <Route path="advanced-reporting" element={<AdvancedReporting />} />
                 <Route path="advanced-features" element={<AdvancedFeatures />} />
+                <Route path="experimental-variables" element={<ExperimentalVariables />} />
 
                 {/* Workspace routes */}
                 <Route path="workspace/new" element={<div>New Workspace</div>} />

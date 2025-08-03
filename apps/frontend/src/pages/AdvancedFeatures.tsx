@@ -11,13 +11,19 @@ import {
     AccountTree as PathwayIcon, Download as DownloadIcon, Upload as UploadIcon,
     Science as ScienceIcon, Biotech as BiotechIcon,
     ExpandMore as ExpandMoreIcon, PlayArrow as PlayIcon,
-    Info as InfoIcon, CheckCircle as CheckIcon
+    Info as InfoIcon, CheckCircle as CheckIcon, Code as CodeIcon,
+    AccountTree as WorkflowIcon, Timeline as TimelineIcon,
+    Assessment as ReportingIcon
 } from '@mui/icons-material';
 import PublicationReadyExport from '../components/Export/PublicationReadyExport';
 import AdvancedImportSystem from '../components/Import/AdvancedImportSystem';
 import AdvancedSearch from '../components/Search/AdvancedSearch';
 import SharedReviewMode from '../components/Collaboration/SharedReviewMode';
 import VisualPathwayEditor from '../components/PathwayEditor/VisualPathwayEditor';
+import CSLSupport from '../components/Zotero/CSLSupport';
+import TaskFlowManagement from '../components/Tasks/TaskFlowManagement';
+import ExperimentalVariableTracker from '../components/ExperimentalVariables/ExperimentalVariableTracker';
+import AdvancedReporting from '../components/Reporting/AdvancedReporting';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -47,6 +53,10 @@ const AdvancedFeatures: React.FC = () => {
     const [searchDialogOpen, setSearchDialogOpen] = useState(false);
     const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
     const [pathwayDialogOpen, setPathwayDialogOpen] = useState(false);
+    const [cslDialogOpen, setCslDialogOpen] = useState(false);
+    const [taskFlowDialogOpen, setTaskFlowDialogOpen] = useState(false);
+    const [variableTrackerDialogOpen, setVariableTrackerDialogOpen] = useState(false);
+    const [advancedReportingDialogOpen, setAdvancedReportingDialogOpen] = useState(false);
 
     // Mock data for demonstrations
     const mockProjects = [
@@ -165,6 +175,70 @@ const AdvancedFeatures: React.FC = () => {
                 'Integration with databases'
             ],
             demo: () => setPathwayDialogOpen(true)
+        },
+        {
+            id: 'csl-support',
+            title: 'Full CSL Support',
+            description: 'Complete Citation Style Language support with 15+ citation styles',
+            icon: <CodeIcon />,
+            status: 'implemented',
+            features: [
+                '15+ citation styles (APA, MLA, Chicago, IEEE, etc.)',
+                'Real-time citation preview',
+                'Multiple output formats (TXT, HTML, BibTeX)',
+                'Bibliography and citation generation',
+                'Integration with Zotero items',
+                'Export and copy functionality'
+            ],
+            demo: () => setCslDialogOpen(true)
+        },
+        {
+            id: 'task-flow-management',
+            title: 'Task Flow Management',
+            description: 'Visual workflow management and process automation',
+            icon: <WorkflowIcon />,
+            status: 'implemented',
+            features: [
+                'Visual workflow designer with drag-and-drop',
+                'Multiple node types (task, decision, wait, notification)',
+                'Real-time execution monitoring',
+                'Execution history and analytics',
+                'Workflow templates and automation rules',
+                'Integration with existing task system'
+            ],
+            demo: () => setTaskFlowDialogOpen(true)
+        },
+        {
+            id: 'experimental-variable-tracker',
+            title: 'Experimental Variable Tracker',
+            description: 'Track and analyze experimental parameters across experiments',
+            icon: <TimelineIcon />,
+            status: 'implemented',
+            features: [
+                'Variable category management with data types',
+                'Experiment-specific variable tracking',
+                'Real-time value recording and history',
+                'Analytics and visualization',
+                'Support for multiple data types (number, text, boolean, date, select)',
+                'Global and project-specific categories'
+            ],
+            demo: () => setVariableTrackerDialogOpen(true)
+        },
+        {
+            id: 'advanced-reporting',
+            title: 'Advanced Reporting',
+            description: 'Create custom reports with templates, scheduling, and analytics',
+            icon: <ReportingIcon />,
+            status: 'implemented',
+            features: [
+                'Custom report builder with drag-and-drop interface',
+                'Report templates and reusable configurations',
+                'Scheduled report generation and delivery',
+                'Multi-format export (JSON, CSV, PDF, HTML, XLSX)',
+                'Report analytics and usage tracking',
+                'Integration with all data sources'
+            ],
+            demo: () => setAdvancedReportingDialogOpen(true)
         }
     ];
 
@@ -541,6 +615,101 @@ const AdvancedFeatures: React.FC = () => {
                 <DialogTitle>Visual Pathway Editor Demo</DialogTitle>
                 <DialogContent sx={{ p: 0 }}>
                     <VisualPathwayEditor />
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={cslDialogOpen}
+                onClose={() => setCslDialogOpen(false)}
+                maxWidth="xl"
+                fullWidth
+                sx={{ '& .MuiDialog-paper': { height: '90vh' } }}
+            >
+                <DialogTitle>Full CSL Support Demo</DialogTitle>
+                <DialogContent sx={{ p: 0 }}>
+                    <CSLSupport
+                        items={[
+                            {
+                                id: '1',
+                                type: 'article-journal',
+                                title: 'The Impact of Machine Learning on Scientific Research',
+                                author: [
+                                    { family: 'Smith', given: 'John' },
+                                    { family: 'Johnson', given: 'Sarah' }
+                                ],
+                                'container-title': 'Nature',
+                                volume: '521',
+                                issue: '7553',
+                                page: '452-456',
+                                issued: { 'date-parts': [[2023]] },
+                                DOI: '10.1038/nature14539',
+                                URL: 'https://doi.org/10.1038/nature14539',
+                                abstract: 'This study examines the transformative impact of machine learning on scientific research methodologies.',
+                                keyword: ['machine learning', 'scientific research', 'methodology'],
+                            },
+                            {
+                                id: '2',
+                                type: 'book',
+                                title: 'Advanced Research Methods in Biology',
+                                author: [
+                                    { family: 'Brown', given: 'Michael' },
+                                    { family: 'Davis', given: 'Emily' }
+                                ],
+                                publisher: 'Academic Press',
+                                'publisher-place': 'San Diego, CA',
+                                issued: { 'date-parts': [[2022]] },
+                                ISBN: '978-0-12-345678-9',
+                            },
+                            {
+                                id: '3',
+                                type: 'thesis',
+                                title: 'Novel Approaches to Protein Structure Prediction',
+                                author: [{ family: 'Wilson', given: 'Robert' }],
+                                'container-title': 'PhD Thesis',
+                                publisher: 'Stanford University',
+                                issued: { 'date-parts': [[2023]] },
+                            }
+                        ]}
+                    />
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={taskFlowDialogOpen}
+                onClose={() => setTaskFlowDialogOpen(false)}
+                maxWidth="xl"
+                fullWidth
+                sx={{ '& .MuiDialog-paper': { height: '90vh' } }}
+            >
+                <DialogTitle>Task Flow Management Demo</DialogTitle>
+                <DialogContent sx={{ p: 0 }}>
+                    <TaskFlowManagement open={true} onClose={() => setTaskFlowDialogOpen(false)} />
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={variableTrackerDialogOpen}
+                onClose={() => setVariableTrackerDialogOpen(false)}
+                maxWidth="xl"
+                fullWidth
+                sx={{ '& .MuiDialog-paper': { height: '90vh' } }}
+            >
+                <DialogTitle>Experimental Variable Tracker Demo</DialogTitle>
+                <DialogContent sx={{ p: 0 }}>
+                    <ExperimentalVariableTracker />
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={advancedReportingDialogOpen}
+                onClose={() => setAdvancedReportingDialogOpen(false)}
+                maxWidth="xl"
+                fullWidth
+                sx={{ '& .MuiDialog-paper': { height: '90vh' } }}
+            >
+                <DialogTitle>Advanced Reporting Demo</DialogTitle>
+                <DialogContent sx={{ p: 0 }}>
+                    <AdvancedReporting />
                 </DialogContent>
             </Dialog>
         </Box>

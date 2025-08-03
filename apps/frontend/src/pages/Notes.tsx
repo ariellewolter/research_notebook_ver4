@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
     Add as AddIcon,
     Edit as EditIcon,
@@ -40,11 +40,21 @@ const NotesView = () => {
     const [editingNote, setEditingNote] = useState<Note | null>(null);
 
     const navigate = useNavigate();
+    const location = useLocation();
     const { palette } = useThemePalette();
 
     useEffect(() => {
         loadNotes();
     }, []);
+
+    // Check if we should show the new note form based on URL
+    useEffect(() => {
+        if (location.pathname === '/notes/new') {
+            setIsCreating(true);
+            setSelectedNote(null);
+            setEditingNote(null);
+        }
+    }, [location.pathname]);
 
     useEffect(() => {
         filterNotes();

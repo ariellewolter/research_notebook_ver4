@@ -22,7 +22,23 @@ import {
     TableHead,
     TableRow,
     IconButton,
-    Tooltip
+    Tooltip,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    TextField,
+    Switch,
+    FormControlLabel,
+    Alert,
+    Divider,
+    List,
+    ListItem,
+    ListItemText,
+    ListItemIcon,
+    Accordion,
+    AccordionSummary,
+    AccordionDetails
 } from '@mui/material';
 import {
     TrendingUp,
@@ -32,9 +48,55 @@ import {
     BarChart,
     PieChart,
     Refresh,
-    FilterList
+    FilterList,
+    Download,
+    Compare,
+    Analytics as AnalyticsIcon,
+    ShowChart,
+    Timeline as TimelineIcon,
+    Speed,
+    CheckCircle,
+    Warning,
+    Error,
+    ExpandMore,
+    CalendarToday,
+    TrendingFlat,
+    AutoGraph,
+    ViewTimeline,
+    PlaylistPlay,
+    Rule,
+    IntegrationInstructions,
+    PlayArrow,
+    Pause,
+    Stop,
+    Save,
+    TrendingUp as TrendingUpIcon
 } from '@mui/icons-material';
-import { LineChart, Line, BarChart as RechartsBarChart, Bar, PieChart as RechartsPieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
+import {
+    LineChart,
+    Line,
+    BarChart as RechartsBarChart,
+    Bar,
+    PieChart as RechartsPieChart,
+    Pie,
+    Cell,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip as RechartsTooltip,
+    Legend,
+    ResponsiveContainer,
+    AreaChart,
+    Area,
+    ComposedChart,
+    ScatterChart,
+    Scatter,
+    RadarChart,
+    PolarGrid,
+    PolarAngleAxis,
+    PolarRadiusAxis,
+    Radar
+} from 'recharts';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -43,9 +105,18 @@ interface AnalyticsData {
     productivity?: any;
     resourceUsage?: any;
     dashboard?: any;
+    comparative?: any;
+    predictive?: any;
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+interface ExportOptions {
+    format: 'csv' | 'json' | 'xlsx';
+    dateRange: string;
+    includeCharts: boolean;
+    includeRawData: boolean;
+}
+
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D', '#FFC658', '#8DD1E1'];
 
 const Analytics: React.FC = () => {
     const { token } = useAuth();
@@ -55,11 +126,43 @@ const Analytics: React.FC = () => {
     const [dateRange, setDateRange] = useState('30');
     const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
     const [projects, setProjects] = useState<any[]>([]);
+    const [exportDialogOpen, setExportDialogOpen] = useState(false);
+    const [exportOptions, setExportOptions] = useState<ExportOptions>({
+        format: 'csv',
+        dateRange: '30',
+        includeCharts: true,
+        includeRawData: true
+    });
+    const [comparisonMode, setComparisonMode] = useState(false);
+    const [comparisonDateRange, setComparisonDateRange] = useState('30');
+    const [realTimeUpdates, setRealTimeUpdates] = useState(false);
+    const [autoRefreshInterval, setAutoRefreshInterval] = useState(30000); // 30 seconds
+    const [showPredictiveAnalytics, setShowPredictiveAnalytics] = useState(false);
 
     useEffect(() => {
         fetchProjects();
         fetchDashboardData();
-    }, []);
+        if (comparisonMode) {
+            fetchComparativeData();
+        }
+        if (showPredictiveAnalytics) {
+            fetchPredictiveData();
+        }
+    }, [dateRange, selectedProjects, comparisonMode, comparisonDateRange, showPredictiveAnalytics]);
+
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+        if (realTimeUpdates) {
+            interval = setInterval(() => {
+                fetchDashboardData();
+                if (comparisonMode) fetchComparativeData();
+                if (showPredictiveAnalytics) fetchPredictiveData();
+            }, autoRefreshInterval);
+        }
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [realTimeUpdates, autoRefreshInterval, comparisonMode, showPredictiveAnalytics]);
 
     const fetchProjects = async () => {
         try {
@@ -76,13 +179,49 @@ const Analytics: React.FC = () => {
         setLoading(true);
         try {
             const response = await api.get('/analytics/dashboard', {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${token}` },
+                params: {
+                    dateRange,
+                    projects: selectedProjects.join(',')
+                }
             });
             setData(prev => ({ ...prev, dashboard: response.data }));
         } catch (error) {
             console.error('Failed to fetch dashboard data:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchComparativeData = async () => {
+        try {
+            const response = await api.get('/analytics/comparative', {
+                headers: { Authorization: `Bearer ${token}` },
+                params: {
+                    currentRange: dateRange,
+                    comparisonRange: comparisonDateRange,
+                    projects: selectedProjects.join(',')
+                }
+            });
+            setData(prev => ({ ...prev, comparative: response.data }));
+        } catch (error) {
+            console.error('Failed to fetch comparative data:', error);
+        }
+    };
+
+    const fetchPredictiveData = async () => {
+        try {
+            const response = await api.get('/analytics/predictive', {
+                headers: { Authorization: `Bearer ${token}` },
+                params: {
+                    dateRange,
+                    projects: selectedProjects.join(','),
+                    forecastPeriod: '30' // 30 days forecast
+                }
+            });
+            setData(prev => ({ ...prev, predictive: response.data }));
+        } catch (error) {
+            console.error('Failed to fetch predictive data:', error);
         }
     };
 
@@ -100,11 +239,12 @@ const Analytics: React.FC = () => {
                 };
             }
             if (selectedProjects.length > 0) {
-                filters.projectIds = selectedProjects;
+                filters.projects = selectedProjects;
             }
 
-            const response = await api.post('/analytics/experiment-success', filters, {
-                headers: { Authorization: `Bearer ${token}` }
+            const response = await api.get('/analytics/experiment-success', {
+                headers: { Authorization: `Bearer ${token}` },
+                params: filters
             });
             setData(prev => ({ ...prev, experimentSuccess: response.data }));
         } catch (error) {
@@ -128,11 +268,12 @@ const Analytics: React.FC = () => {
                 };
             }
             if (selectedProjects.length > 0) {
-                filters.projectIds = selectedProjects;
+                filters.projects = selectedProjects;
             }
 
-            const response = await api.post('/analytics/productivity', filters, {
-                headers: { Authorization: `Bearer ${token}` }
+            const response = await api.get('/analytics/productivity', {
+                headers: { Authorization: `Bearer ${token}` },
+                params: filters
             });
             setData(prev => ({ ...prev, productivity: response.data }));
         } catch (error) {
@@ -155,9 +296,13 @@ const Analytics: React.FC = () => {
                     endDate: endDate.toISOString()
                 };
             }
+            if (selectedProjects.length > 0) {
+                filters.projects = selectedProjects;
+            }
 
-            const response = await api.post('/analytics/resource-usage', filters, {
-                headers: { Authorization: `Bearer ${token}` }
+            const response = await api.get('/analytics/resource-usage', {
+                headers: { Authorization: `Bearer ${token}` },
+                params: filters
             });
             setData(prev => ({ ...prev, resourceUsage: response.data }));
         } catch (error) {
@@ -169,24 +314,63 @@ const Analytics: React.FC = () => {
 
     const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
         setActiveTab(newValue);
-        if (newValue === 1 && !data.experimentSuccess) {
-            fetchExperimentSuccess();
-        } else if (newValue === 2 && !data.productivity) {
-            fetchProductivity();
-        } else if (newValue === 3 && !data.resourceUsage) {
-            fetchResourceUsage();
+        switch (newValue) {
+            case 1:
+                fetchExperimentSuccess();
+                break;
+            case 2:
+                fetchProductivity();
+                break;
+            case 3:
+                fetchResourceUsage();
+                break;
+            default:
+                fetchDashboardData();
         }
     };
 
-    const StatCard: React.FC<{ title: string; value: string | number; subtitle?: string; trend?: number; icon?: React.ReactNode }> = ({ title, value, subtitle, trend, icon }) => (
-        <Card>
+    const handleExport = async () => {
+        try {
+            const response = await api.get('/analytics/export', {
+                headers: { Authorization: `Bearer ${token}` },
+                params: {
+                    ...exportOptions,
+                    dateRange,
+                    projects: selectedProjects.join(',')
+                },
+                responseType: 'blob'
+            });
+
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `analytics-export-${new Date().toISOString().split('T')[0]}.${exportOptions.format}`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setExportDialogOpen(false);
+        } catch (error) {
+            console.error('Failed to export analytics data:', error);
+        }
+    };
+
+    const StatCard: React.FC<{
+        title: string;
+        value: string | number;
+        subtitle?: string;
+        trend?: number;
+        icon?: React.ReactNode;
+        color?: 'primary' | 'secondary' | 'success' | 'error' | 'warning' | 'info';
+        comparison?: { value: number; label: string };
+    }> = ({ title, value, subtitle, trend, icon, color = 'primary', comparison }) => (
+        <Card sx={{ height: '100%', position: 'relative', overflow: 'visible' }}>
             <CardContent>
-                <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box display="flex" justifyContent="space-between" alignItems="flex-start">
                     <Box>
                         <Typography color="textSecondary" gutterBottom variant="body2">
                             {title}
                         </Typography>
-                        <Typography variant="h4" component="div">
+                        <Typography variant="h4" component="div" color={color}>
                             {value}
                         </Typography>
                         {subtitle && (
@@ -198,17 +382,40 @@ const Analytics: React.FC = () => {
                             <Box display="flex" alignItems="center" mt={1}>
                                 {trend > 0 ? (
                                     <TrendingUp color="success" fontSize="small" />
-                                ) : (
+                                ) : trend < 0 ? (
                                     <TrendingDown color="error" fontSize="small" />
+                                ) : (
+                                    <TrendingFlat color="action" fontSize="small" />
                                 )}
-                                <Typography variant="body2" color={trend > 0 ? 'success.main' : 'error.main'} ml={0.5}>
+                                <Typography
+                                    variant="body2"
+                                    color={trend > 0 ? 'success.main' : trend < 0 ? 'error.main' : 'text.secondary'}
+                                    ml={0.5}
+                                >
                                     {Math.abs(trend)}%
+                                </Typography>
+                            </Box>
+                        )}
+                        {comparison && (
+                            <Box display="flex" alignItems="center" mt={1}>
+                                <Typography variant="caption" color="textSecondary">
+                                    vs {comparison.label}: {comparison.value > 0 ? '+' : ''}{comparison.value}%
                                 </Typography>
                             </Box>
                         )}
                     </Box>
                     {icon && (
-                        <Box color="primary.main">
+                        <Box
+                            sx={{
+                                p: 1,
+                                borderRadius: 1,
+                                bgcolor: `${color}.light`,
+                                color: `${color}.main`,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
                             {icon}
                         </Box>
                     )}
@@ -228,6 +435,9 @@ const Analytics: React.FC = () => {
                                 title="Total Projects"
                                 value={data.dashboard.quickStats.totalProjects}
                                 icon={<Assessment />}
+                                color="primary"
+                                trend={data.comparative?.projects?.trend}
+                                comparison={data.comparative?.projects?.comparison}
                             />
                         </Grid>
                         <Grid item xs={12} sm={6} md={3}>
@@ -236,6 +446,9 @@ const Analytics: React.FC = () => {
                                 value={data.dashboard.quickStats.activeProjects}
                                 subtitle={`${Math.round((data.dashboard.quickStats.activeProjects / data.dashboard.quickStats.totalProjects) * 100)}% of total`}
                                 icon={<Timeline />}
+                                color="success"
+                                trend={data.comparative?.activeProjects?.trend}
+                                comparison={data.comparative?.activeProjects?.comparison}
                             />
                         </Grid>
                         <Grid item xs={12} sm={6} md={3}>
@@ -243,6 +456,9 @@ const Analytics: React.FC = () => {
                                 title="Total Experiments"
                                 value={data.dashboard.quickStats.totalExperiments}
                                 icon={<BarChart />}
+                                color="info"
+                                trend={data.comparative?.experiments?.trend}
+                                comparison={data.comparative?.experiments?.comparison}
                             />
                         </Grid>
                         <Grid item xs={12} sm={6} md={3}>
@@ -251,9 +467,93 @@ const Analytics: React.FC = () => {
                                 value={`${data.dashboard.quickStats.taskCompletionRate}%`}
                                 subtitle={`${data.dashboard.quickStats.completedTasks}/${data.dashboard.quickStats.pendingTasks + data.dashboard.quickStats.completedTasks} tasks`}
                                 icon={<TrendingUp />}
+                                color="warning"
+                                trend={data.comparative?.taskCompletion?.trend}
+                                comparison={data.comparative?.taskCompletion?.comparison}
                             />
                         </Grid>
                     </Grid>
+
+                    {/* Enhanced Charts Section */}
+                    <Grid container spacing={3} mb={3}>
+                        <Grid item xs={12} md={8}>
+                            <Card>
+                                <CardContent>
+                                    <Typography variant="h6" gutterBottom>
+                                        Productivity Trends
+                                    </Typography>
+                                    <ResponsiveContainer width="100%" height={300}>
+                                        <ComposedChart data={data.dashboard.productivityTrends}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis dataKey="date" />
+                                            <YAxis />
+                                            <RechartsTooltip />
+                                            <Legend />
+                                            <Area type="monotone" dataKey="tasks" stackId="1" stroke="#8884d8" fill="#8884d8" fillOpacity={0.3} />
+                                            <Bar dataKey="experiments" fill="#82ca9d" />
+                                            <Line type="monotone" dataKey="efficiency" stroke="#ff7300" strokeWidth={2} />
+                                        </ComposedChart>
+                                    </ResponsiveContainer>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                        <Grid item xs={12} md={4}>
+                            <Card>
+                                <CardContent>
+                                    <Typography variant="h6" gutterBottom>
+                                        Project Distribution
+                                    </Typography>
+                                    <ResponsiveContainer width="100%" height={300}>
+                                        <RechartsPieChart>
+                                            <Pie
+                                                data={data.dashboard.projectDistribution}
+                                                cx="50%"
+                                                cy="50%"
+                                                labelLine={false}
+                                                label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                                                outerRadius={80}
+                                                fill="#8884d8"
+                                                dataKey="value"
+                                            >
+                                                {data.dashboard.projectDistribution.map((entry: any, index: number) => (
+                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                ))}
+                                            </Pie>
+                                            <RechartsTooltip />
+                                        </RechartsPieChart>
+                                    </ResponsiveContainer>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                    </Grid>
+
+                    {/* Predictive Analytics Section */}
+                    {showPredictiveAnalytics && data.predictive && (
+                        <Grid container spacing={3} mb={3}>
+                            <Grid item xs={12}>
+                                <Card>
+                                    <CardContent>
+                                        <Typography variant="h6" gutterBottom>
+                                            Predictive Analytics - 30-Day Forecast
+                                        </Typography>
+                                        <ResponsiveContainer width="100%" height={300}>
+                                            <LineChart data={data.predictive.forecast}>
+                                                <CartesianGrid strokeDasharray="3 3" />
+                                                <XAxis dataKey="date" />
+                                                <YAxis />
+                                                <RechartsTooltip />
+                                                <Legend />
+                                                <Line type="monotone" dataKey="actual" stroke="#8884d8" strokeWidth={2} />
+                                                <Line type="monotone" dataKey="predicted" stroke="#ff7300" strokeWidth={2} strokeDasharray="5 5" />
+                                                <Line type="monotone" dataKey="upperBound" stroke="#82ca9d" strokeWidth={1} strokeDasharray="3 3" />
+                                                <Line type="monotone" dataKey="lowerBound" stroke="#82ca9d" strokeWidth={1} strokeDasharray="3 3" />
+                                            </LineChart>
+                                        </ResponsiveContainer>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                        </Grid>
+                    )}
 
                     <Grid container spacing={3}>
                         <Grid item xs={12} md={6}>
@@ -269,6 +569,7 @@ const Analytics: React.FC = () => {
                                                     <TableCell>Name</TableCell>
                                                     <TableCell>Project</TableCell>
                                                     <TableCell>Date</TableCell>
+                                                    <TableCell>Status</TableCell>
                                                 </TableRow>
                                             </TableHead>
                                             <TableBody>
@@ -277,6 +578,13 @@ const Analytics: React.FC = () => {
                                                         <TableCell>{exp.name}</TableCell>
                                                         <TableCell>{exp.project.name}</TableCell>
                                                         <TableCell>{new Date(exp.createdAt).toLocaleDateString()}</TableCell>
+                                                        <TableCell>
+                                                            <Chip
+                                                                label={exp.status}
+                                                                size="small"
+                                                                color={exp.status === 'completed' ? 'success' : exp.status === 'in_progress' ? 'warning' : 'default'}
+                                                            />
+                                                        </TableCell>
                                                     </TableRow>
                                                 ))}
                                             </TableBody>
@@ -298,6 +606,7 @@ const Analytics: React.FC = () => {
                                                     <TableCell>Title</TableCell>
                                                     <TableCell>Status</TableCell>
                                                     <TableCell>Project</TableCell>
+                                                    <TableCell>Priority</TableCell>
                                                 </TableRow>
                                             </TableHead>
                                             <TableBody>
@@ -312,6 +621,13 @@ const Analytics: React.FC = () => {
                                                             />
                                                         </TableCell>
                                                         <TableCell>{task.project.name}</TableCell>
+                                                        <TableCell>
+                                                            <Chip
+                                                                label={task.priority}
+                                                                size="small"
+                                                                color={task.priority === 'high' ? 'error' : task.priority === 'medium' ? 'warning' : 'default'}
+                                                            />
+                                                        </TableCell>
                                                     </TableRow>
                                                 ))}
                                             </TableBody>
@@ -335,53 +651,55 @@ const Analytics: React.FC = () => {
                         <Grid item xs={12} sm={6} md={3}>
                             <StatCard
                                 title="Success Rate"
-                                value={`${data.experimentSuccess.summary.successRate}%`}
-                                subtitle={`${data.experimentSuccess.summary.successfulExperiments}/${data.experimentSuccess.summary.totalExperiments} experiments`}
-                                icon={<TrendingUp />}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={3}>
-                            <StatCard
-                                title="Failure Rate"
-                                value={`${data.experimentSuccess.summary.failureRate}%`}
-                                subtitle={`${data.experimentSuccess.summary.failedExperiments} experiments`}
-                                icon={<TrendingDown />}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={3}>
-                            <StatCard
-                                title="Inconclusive"
-                                value={`${data.experimentSuccess.summary.inconclusiveRate}%`}
-                                subtitle={`${data.experimentSuccess.summary.inconclusiveExperiments} experiments`}
-                                icon={<Assessment />}
+                                value={`${data.experimentSuccess.successRate}%`}
+                                icon={<CheckCircle />}
+                                color="success"
+                                trend={data.experimentSuccess.successRateTrend}
                             />
                         </Grid>
                         <Grid item xs={12} sm={6} md={3}>
                             <StatCard
                                 title="Total Experiments"
-                                value={data.experimentSuccess.summary.totalExperiments}
-                                icon={<BarChart />}
+                                value={data.experimentSuccess.totalExperiments}
+                                icon={<Assessment />}
+                                color="primary"
+                            />
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={3}>
+                            <StatCard
+                                title="Failed Experiments"
+                                value={data.experimentSuccess.failedExperiments}
+                                icon={<Error />}
+                                color="error"
+                                trend={data.experimentSuccess.failureRateTrend}
+                            />
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={3}>
+                            <StatCard
+                                title="Average Duration"
+                                value={`${data.experimentSuccess.averageDuration} days`}
+                                icon={<Timeline />}
+                                color="info"
                             />
                         </Grid>
                     </Grid>
 
-                    <Grid container spacing={3}>
+                    <Grid container spacing={3} mb={3}>
                         <Grid item xs={12} md={8}>
                             <Card>
                                 <CardContent>
                                     <Typography variant="h6" gutterBottom>
-                                        Monthly Success Trends
+                                        Success Rate Over Time
                                     </Typography>
                                     <ResponsiveContainer width="100%" height={300}>
-                                        <LineChart data={data.experimentSuccess.monthlyTrends}>
+                                        <AreaChart data={data.experimentSuccess.successRateOverTime}>
                                             <CartesianGrid strokeDasharray="3 3" />
-                                            <XAxis dataKey="month" />
+                                            <XAxis dataKey="date" />
                                             <YAxis />
                                             <RechartsTooltip />
-                                            <Legend />
-                                            <Line type="monotone" dataKey="successRate" stroke="#8884d8" name="Success Rate (%)" />
-                                            <Line type="monotone" dataKey="total" stroke="#82ca9d" name="Total Experiments" />
-                                        </LineChart>
+                                            <Area type="monotone" dataKey="successRate" stroke="#82ca9d" fill="#82ca9d" fillOpacity={0.3} />
+                                            <Line type="monotone" dataKey="trend" stroke="#ff7300" strokeWidth={2} />
+                                        </AreaChart>
                                     </ResponsiveContainer>
                                 </CardContent>
                             </Card>
@@ -390,23 +708,97 @@ const Analytics: React.FC = () => {
                             <Card>
                                 <CardContent>
                                     <Typography variant="h6" gutterBottom>
-                                        Success by Project
+                                        Experiment Status Distribution
                                     </Typography>
-                                    <Box>
-                                        {data.experimentSuccess.byProject.map((project: any, index: number) => (
-                                            <Box key={project.projectId} mb={2}>
-                                                <Box display="flex" justifyContent="space-between" mb={1}>
-                                                    <Typography variant="body2">{project.projectName}</Typography>
-                                                    <Typography variant="body2">{project.successRate.toFixed(1)}%</Typography>
-                                                </Box>
-                                                <LinearProgress
-                                                    variant="determinate"
-                                                    value={project.successRate}
-                                                    color={project.successRate > 70 ? 'success' : project.successRate > 40 ? 'warning' : 'error'}
-                                                />
-                                            </Box>
-                                        ))}
-                                    </Box>
+                                    <ResponsiveContainer width="100%" height={300}>
+                                        <RechartsPieChart>
+                                            <Pie
+                                                data={data.experimentSuccess.statusDistribution}
+                                                cx="50%"
+                                                cy="50%"
+                                                labelLine={false}
+                                                label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                                                outerRadius={80}
+                                                fill="#8884d8"
+                                                dataKey="value"
+                                            >
+                                                {data.experimentSuccess.statusDistribution.map((entry: any, index: number) => (
+                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                ))}
+                                            </Pie>
+                                            <RechartsTooltip />
+                                        </RechartsPieChart>
+                                    </ResponsiveContainer>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                    </Grid>
+
+                    <Grid container spacing={3}>
+                        <Grid item xs={12} md={6}>
+                            <Card>
+                                <CardContent>
+                                    <Typography variant="h6" gutterBottom>
+                                        Top Performing Projects
+                                    </Typography>
+                                    <TableContainer>
+                                        <Table size="small">
+                                            <TableHead>
+                                                <TableRow>
+                                                    <TableCell>Project</TableCell>
+                                                    <TableCell>Success Rate</TableCell>
+                                                    <TableCell>Experiments</TableCell>
+                                                </TableRow>
+                                            </TableHead>
+                                            <TableBody>
+                                                {data.experimentSuccess.topProjects.map((project: any) => (
+                                                    <TableRow key={project.id}>
+                                                        <TableCell>{project.name}</TableCell>
+                                                        <TableCell>
+                                                            <Box display="flex" alignItems="center">
+                                                                <LinearProgress
+                                                                    variant="determinate"
+                                                                    value={project.successRate}
+                                                                    sx={{ width: 60, mr: 1 }}
+                                                                />
+                                                                {project.successRate}%
+                                                            </Box>
+                                                        </TableCell>
+                                                        <TableCell>{project.experimentCount}</TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </TableContainer>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                            <Card>
+                                <CardContent>
+                                    <Typography variant="h6" gutterBottom>
+                                        Common Failure Reasons
+                                    </Typography>
+                                    <TableContainer>
+                                        <Table size="small">
+                                            <TableHead>
+                                                <TableRow>
+                                                    <TableCell>Reason</TableCell>
+                                                    <TableCell>Count</TableCell>
+                                                    <TableCell>Percentage</TableCell>
+                                                </TableRow>
+                                            </TableHead>
+                                            <TableBody>
+                                                {data.experimentSuccess.failureReasons.map((reason: any) => (
+                                                    <TableRow key={reason.reason}>
+                                                        <TableCell>{reason.reason}</TableCell>
+                                                        <TableCell>{reason.count}</TableCell>
+                                                        <TableCell>{reason.percentage}%</TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </TableContainer>
                                 </CardContent>
                             </Card>
                         </Grid>
@@ -424,32 +816,89 @@ const Analytics: React.FC = () => {
                     <Grid container spacing={3} mb={3}>
                         <Grid item xs={12} sm={6} md={3}>
                             <StatCard
-                                title="Total Activities"
-                                value={data.productivity.summary.totalActivities}
-                                icon={<Assessment />}
+                                title="Task Completion Rate"
+                                value={`${data.productivity.taskCompletionRate}%`}
+                                icon={<CheckCircle />}
+                                color="success"
+                                trend={data.productivity.taskCompletionTrend}
                             />
                         </Grid>
                         <Grid item xs={12} sm={6} md={3}>
                             <StatCard
-                                title="Task Completion"
-                                value={`${data.productivity.summary.taskCompletionRate}%`}
-                                subtitle={`${data.productivity.summary.completedTasks}/${data.productivity.summary.totalTasks} tasks`}
-                                icon={<TrendingUp />}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={3}>
-                            <StatCard
-                                title="Avg Notes/Experiment"
-                                value={data.productivity.summary.avgNotesPerExperiment}
-                                icon={<BarChart />}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={3}>
-                            <StatCard
-                                title="Total Notes"
-                                value={data.productivity.summary.totalNotes}
+                                title="Average Task Duration"
+                                value={`${data.productivity.averageTaskDuration} days`}
                                 icon={<Timeline />}
+                                color="info"
                             />
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={3}>
+                            <StatCard
+                                title="Productivity Score"
+                                value={data.productivity.productivityScore}
+                                icon={<Speed />}
+                                color="primary"
+                                trend={data.productivity.productivityTrend}
+                            />
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={3}>
+                            <StatCard
+                                title="Overdue Tasks"
+                                value={data.productivity.overdueTasks}
+                                icon={<Warning />}
+                                color="error"
+                            />
+                        </Grid>
+                    </Grid>
+
+                    <Grid container spacing={3} mb={3}>
+                        <Grid item xs={12} md={8}>
+                            <Card>
+                                <CardContent>
+                                    <Typography variant="h6" gutterBottom>
+                                        Productivity Trends
+                                    </Typography>
+                                    <ResponsiveContainer width="100%" height={300}>
+                                        <ComposedChart data={data.productivity.productivityTrends}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis dataKey="date" />
+                                            <YAxis />
+                                            <RechartsTooltip />
+                                            <Legend />
+                                            <Bar dataKey="tasksCompleted" fill="#8884d8" />
+                                            <Line type="monotone" dataKey="productivityScore" stroke="#ff7300" strokeWidth={2} />
+                                            <Area type="monotone" dataKey="efficiency" stackId="1" stroke="#82ca9d" fill="#82ca9d" fillOpacity={0.3} />
+                                        </ComposedChart>
+                                    </ResponsiveContainer>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                        <Grid item xs={12} md={4}>
+                            <Card>
+                                <CardContent>
+                                    <Typography variant="h6" gutterBottom>
+                                        Task Priority Distribution
+                                    </Typography>
+                                    <ResponsiveContainer width="100%" height={300}>
+                                        <RechartsPieChart>
+                                            <Pie
+                                                data={data.productivity.priorityDistribution}
+                                                cx="50%"
+                                                cy="50%"
+                                                labelLine={false}
+                                                label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                                                outerRadius={80}
+                                                fill="#8884d8"
+                                                dataKey="value"
+                                            >
+                                                {data.productivity.priorityDistribution.map((entry: any, index: number) => (
+                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                ))}
+                                            </Pie>
+                                            <RechartsTooltip />
+                                        </RechartsPieChart>
+                                    </ResponsiveContainer>
+                                </CardContent>
+                            </Card>
                         </Grid>
                     </Grid>
 
@@ -458,16 +907,16 @@ const Analytics: React.FC = () => {
                             <Card>
                                 <CardContent>
                                     <Typography variant="h6" gutterBottom>
-                                        Activity by Day of Week
+                                        Most Productive Time Periods
                                     </Typography>
                                     <ResponsiveContainer width="100%" height={300}>
-                                        <RechartsBarChart data={Object.entries(data.productivity.activityPatterns.byDayOfWeek).map(([day, count]) => ({ day, count }))}>
+                                        <BarChart data={data.productivity.timeAnalysis}>
                                             <CartesianGrid strokeDasharray="3 3" />
-                                            <XAxis dataKey="day" />
+                                            <XAxis dataKey="timePeriod" />
                                             <YAxis />
                                             <RechartsTooltip />
-                                            <Bar dataKey="count" fill="#8884d8" />
-                                        </RechartsBarChart>
+                                            <Bar dataKey="productivity" fill="#8884d8" />
+                                        </BarChart>
                                     </ResponsiveContainer>
                                 </CardContent>
                             </Card>
@@ -476,17 +925,34 @@ const Analytics: React.FC = () => {
                             <Card>
                                 <CardContent>
                                     <Typography variant="h6" gutterBottom>
-                                        Activity by Hour
+                                        Task Status Breakdown
                                     </Typography>
-                                    <ResponsiveContainer width="100%" height={300}>
-                                        <RechartsBarChart data={Object.entries(data.productivity.activityPatterns.byHour).map(([hour, count]) => ({ hour, count }))}>
-                                            <CartesianGrid strokeDasharray="3 3" />
-                                            <XAxis dataKey="hour" />
-                                            <YAxis />
-                                            <RechartsTooltip />
-                                            <Bar dataKey="count" fill="#82ca9d" />
-                                        </RechartsBarChart>
-                                    </ResponsiveContainer>
+                                    <TableContainer>
+                                        <Table size="small">
+                                            <TableHead>
+                                                <TableRow>
+                                                    <TableCell>Status</TableCell>
+                                                    <TableCell>Count</TableCell>
+                                                    <TableCell>Percentage</TableCell>
+                                                </TableRow>
+                                            </TableHead>
+                                            <TableBody>
+                                                {data.productivity.statusBreakdown.map((status: any) => (
+                                                    <TableRow key={status.status}>
+                                                        <TableCell>
+                                                            <Chip
+                                                                label={status.status}
+                                                                size="small"
+                                                                color={status.status === 'completed' ? 'success' : status.status === 'in_progress' ? 'warning' : 'default'}
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell>{status.count}</TableCell>
+                                                        <TableCell>{status.percentage}%</TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </TableContainer>
                                 </CardContent>
                             </Card>
                         </Grid>
@@ -505,53 +971,77 @@ const Analytics: React.FC = () => {
                         <Grid item xs={12} sm={6} md={3}>
                             <StatCard
                                 title="Total Resources"
-                                value={data.resourceUsage.summary.totalResources}
+                                value={data.resourceUsage.totalResources}
                                 icon={<Assessment />}
+                                color="primary"
                             />
                         </Grid>
                         <Grid item xs={12} sm={6} md={3}>
                             <StatCard
-                                title="Resource Types"
-                                value={data.resourceUsage.summary.uniqueResourceTypes}
-                                icon={<BarChart />}
+                                title="Active Resources"
+                                value={data.resourceUsage.activeResources}
+                                icon={<CheckCircle />}
+                                color="success"
                             />
                         </Grid>
                         <Grid item xs={12} sm={6} md={3}>
                             <StatCard
-                                title="Protocols"
-                                value={data.resourceUsage.summary.totalProtocols}
-                                icon={<Timeline />}
+                                title="Utilization Rate"
+                                value={`${data.resourceUsage.utilizationRate}%`}
+                                icon={<Speed />}
+                                color="info"
                             />
                         </Grid>
                         <Grid item xs={12} sm={6} md={3}>
                             <StatCard
-                                title="Recipes"
-                                value={data.resourceUsage.summary.totalRecipes}
-                                icon={<TrendingUp />}
+                                title="Low Stock Items"
+                                value={data.resourceUsage.lowStockItems}
+                                icon={<Warning />}
+                                color="error"
                             />
                         </Grid>
                     </Grid>
 
-                    <Grid container spacing={3}>
-                        <Grid item xs={12} md={6}>
+                    <Grid container spacing={3} mb={3}>
+                        <Grid item xs={12} md={8}>
                             <Card>
                                 <CardContent>
                                     <Typography variant="h6" gutterBottom>
-                                        Resource Usage by Type
+                                        Resource Usage Over Time
+                                    </Typography>
+                                    <ResponsiveContainer width="100%" height={300}>
+                                        <AreaChart data={data.resourceUsage.usageOverTime}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis dataKey="date" />
+                                            <YAxis />
+                                            <RechartsTooltip />
+                                            <Legend />
+                                            <Area type="monotone" dataKey="usage" stroke="#8884d8" fill="#8884d8" fillOpacity={0.3} />
+                                            <Line type="monotone" dataKey="capacity" stroke="#ff7300" strokeWidth={2} />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                        <Grid item xs={12} md={4}>
+                            <Card>
+                                <CardContent>
+                                    <Typography variant="h6" gutterBottom>
+                                        Resource Categories
                                     </Typography>
                                     <ResponsiveContainer width="100%" height={300}>
                                         <RechartsPieChart>
                                             <Pie
-                                                data={data.resourceUsage.resourceUsage.byType}
+                                                data={data.resourceUsage.categoryDistribution}
                                                 cx="50%"
                                                 cy="50%"
                                                 labelLine={false}
-                                                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                                label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                                                 outerRadius={80}
                                                 fill="#8884d8"
-                                                dataKey="count"
+                                                dataKey="value"
                                             >
-                                                {data.resourceUsage.resourceUsage.byType.map((entry: any, index: number) => (
+                                                {data.resourceUsage.categoryDistribution.map((entry: any, index: number) => (
                                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                                 ))}
                                             </Pie>
@@ -561,11 +1051,14 @@ const Analytics: React.FC = () => {
                                 </CardContent>
                             </Card>
                         </Grid>
+                    </Grid>
+
+                    <Grid container spacing={3}>
                         <Grid item xs={12} md={6}>
                             <Card>
                                 <CardContent>
                                     <Typography variant="h6" gutterBottom>
-                                        Top Resources
+                                        Top Resources by Usage
                                     </Typography>
                                     <TableContainer>
                                         <Table size="small">
@@ -573,18 +1066,37 @@ const Analytics: React.FC = () => {
                                                 <TableRow>
                                                     <TableCell>Resource</TableCell>
                                                     <TableCell>Usage Count</TableCell>
+                                                    <TableCell>Last Used</TableCell>
                                                 </TableRow>
                                             </TableHead>
                                             <TableBody>
-                                                {data.resourceUsage.resourceUsage.topResources.map((resource: any) => (
+                                                {data.resourceUsage.topResources.map((resource: any) => (
                                                     <TableRow key={resource.name}>
                                                         <TableCell>{resource.name}</TableCell>
                                                         <TableCell>{resource.usageCount}</TableCell>
+                                                        <TableCell>{new Date(resource.lastUsed).toLocaleDateString()}</TableCell>
                                                     </TableRow>
                                                 ))}
                                             </TableBody>
                                         </Table>
                                     </TableContainer>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                            <Card>
+                                <CardContent>
+                                    <Typography variant="h6" gutterBottom>
+                                        Resource Efficiency
+                                    </Typography>
+                                    <ResponsiveContainer width="100%" height={300}>
+                                        <RadarChart data={data.resourceUsage.efficiencyMetrics}>
+                                            <PolarGrid />
+                                            <PolarAngleAxis dataKey="metric" />
+                                            <PolarRadiusAxis />
+                                            <Radar name="Efficiency" dataKey="value" stroke="#8884d8" fill="#8884d8" fillOpacity={0.3} />
+                                        </RadarChart>
+                                    </ResponsiveContainer>
                                 </CardContent>
                             </Card>
                         </Grid>
@@ -597,8 +1109,38 @@ const Analytics: React.FC = () => {
     return (
         <Box sx={{ p: 3 }}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-                <Typography variant="h4">Analytics Dashboard</Typography>
-                <Box display="flex" gap={2}>
+                <Typography variant="h4">Advanced Analytics Dashboard</Typography>
+                <Box display="flex" gap={2} alignItems="center">
+                    {/* Advanced Controls */}
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={comparisonMode}
+                                onChange={(e) => setComparisonMode(e.target.checked)}
+                            />
+                        }
+                        label="Comparison Mode"
+                    />
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={realTimeUpdates}
+                                onChange={(e) => setRealTimeUpdates(e.target.checked)}
+                            />
+                        }
+                        label="Real-time Updates"
+                    />
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={showPredictiveAnalytics}
+                                onChange={(e) => setShowPredictiveAnalytics(e.target.checked)}
+                            />
+                        }
+                        label="Predictive Analytics"
+                    />
+
+                    {/* Date Range Controls */}
                     <FormControl size="small" sx={{ minWidth: 120 }}>
                         <InputLabel>Date Range</InputLabel>
                         <Select
@@ -612,6 +1154,22 @@ const Analytics: React.FC = () => {
                             <MenuItem value="all">All time</MenuItem>
                         </Select>
                     </FormControl>
+
+                    {comparisonMode && (
+                        <FormControl size="small" sx={{ minWidth: 120 }}>
+                            <InputLabel>Compare With</InputLabel>
+                            <Select
+                                value={comparisonDateRange}
+                                label="Compare With"
+                                onChange={(e) => setComparisonDateRange(e.target.value)}
+                            >
+                                <MenuItem value="30">Previous 30 days</MenuItem>
+                                <MenuItem value="90">Previous 90 days</MenuItem>
+                                <MenuItem value="180">Previous 180 days</MenuItem>
+                            </Select>
+                        </FormControl>
+                    )}
+
                     <FormControl size="small" sx={{ minWidth: 200 }}>
                         <InputLabel>Projects</InputLabel>
                         <Select
@@ -627,6 +1185,13 @@ const Analytics: React.FC = () => {
                             ))}
                         </Select>
                     </FormControl>
+
+                    {/* Action Buttons */}
+                    <Tooltip title="Export Data">
+                        <IconButton onClick={() => setExportDialogOpen(true)}>
+                            <Download />
+                        </IconButton>
+                    </Tooltip>
                     <Tooltip title="Refresh Data">
                         <IconButton onClick={fetchDashboardData}>
                             <Refresh />
@@ -634,6 +1199,13 @@ const Analytics: React.FC = () => {
                     </Tooltip>
                 </Box>
             </Box>
+
+            {/* Real-time Status Indicator */}
+            {realTimeUpdates && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                    Real-time updates enabled - Data refreshes every {autoRefreshInterval / 1000} seconds
+                </Alert>
+            )}
 
             <Paper sx={{ mb: 3 }}>
                 <Tabs value={activeTab} onChange={handleTabChange} variant="fullWidth">
@@ -648,6 +1220,57 @@ const Analytics: React.FC = () => {
             {activeTab === 1 && <ExperimentSuccessTab />}
             {activeTab === 2 && <ProductivityTab />}
             {activeTab === 3 && <ResourceUsageTab />}
+
+            {/* Export Dialog */}
+            <Dialog open={exportDialogOpen} onClose={() => setExportDialogOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Export Analytics Data</DialogTitle>
+                <DialogContent>
+                    <Grid container spacing={2} sx={{ mt: 1 }}>
+                        <Grid item xs={12}>
+                            <FormControl fullWidth>
+                                <InputLabel>Export Format</InputLabel>
+                                <Select
+                                    value={exportOptions.format}
+                                    label="Export Format"
+                                    onChange={(e) => setExportOptions(prev => ({ ...prev, format: e.target.value as any }))}
+                                >
+                                    <MenuItem value="csv">CSV</MenuItem>
+                                    <MenuItem value="json">JSON</MenuItem>
+                                    <MenuItem value="xlsx">Excel (XLSX)</MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                        <Grid item xs={12}>
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={exportOptions.includeCharts}
+                                        onChange={(e) => setExportOptions(prev => ({ ...prev, includeCharts: e.target.checked }))}
+                                    />
+                                }
+                                label="Include Chart Data"
+                            />
+                        </Grid>
+                        <Grid item xs={12}>
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={exportOptions.includeRawData}
+                                        onChange={(e) => setExportOptions(prev => ({ ...prev, includeRawData: e.target.checked }))}
+                                    />
+                                }
+                                label="Include Raw Data"
+                            />
+                        </Grid>
+                    </Grid>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setExportDialogOpen(false)}>Cancel</Button>
+                    <Button onClick={handleExport} variant="contained" startIcon={<Download />}>
+                        Export
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 };

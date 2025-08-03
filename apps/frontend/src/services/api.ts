@@ -12,13 +12,13 @@ const api = axios.create({
 api.interceptors.request.use(
     (config) => {
         console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`);
-        
+
         // Add authorization header if token exists
         const token = localStorage.getItem('authToken');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
-        
+
         return config;
     },
     (error) => {
@@ -439,20 +439,20 @@ export const tasksApi = {
     create: (data: any) => api.post('/tasks', data),
     update: (id: string, data: any) => api.put(`/tasks/${id}`, data),
     delete: (id: string) => api.delete(`/tasks/${id}`),
-    bulk: (action: 'update' | 'delete' | 'complete', taskIds: string[], data?: any) => 
+    bulk: (action: 'update' | 'delete' | 'complete', taskIds: string[], data?: any) =>
         api.post('/tasks/bulk', { action, taskIds, data }),
-    
+
     // Time tracking
     createTimeEntry: (taskId: string, data: { startTime: string; endTime?: string; description?: string }) =>
         api.post(`/tasks/${taskId}/time-entries`, data),
     deleteTimeEntry: (timeEntryId: string) => api.delete(`/tasks/time-entries/${timeEntryId}`),
-    
+
     // Comments
     getComments: (taskId: string) => api.get(`/tasks/${taskId}/comments`),
     createComment: (taskId: string, data: { content: string; author: string }) =>
         api.post(`/tasks/${taskId}/comments`, data),
     deleteComment: (commentId: string) => api.delete(`/tasks/comments/${commentId}`),
-    
+
     // Attachments
     getAttachments: (taskId: string) => api.get(`/tasks/${taskId}/attachments`),
     uploadAttachment: (taskId: string, file: File, onProgress?: (progress: number) => void) => {
@@ -470,7 +470,7 @@ export const tasksApi = {
     downloadAttachment: (attachmentId: string) => api.get(`/tasks/attachments/${attachmentId}/download`, {
         responseType: 'blob'
     }),
-    
+
     // Notifications
     createNotification: (taskId: string, data: { type: string; message: string; scheduledFor: string }) =>
         api.post(`/tasks/${taskId}/notifications`, data),
@@ -502,10 +502,18 @@ export const taskDependenciesApi = {
         api.post('/task-dependencies', data),
     delete: (id: string) => api.delete(`/task-dependencies/${id}`),
     getCriticalPath: (taskIds: string[]) => api.get('/task-dependencies/critical-path', { params: { taskIds } }),
-    getWorkflows: () => api.get('/task-dependencies/workflows'),
+    getWorkflows: () => api.get('/task-flow-management/workflows'),
     createWorkflow: (data: { name: string; description?: string; type: 'sequential' | 'parallel' | 'conditional' | 'mixed'; taskIds: string[]; metadata?: string }) =>
-        api.post('/task-dependencies/workflows', data),
-    getWorkflow: (id: string) => api.get(`/task-dependencies/workflows/${id}`),
+        api.post('/task-flow-management/workflows', data),
+    getWorkflow: (id: string) => api.get(`/task-flow-management/workflows/${id}`),
+    updateWorkflow: (id: string, data: any) => api.put(`/task-flow-management/workflows/${id}`, data),
+    deleteWorkflow: (id: string) => api.delete(`/task-flow-management/workflows/${id}`),
+    executeWorkflow: (id: string) => api.post(`/task-flow-management/workflows/${id}/execute`),
+    getExecutionStatus: (executionId: string) => api.get(`/task-flow-management/executions/${executionId}`),
+    getExecutionHistory: (workflowId?: string) => api.get('/task-flow-management/executions', { params: { workflowId } }),
+    pauseExecution: (executionId: string) => api.post(`/task-flow-management/executions/${executionId}/pause`),
+    resumeExecution: (executionId: string) => api.post(`/task-flow-management/executions/${executionId}/resume`),
+    cancelExecution: (executionId: string) => api.post(`/task-flow-management/executions/${executionId}/cancel`),
 };
 
 // Advanced Search API
@@ -541,36 +549,36 @@ export const searchApi = {
 
 export const notificationsApi = {
     getAll: (params?: { page?: number; limit?: number; unreadOnly?: boolean; type?: string }) => {
-      const searchParams = new URLSearchParams();
-      if (params?.page) searchParams.append('page', params.page.toString());
-      if (params?.limit) searchParams.append('limit', params.limit.toString());
-      if (params?.unreadOnly) searchParams.append('unreadOnly', params.unreadOnly.toString());
-      if (params?.type) searchParams.append('type', params.type);
-      return api.get(`/notifications?${searchParams.toString()}`);
+        const searchParams = new URLSearchParams();
+        if (params?.page) searchParams.append('page', params.page.toString());
+        if (params?.limit) searchParams.append('limit', params.limit.toString());
+        if (params?.unreadOnly) searchParams.append('unreadOnly', params.unreadOnly.toString());
+        if (params?.type) searchParams.append('type', params.type);
+        return api.get(`/notifications?${searchParams.toString()}`);
     },
     getByTask: (taskId: string) => api.get(`/notifications/task/${taskId}`),
     create: (data: {
-      taskId: string;
-      type: 'reminder' | 'overdue' | 'due_soon' | 'completed' | 'assigned' | 'commented' | 'time_logged';
-      message: string;
-      scheduledFor: string;
-      deliveryMethod?: 'in_app' | 'email' | 'push' | 'sms';
-      priority?: 'low' | 'normal' | 'high' | 'urgent';
-      metadata?: string;
+        taskId: string;
+        type: 'reminder' | 'overdue' | 'due_soon' | 'completed' | 'assigned' | 'commented' | 'time_logged';
+        message: string;
+        scheduledFor: string;
+        deliveryMethod?: 'in_app' | 'email' | 'push' | 'sms';
+        priority?: 'low' | 'normal' | 'high' | 'urgent';
+        metadata?: string;
     }) => api.post('/notifications', data),
     update: (id: string, data: {
-      isRead?: boolean;
-      sentAt?: string;
-      message?: string;
-      scheduledFor?: string;
+        isRead?: boolean;
+        sentAt?: string;
+        message?: string;
+        scheduledFor?: string;
     }) => api.put(`/notifications/${id}`, data),
     markAsRead: (id: string) => api.put(`/notifications/${id}/read`),
     markAllAsRead: () => api.put('/notifications/read-all'),
     delete: (id: string) => api.delete(`/notifications/${id}`),
     getStats: () => api.get('/notifications/stats'),
-    createReminders: (taskId: string, reminderTimes: string[]) => 
-      api.post('/notifications/create-reminders', { taskId, reminderTimes })
-  }
+    createReminders: (taskId: string, reminderTimes: string[]) =>
+        api.post('/notifications/create-reminders', { taskId, reminderTimes })
+}
 
 export const getNotes = async () => {
     const response = await notesApi.getAll();
@@ -611,6 +619,56 @@ export const appleCalendarApi = {
             responseType: 'blob'
         });
     },
+};
+
+// Experimental Variables API
+export const experimentalVariablesApi = {
+    // Categories
+    getCategories: () => api.get('/experimental-variables/categories'),
+    createCategory: (data: any) => api.post('/experimental-variables/categories', data),
+    updateCategory: (id: string, data: any) => api.put(`/experimental-variables/categories/${id}`, data),
+    deleteCategory: (id: string) => api.delete(`/experimental-variables/categories/${id}`),
+
+    // Experiment Variables
+    getExperimentVariables: (experimentId: string) => api.get(`/experimental-variables/experiments/${experimentId}/variables`),
+    createExperimentVariable: (experimentId: string, data: any) => api.post(`/experimental-variables/experiments/${experimentId}/variables`, data),
+    updateExperimentVariable: (id: string, data: any) => api.put(`/experimental-variables/variables/${id}`, data),
+    deleteExperimentVariable: (id: string) => api.delete(`/experimental-variables/variables/${id}`),
+
+    // Variable Values
+    getVariableValues: (variableId: string, params?: { limit?: number; offset?: number }) =>
+        api.get(`/experimental-variables/variables/${variableId}/values`, { params }),
+    createVariableValue: (variableId: string, data: any) => api.post(`/experimental-variables/variables/${variableId}/values`, data),
+
+    // Analytics
+    getAnalytics: (params?: { experimentId?: string; categoryId?: string; dateRange?: string }) =>
+        api.get('/experimental-variables/analytics', { params }),
+};
+
+// Advanced Reporting API
+export const advancedReportingApi = {
+    // Report Templates
+    getTemplates: () => api.get('/advanced-reporting/templates'),
+    createTemplate: (data: any) => api.post('/advanced-reporting/templates', data),
+    updateTemplate: (id: string, data: any) => api.put(`/advanced-reporting/templates/${id}`, data),
+    deleteTemplate: (id: string) => api.delete(`/advanced-reporting/templates/${id}`),
+
+    // Custom Reports
+    getReports: () => api.get('/advanced-reporting/reports'),
+    createReport: (data: any) => api.post('/advanced-reporting/reports', data),
+    updateReport: (id: string, data: any) => api.put(`/advanced-reporting/reports/${id}`, data),
+    deleteReport: (id: string) => api.delete(`/advanced-reporting/reports/${id}`),
+    generateReport: (id: string, params?: { filters?: any; format?: string }) =>
+        api.post(`/advanced-reporting/reports/${id}/generate`, params),
+
+    // Scheduled Reports
+    getScheduledReports: () => api.get('/advanced-reporting/scheduled'),
+    createScheduledReport: (data: any) => api.post('/advanced-reporting/scheduled', data),
+    updateScheduledReport: (id: string, data: any) => api.put(`/advanced-reporting/scheduled/${id}`, data),
+    deleteScheduledReport: (id: string) => api.delete(`/advanced-reporting/scheduled/${id}`),
+
+    // Report Analytics
+    getAnalytics: (params?: { dateRange?: string }) => api.get('/advanced-reporting/analytics', { params }),
 };
 
 export default api; 
