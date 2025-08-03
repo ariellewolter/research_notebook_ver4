@@ -203,30 +203,52 @@ const LiteratureNotes: React.FC = () => {
 
     const handleOpenEntity = (entry: any) => {
         console.log('Opening entity:', entry);
-        // Navigate to entity details based on type
-        if (entry.type === 'note') {
-            navigate(`/notes/${entry.id}`);
-        } else if (entry.type === 'project') {
-            navigate(`/projects/${entry.id}`);
-        } else if (entry.type === 'protocol') {
-            navigate(`/protocols/${entry.id}`);
-        } else if (entry.type === 'recipe') {
-            navigate(`/recipes/${entry.id}`);
-        } else if (entry.type === 'experiment') {
-            navigate(`/experiments/${entry.id}`);
-        } else if (entry.type === 'task') {
-            navigate(`/tasks/${entry.id}`);
-        } else if (entry.type === 'databaseEntry') {
-            navigate(`/database/${entry.id}`);
-        } else if (entry.type === 'table') {
-            navigate(`/tables/${entry.id}`);
-        } else if (entry.type === 'pdf') {
-            navigate(`/pdfs/${entry.id}`);
-        } else if (entry.type === 'literatureNote') {
-            navigate(`/literature/${entry.id}`);
+
+        // Validate entry has required properties
+        if (!entry || !entry.type || !entry.id) {
+            console.error('Invalid entity entry:', entry);
+            setSnackbar({
+                open: true,
+                message: 'Invalid entity data. Cannot navigate to this item.',
+                severity: 'error'
+            });
+            return;
+        }
+
+        // Define navigation routes for each entity type
+        const navigationRoutes: Record<string, string> = {
+            'note': `/notes/${entry.id}`,
+            'project': `/projects/${entry.id}`,
+            'protocol': `/protocols/${entry.id}`,
+            'recipe': `/recipes/${entry.id}`,
+            'experiment': `/experiments/${entry.id}`,
+            'task': `/tasks/${entry.id}`,
+            'databaseEntry': `/database/${entry.id}`,
+            'table': `/tables/${entry.id}`,
+            'pdf': `/pdfs/${entry.id}`,
+            'literatureNote': `/literature/${entry.id}`,
+        };
+
+        const route = navigationRoutes[entry.type];
+
+        if (route) {
+            try {
+                navigate(route);
+            } catch (error) {
+                console.error('Navigation error:', error);
+                setSnackbar({
+                    open: true,
+                    message: `Failed to navigate to ${entry.type}. Please try again.`,
+                    severity: 'error'
+                });
+            }
         } else {
-            // Default fallback - could be expanded for other entity types
             console.warn('Unknown entity type for navigation:', entry.type);
+            setSnackbar({
+                open: true,
+                message: `Navigation not supported for entity type: ${entry.type}`,
+                severity: 'warning'
+            });
         }
     };
 

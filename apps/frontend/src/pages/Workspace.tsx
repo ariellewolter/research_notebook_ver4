@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
-import { 
-    Box, 
-    Tabs, 
-    Tab, 
-    Typography, 
-    IconButton, 
-    Toolbar, 
-    Button, 
+import {
+    Box,
+    Tabs,
+    Tab,
+    Typography,
+    IconButton,
+    Toolbar,
+    Button,
     TextField,
     Divider,
-    Paper
+    Paper,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -19,6 +23,7 @@ import {
     MoreVert as MoreIcon
 } from '@mui/icons-material';
 import { useWorkspaceTabs, TabData } from './WorkspaceTabsContext';
+import { notesApi } from '../services/api';
 
 // Single tab group component
 const TabGroup: React.FC<{
@@ -37,18 +42,18 @@ const TabGroup: React.FC<{
     };
 
     return (
-        <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
+        <Box sx={{
+            display: 'flex',
+            flexDirection: 'column',
             height: '100%',
             border: '1px solid #ddd',
             borderRadius: 1
         }}>
             {/* Tab bar */}
-            <Box sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                borderBottom: 1, 
+            <Box sx={{
+                display: 'flex',
+                alignItems: 'center',
+                borderBottom: 1,
                 borderColor: 'divider',
                 bgcolor: 'background.paper'
             }}>
@@ -68,9 +73,9 @@ const TabGroup: React.FC<{
                                     {tab.label}
                                     <IconButton
                                         size="small"
-                                        onClick={(e) => { 
-                                            e.stopPropagation(); 
-                                            onTabClose(tab.key); 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onTabClose(tab.key);
                                         }}
                                         sx={{ ml: 1, p: 0.5 }}
                                     >
@@ -88,7 +93,7 @@ const TabGroup: React.FC<{
                     </IconButton>
                 )}
             </Box>
-            
+
             {/* Tab content */}
             <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>
                 {renderTabContent(activeTab)}
@@ -100,6 +105,10 @@ const TabGroup: React.FC<{
 const Workspace: React.FC = () => {
     const { tabGroups, setTabGroups, closeTab, addTabGroup, removeTabGroup } = useWorkspaceTabs();
     const [searchTerm, setSearchTerm] = useState('');
+    const [newNoteDialogOpen, setNewNoteDialogOpen] = useState(false);
+    const [newNoteTitle, setNewNoteTitle] = useState('');
+    const [newNoteContent, setNewNoteContent] = useState('');
+    const [isCreatingNote, setIsCreatingNote] = useState(false);
 
     const handleTabChange = (groupIdx: number, tabKey: string) => {
         setTabGroups(prev => {
@@ -122,21 +131,61 @@ const Workspace: React.FC = () => {
     };
 
     const handleNewNote = () => {
-        // TODO: Implement new note creation
-        console.log('New note clicked');
+        setNewNoteDialogOpen(true);
+    };
+
+    const handleCreateNote = async () => {
+        if (!newNoteTitle.trim()) return;
+
+        try {
+            setIsCreatingNote(true);
+            const response = await notesApi.create({
+                title: newNoteTitle,
+                content: newNoteContent,
+                type: 'general'
+            });
+
+            // Reset form
+            setNewNoteTitle('');
+            setNewNoteContent('');
+            setNewNoteDialogOpen(false);
+
+            // Open the new note in a tab
+            const newTabKey = `note-${response.data.id}`;
+            if (tabGroups.length === 0) {
+                addTabGroup();
+            }
+
+            setTabGroups(prev => {
+                const groups = [...prev];
+                const lastGroup = groups[groups.length - 1];
+                const newTab = {
+                    key: newTabKey,
+                    label: newNoteTitle,
+                    component: () => <div>Note: {newNoteTitle}</div> // This would be replaced with actual note component
+                };
+                lastGroup.openTabs.push(newTab);
+                lastGroup.activeTab = newTabKey;
+                return groups;
+            });
+        } catch (error) {
+            console.error('Error creating note:', error);
+        } finally {
+            setIsCreatingNote(false);
+        }
     };
 
     return (
-        <Box sx={{ 
-            flexGrow: 1, 
-            width: '100%', 
-            display: 'flex', 
-            flexDirection: 'column', 
-            height: '100vh' 
+        <Box sx={{
+            flexGrow: 1,
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100vh'
         }}>
             {/* Toolbar */}
-            <Toolbar sx={{ 
-                borderBottom: 1, 
+            <Toolbar sx={{
+                borderBottom: 1,
                 borderColor: 'divider',
                 bgcolor: 'background.paper',
                 gap: 1
@@ -149,9 +198,9 @@ const Workspace: React.FC = () => {
                 >
                     New Note
                 </Button>
-                
+
                 <Divider orientation="vertical" flexItem />
-                
+
                 <TextField
                     size="small"
                     placeholder="Search..."
@@ -162,9 +211,9 @@ const Workspace: React.FC = () => {
                     }}
                     sx={{ minWidth: 200 }}
                 />
-                
+
                 <Divider orientation="vertical" flexItem />
-                
+
                 <Button
                     variant="outlined"
                     startIcon={<SplitViewIcon />}
@@ -173,29 +222,29 @@ const Workspace: React.FC = () => {
                 >
                     Split View
                 </Button>
-                
+
                 <Box sx={{ flexGrow: 1 }} />
-                
+
                 <IconButton size="small">
                     <MoreIcon />
                 </IconButton>
             </Toolbar>
 
             {/* Split view content */}
-            <Box sx={{ 
-                flexGrow: 1, 
-                display: 'flex', 
-                gap: 1, 
+            <Box sx={{
+                flexGrow: 1,
+                display: 'flex',
+                gap: 1,
                 p: 1,
                 overflow: 'hidden'
             }}>
                 {tabGroups.length === 0 ? (
-                    <Box sx={{ 
-                        flexGrow: 1, 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        height: '100%' 
+                    <Box sx={{
+                        flexGrow: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        height: '100%'
                     }}>
                         <Typography variant="h5" color="text.secondary">
                             Welcome! Select a section from the sidebar to get started.
@@ -203,9 +252,9 @@ const Workspace: React.FC = () => {
                     </Box>
                 ) : (
                     tabGroups.map((group, groupIdx) => (
-                        <Box 
-                            key={groupIdx} 
-                            sx={{ 
+                        <Box
+                            key={groupIdx}
+                            sx={{
                                 flexGrow: 1,
                                 display: 'flex',
                                 flexDirection: 'column'
@@ -224,6 +273,43 @@ const Workspace: React.FC = () => {
                 )}
             </Box>
         </Box>
+
+        {/* New Note Dialog */ }
+    <Dialog open={newNoteDialogOpen} onClose={() => setNewNoteDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Create New Note</DialogTitle>
+        <DialogContent>
+            <TextField
+                autoFocus
+                margin="dense"
+                label="Title"
+                fullWidth
+                variant="outlined"
+                value={newNoteTitle}
+                onChange={(e) => setNewNoteTitle(e.target.value)}
+                sx={{ mb: 2 }}
+            />
+            <TextField
+                margin="dense"
+                label="Content"
+                fullWidth
+                multiline
+                rows={4}
+                variant="outlined"
+                value={newNoteContent}
+                onChange={(e) => setNewNoteContent(e.target.value)}
+            />
+        </DialogContent>
+        <DialogActions>
+            <Button onClick={() => setNewNoteDialogOpen(false)}>Cancel</Button>
+            <Button
+                onClick={handleCreateNote}
+                variant="contained"
+                disabled={!newNoteTitle.trim() || isCreatingNote}
+            >
+                {isCreatingNote ? 'Creating...' : 'Create Note'}
+            </Button>
+        </DialogActions>
+    </Dialog>
     );
 };
 
