@@ -4,6 +4,7 @@
     "private": true,
     "scripts": {
         "dev": "ts-node-dev src/app.ts",
+        "simple-dev": "ts-node-dev src/simple-app.ts",
         "build": "tsc",
         "lint": "eslint src --ext .ts",
         "format": "prettier --write src"
