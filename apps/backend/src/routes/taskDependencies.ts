@@ -5,6 +5,24 @@ import { z } from 'zod';
 const router = Router();
 const prisma = new PrismaClient();
 
+// Root task-dependencies endpoint
+router.get('/', async (req, res) => {
+  try {
+    res.json({
+      message: 'Task Dependencies API',
+      endpoints: {
+        taskDependencies: 'GET /task/:taskId',
+        createDependency: 'POST /',
+        deleteDependency: 'DELETE /:id',
+        workflows: 'GET /workflows',
+        createWorkflow: 'POST /workflows'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Task Dependencies service error' });
+  }
+});
+
 // Schema validation
 const createDependencySchema = z.object({
   fromTaskId: z.string(),
@@ -24,7 +42,7 @@ const createWorkflowSchema = z.object({
 router.get('/task/:taskId', async (req, res) => {
   try {
     const { taskId } = req.params;
-    
+
     const dependencies = await prisma.taskDependency.findMany({
       where: {
         OR: [
@@ -69,13 +87,13 @@ router.get('/task/:taskId', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const validatedData = createDependencySchema.parse(req.body);
-    
+
     // Check for circular dependencies
     const wouldCreateCycle = await checkForCircularDependency(
       validatedData.fromTaskId,
       validatedData.toTaskId
     );
-    
+
     if (wouldCreateCycle) {
       return res.status(400).json({
         success: false,
@@ -120,7 +138,7 @@ router.post('/', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     await prisma.taskDependency.delete({
       where: { id }
     });
@@ -142,7 +160,7 @@ router.delete('/:id', async (req, res) => {
 router.get('/critical-path', async (req, res) => {
   try {
     const { taskIds } = req.query;
-    
+
     if (!taskIds || !Array.isArray(taskIds)) {
       return res.status(400).json({
         success: false,
@@ -151,7 +169,7 @@ router.get('/critical-path', async (req, res) => {
     }
 
     const criticalPath = await calculateCriticalPath(taskIds as string[]);
-    
+
     res.json({
       success: true,
       data: criticalPath
@@ -202,7 +220,7 @@ router.get('/workflows', async (req, res) => {
 router.post('/workflows', async (req, res) => {
   try {
     const validatedData = createWorkflowSchema.parse(req.body);
-    
+
     const workflow = await prisma.taskWorkflow.create({
       data: {
         name: validatedData.name,
@@ -248,7 +266,7 @@ router.post('/workflows', async (req, res) => {
 router.get('/workflows/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const workflow = await prisma.taskWorkflow.findUnique({
       where: { id },
       include: {
@@ -308,7 +326,7 @@ async function checkForCircularDependency(fromTaskId: string, toTaskId: string):
     if (recursionStack.has(taskId)) {
       return true; // Circular dependency found
     }
-    
+
     if (visited.has(taskId)) {
       return false;
     }

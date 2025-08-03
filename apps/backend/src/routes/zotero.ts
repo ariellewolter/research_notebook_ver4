@@ -9,6 +9,24 @@ import fs from 'fs';
 const router = Router();
 const prisma = new PrismaClient();
 
+// Root zotero endpoint
+router.get('/', async (req, res) => {
+    try {
+        res.json({
+            message: 'Zotero API',
+            endpoints: {
+                config: 'POST /config',
+                items: 'GET /items',
+                collections: 'GET /collections',
+                import: 'POST /import',
+                search: 'GET /search'
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Zotero service error' });
+    }
+});
+
 // Configure multer for PDF uploads from Zotero
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {

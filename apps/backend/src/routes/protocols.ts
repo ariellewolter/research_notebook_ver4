@@ -118,32 +118,61 @@ const updateExecutionSchema = z.object({
     completedSteps: z.array(z.string()).optional(),
 });
 
-// Get all protocols
+// Get all protocols with optimized queries
 router.get('/', async (req, res) => {
     try {
-        const { category, page = '1', limit = '20' } = req.query;
+        const { page = '1', limit = '20', category } = req.query;
         const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
 
         const where: any = {};
         if (category) where.category = category;
 
+        // Optimized query with reduced includes and selective fields
         const protocols = await prisma.protocol.findMany({
             where,
-            include: {
+            select: {
+                id: true,
+                name: true,
+                description: true,
+                category: true,
+                version: true,
+                steps: true,
+                equipment: true,
+                reagents: true,
+                safetyNotes: true,
+                expectedDuration: true,
+                difficulty: true,
+                successRate: true,
+                createdAt: true,
+                updatedAt: true,
+                // Only get count of executions instead of full data
+                _count: {
+                    select: {
+                        executions: true
+                    }
+                },
+                // Get only recent executions with minimal data
                 executions: {
-                    include: {
-                        experiment: { select: { id: true, name: true, project: { select: { id: true, name: true } } } }
+                    select: {
+                        id: true,
+                        status: true,
+                        startDate: true,
+                        endDate: true,
+                        experiment: {
+                            select: {
+                                id: true,
+                                name: true,
+                                project: {
+                                    select: {
+                                        id: true,
+                                        name: true
+                                    }
+                                }
+                            }
+                        }
                     },
                     orderBy: { createdAt: 'desc' },
-                    take: 5, // Get recent executions
-                },
-                links: {
-                    include: {
-                        note: { select: { id: true, title: true } },
-                        highlight: { select: { id: true, text: true, pdf: { select: { title: true } } } },
-                        databaseEntry: { select: { id: true, name: true, type: true } },
-                        table: { select: { id: true, name: true } },
-                    }
+                    take: 3, // Reduced from 5 to 3 for better performance
                 }
             },
             orderBy: { updatedAt: 'desc' },
@@ -153,19 +182,30 @@ router.get('/', async (req, res) => {
 
         const total = await prisma.protocol.count({ where });
 
-        // Transform protocols to include parsed JSON data
-        const transformedProtocols = protocols.map(protocol => ({
-            ...protocol,
-            steps: JSON.parse(protocol.steps),
-            equipment: protocol.equipment ? JSON.parse(protocol.equipment) : [],
-            reagents: protocol.reagents ? JSON.parse(protocol.reagents) : [],
-            executions: protocol.executions.map(execution => ({
-                ...execution,
-                modifications: execution.modifications ? JSON.parse(execution.modifications) : [],
-                results: execution.results ? JSON.parse(execution.results) : [],
-                issues: execution.issues ? JSON.parse(execution.issues) : [],
-            })),
-        }));
+        // Transform protocols with optimized JSON parsing
+        const transformedProtocols = protocols.map(protocol => {
+            try {
+                return {
+                    ...protocol,
+                    steps: JSON.parse(protocol.steps),
+                    equipment: protocol.equipment ? JSON.parse(protocol.equipment) : [],
+                    reagents: protocol.reagents ? JSON.parse(protocol.reagents) : [],
+                    executionCount: protocol._count.executions,
+                    // Remove _count from response
+                    _count: undefined
+                };
+            } catch (error) {
+                console.error('Error parsing protocol JSON:', error);
+                return {
+                    ...protocol,
+                    steps: [],
+                    equipment: [],
+                    reagents: [],
+                    executionCount: protocol._count.executions,
+                    _count: undefined
+                };
+            }
+        });
 
         res.json({
             protocols: transformedProtocols,

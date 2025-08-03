@@ -4,6 +4,23 @@ import { PrismaClient } from '@prisma/client';
 const router = Router();
 const prisma = new PrismaClient();
 
+// Root analytics endpoint
+router.get('/', async (req: any, res) => {
+    try {
+        res.json({
+            message: 'Analytics API',
+            endpoints: {
+                dashboard: 'GET /dashboard',
+                experimentSuccess: 'GET /experiment-success',
+                productivity: 'GET /productivity',
+                resourceUsage: 'GET /resource-usage'
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Analytics service error' });
+    }
+});
+
 // Get basic dashboard analytics
 router.get('/dashboard', async (req: any, res) => {
     try {

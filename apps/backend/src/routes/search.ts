@@ -6,6 +6,23 @@ import { z } from 'zod';
 const router = express.Router();
 const prisma = new PrismaClient();
 
+// Root search endpoint
+router.get('/', authenticateToken, async (req: any, res) => {
+    try {
+        res.json({
+            message: 'Search API',
+            endpoints: {
+                advanced: 'POST /advanced',
+                suggestions: 'GET /suggestions',
+                history: 'GET /history',
+                saved: 'GET /saved'
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Search service error' });
+    }
+});
+
 // Search validation schemas
 const searchQuerySchema = z.object({
     query: z.string().optional(),

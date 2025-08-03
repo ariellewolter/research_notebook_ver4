@@ -54,6 +54,8 @@ import { saveAs } from 'file-saver';
 import { databaseApi } from '../services/api';
 import { linksApi, notesApi, protocolsApi, recipesApi, pdfsApi } from '../services/api';
 import Autocomplete from '@mui/material/Autocomplete';
+import UniversalLinking from '../components/UniversalLinking/UniversalLinking';
+import LinkRenderer from '../components/UniversalLinking/LinkRenderer';
 
 // Update Project interface
 type ProjectStatus = 'active' | 'archived' | 'future';
@@ -796,7 +798,9 @@ const Projects: React.FC = () => {
                                 setEditData({ ...project });
                             }}>Edit</Button>
                         </Box>
-                        <Typography variant="body2" color="text.secondary" mb={2}>{project.description}</Typography>
+                        <Typography variant="body2" color="text.secondary" mb={2}>
+                            <LinkRenderer content={project.description || ''} />
+                        </Typography>
                         <Typography variant="body2" color="text.secondary" mb={2}>Status: {project.status}</Typography>
                         <Typography variant="body2" color="text.secondary" mb={2}>Start Date: {project.startDate}</Typography>
                         {/* Add more fields as needed for display */}
@@ -909,7 +913,7 @@ const Projects: React.FC = () => {
                                                 {project.name}
                                             </Typography>
                                             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                                                {project.description || 'No description'}
+                                                <LinkRenderer content={project.description || 'No description'} />
                                             </Typography>
                                             <Typography variant="body2" color="text.secondary">
                                                 Start: {project.startDate ? new Date(project.startDate).toLocaleDateString() : 'N/A'}<br />
@@ -1012,15 +1016,18 @@ const Projects: React.FC = () => {
                                 sx={{ mb: 2 }}
                                 disabled={saving}
                             />
-                            <TextField
-                                fullWidth
-                                label="Description"
-                                multiline
-                                rows={3}
-                                value={projectForm.description}
-                                onChange={e => setProjectForm({ ...projectForm, description: e.target.value })}
-                                disabled={saving}
-                            />
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Description
+                                </label>
+                                <UniversalLinking
+                                    value={projectForm.description || ''}
+                                    onChange={(value) => setProjectForm({ ...projectForm, description: value })}
+                                    multiline={true}
+                                    rows={3}
+                                    placeholder="Type your project description here. Use [[ to link to other items or / for commands..."
+                                />
+                            </div>
                             <FormControl fullWidth sx={{ mb: 2 }}>
                                 <InputLabel>Status</InputLabel>
                                 <Select

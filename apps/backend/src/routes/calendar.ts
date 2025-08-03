@@ -6,6 +6,36 @@ import { google } from 'googleapis';
 const router = express.Router();
 const prisma = new PrismaClient();
 
+// Root calendar endpoint
+router.get('/', authenticateToken, async (req: any, res) => {
+    try {
+        res.json({
+            message: 'Calendar API',
+            endpoints: {
+                google: {
+                    auth: 'GET /google/auth',
+                    callback: 'GET /google/callback',
+                    calendars: 'GET /google/calendars',
+                    sync: 'POST /google/sync',
+                    events: 'POST /google/events'
+                },
+                outlook: {
+                    auth: 'GET /outlook/auth',
+                    callback: 'GET /outlook/callback',
+                    calendars: 'GET /outlook/calendars',
+                    sync: 'POST /outlook/sync',
+                    events: 'POST /outlook/events'
+                },
+                apple: {
+                    ics: 'GET /apple/ics'
+                }
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Calendar service error' });
+    }
+});
+
 // Google Calendar OAuth2 endpoints
 router.get('/google/auth', authenticateToken, async (req: any, res) => {
     try {

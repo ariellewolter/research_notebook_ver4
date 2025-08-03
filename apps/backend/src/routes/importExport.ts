@@ -7,6 +7,22 @@ import { z } from 'zod';
 const router = express.Router();
 const prisma = new PrismaClient();
 
+// Root import-export endpoint
+router.get('/', authenticateToken, async (req: any, res) => {
+    try {
+        res.json({
+            message: 'Import/Export API',
+            endpoints: {
+                export: 'GET /export',
+                exportExcel: 'GET /export/excel',
+                import: 'POST /import'
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Import/Export service error' });
+    }
+});
+
 // Export all user data
 router.get('/export', authenticateToken, async (req: any, res) => {
     try {

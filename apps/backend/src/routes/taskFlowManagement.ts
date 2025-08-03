@@ -5,6 +5,25 @@ import { z } from 'zod';
 const router = Router();
 const prisma = new PrismaClient();
 
+// Root task-flow-management endpoint
+router.get('/', async (req, res) => {
+    try {
+        res.json({
+            message: 'Task Flow Management API',
+            endpoints: {
+                workflows: 'GET /workflows',
+                workflowById: 'GET /workflows/:id',
+                createWorkflow: 'POST /workflows',
+                updateWorkflow: 'PUT /workflows/:id',
+                deleteWorkflow: 'DELETE /workflows/:id',
+                executeWorkflow: 'POST /workflows/:id/execute'
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Task Flow Management service error' });
+    }
+});
+
 // Schema validation
 const createWorkflowSchema = z.object({
     name: z.string(),

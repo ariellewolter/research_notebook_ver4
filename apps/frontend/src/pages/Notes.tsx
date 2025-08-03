@@ -13,6 +13,8 @@ import {
 
 // Import our new UI components
 import { Button, Card, Input, PanelLayout, SidebarNav } from '../components/UI/index.js';
+import UniversalLinking from '../components/UniversalLinking/UniversalLinking';
+import LinkRenderer from '../components/UniversalLinking/LinkRenderer';
 
 // Import existing services and utilities
 import { notesApi, linksApi, databaseApi, projectsApi } from '../services/api';
@@ -412,13 +414,18 @@ const NoteEditor = ({ note, onSave, onCancel }) => {
                         />
                     </div>
 
-                    <Input.Textarea
-                        label="Content"
-                        value={formData.content}
-                        onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                        rows={15}
-                        className="resize-none"
-                    />
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Content
+                        </label>
+                        <UniversalLinking
+                            value={formData.content}
+                            onChange={(value) => setFormData({ ...formData, content: value })}
+                            multiline={true}
+                            rows={15}
+                            placeholder="Type your note content here. Use [[ to link to other items or / for commands..."
+                        />
+                    </div>
                 </form>
             </PanelLayout.Content>
         </div>
@@ -470,11 +477,9 @@ const NoteViewer = ({ note, onEdit }) => {
                 <Card className="h-full">
                     <Card.Content className="h-full">
                         <div className="prose max-w-none">
-                            {note.content.split('\n').map((paragraph, index) => (
-                                <p key={index} className="mb-4 text-gray-700 leading-relaxed">
-                                    {paragraph}
-                                </p>
-                            ))}
+                            <div className="text-gray-700 leading-relaxed">
+                                <LinkRenderer content={note.content} />
+                            </div>
                         </div>
                     </Card.Content>
                 </Card>

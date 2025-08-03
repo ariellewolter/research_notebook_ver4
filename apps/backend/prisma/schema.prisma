@@ -8,77 +8,76 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  username  String   @unique
-  email     String   @unique
-  password  String
-  createdAt DateTime @default(now())
-  projects  Project[]
-  savedSearches SavedSearch[]
-  searchHistory SearchHistory[]
-  googleClientId String?
-  googleClientSecret String?
-  googleTokens String? // Encrypted JSON of tokens
-  outlookClientId String?
+  id                  String             @id @default(uuid())
+  username            String             @unique
+  email               String             @unique
+  password            String
+  createdAt           DateTime           @default(now())
+  googleClientId      String?
+  googleClientSecret  String?
+  googleTokens        String?
+  outlookClientId     String?
   outlookClientSecret String?
-  outlookTokens String? // Encrypted JSON of tokens
-  variableCategories VariableCategory[]
-  reportTemplates ReportTemplate[]
-  customReports CustomReport[]
-  reportExecutions ReportExecution[]
-  scheduledReports ScheduledReport[]
+  outlookTokens       String?
+  customReports       CustomReport[]
+  projects            Project[]
+  reportExecutions    ReportExecution[]
+  reportTemplates     ReportTemplate[]
+  savedSearches       SavedSearch[]
+  scheduledReports    ScheduledReport[]
+  searchHistory       SearchHistory[]
+  variableCategories  VariableCategory[]
 }
 
 model SavedSearch {
   id          String   @id @default(uuid())
   name        String
   description String?
-  searchQuery String   // JSON string of search parameters
+  searchQuery String
   userId      String
-  user        User     @relation(fields: [userId], references: [id])
   createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
 }
 
 model SearchHistory {
   id        String   @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  query     String   // JSON string of search parameters
+  query     String
   timestamp DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 model Project {
-  id          String      @id @default(uuid())
-  name        String
-  description String?
-  status      String      @default("active") // "active", "archived", "future"
-  startDate   DateTime?
+  id           String       @id @default(uuid())
+  name         String
+  description  String?
+  status       String       @default("active")
+  startDate    DateTime?
   lastActivity DateTime?
-  createdAt   DateTime    @default(now())
-  user        User        @relation(fields: [userId], references: [id])
-  userId      String
-  experiments Experiment[]
-  tasks       Task[]
+  createdAt    DateTime     @default(now())
+  userId       String
+  experiments  Experiment[]
+  user         User         @relation(fields: [userId], references: [id])
+  tasks        Task[]
 }
 
 model Experiment {
-  id          String   @id @default(uuid())
-  project     Project  @relation(fields: [projectId], references: [id])
-  projectId   String
-  name        String
-  description String?
-  createdAt   DateTime @default(now())
-  notes       Note[]
-  tables      Table[]
+  id                 String               @id @default(uuid())
+  projectId          String
+  name               String
+  description        String?
+  createdAt          DateTime             @default(now())
+  project            Project              @relation(fields: [projectId], references: [id])
+  variables          ExperimentVariable[]
+  notes              Note[]
   protocolExecutions ProtocolExecution[]
-  tasks       Task[]
-  recipeExecutions RecipeExecution[]
-  variables   ExperimentVariable[]
+  recipeExecutions   RecipeExecution[]
+  tables             Table[]
+  tasks              Task[]
 }
 
 model Note {
   id           String      @id @default(uuid())
-  experiment   Experiment? @relation(fields: [experimentId], references: [id])
   experimentId String?
   title        String
   content      String
@@ -86,7 +85,13 @@ model Note {
   type         String
   createdAt    DateTime    @default(now())
   links        Link[]      @relation("NoteLinks")
+  experiment   Experiment? @relation(fields: [experimentId], references: [id])
   tasks        Task[]
+
+  @@index([type])
+  @@index([date])
+  @@index([createdAt])
+  @@index([experimentId])
 }
 
 model DailyNote {
@@ -97,512 +102,492 @@ model DailyNote {
 }
 
 model PDF {
-  id        String      @id @default(uuid())
-  filePath  String
-  title     String
-  uploadedAt DateTime   @default(now())
+  id         String      @id @default(uuid())
+  filePath   String
+  title      String
+  uploadedAt DateTime    @default(now())
   highlights Highlight[]
 }
 
 model Highlight {
   id        String   @id @default(uuid())
-  pdf       PDF      @relation(fields: [pdfId], references: [id])
   pdfId     String
   page      Int
   text      String
   coords    String?
   createdAt DateTime @default(now())
-  links     Link[]   @relation("HighlightLinks")
+  pdf       PDF      @relation(fields: [pdfId], references: [id])
+  links     Link[]   @relation("NoteLinks")
 }
 
 model LiteratureNote {
-  id          String   @id @default(uuid())
-  title       String
-  authors     String?
-  year        String?
-  journal     String?
-  doi         String?
-  abstract    String?
-  tags        String?
-  citation    String?
-  synonyms    String? // comma-separated
-  userNote    String? // markdown or rich text
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String          @id @default(uuid())
+  title          String
+  authors        String?
+  year           String?
+  journal        String?
+  doi            String?
+  abstract       String?
+  tags           String?
+  citation       String?
+  synonyms       String?
+  userNote       String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   relatedEntries DatabaseEntry[] @relation("EntryLitNotes")
 }
 
 model DatabaseEntry {
-  id          String       @id @default(uuid())
-  type        String       // Changed from enum to String
-  name        String
-  description String?
-  properties  String?      // Changed from Json to String (we'll store JSON as text)
-  // Scientific metadata fields
-  molecularWeight Float?
-  concentration   String?
-  storage         String?
-  supplier        String?
+  id              String           @id @default(uuid())
+  type            String
+  name            String
+  description     String?
+  properties      String?
+  createdAt       DateTime         @default(now())
   catalogNumber   String?
+  concentration   String?
+  duration        String?
+  equipment       String?
+  function        String?
+  molecularWeight Float?
+  organism        String?
+  pH              String?
+  protocol        String?
   purity          String?
   sequence        String?
-  organism        String?
-  function        String?
-  protocol        String?
-  equipment       String?  // Store as comma-separated string
-  duration        String?
+  storage         String?
+  supplier        String?
   temperature     String?
-  pH              String?
-  createdAt       DateTime @default(now())
   metadata        String?
   relatedResearch String?
+  links           Link[]           @relation("NoteLinks")
   relatedLitNotes LiteratureNote[] @relation("EntryLitNotes")
-  links           Link[]   @relation("DatabaseEntryLinks")
 }
 
 model Table {
-  id          String     @id @default(uuid())
-  name        String
-  description String?
-  experiment  Experiment? @relation(fields: [experimentId], references: [id])
+  id           String      @id @default(uuid())
+  name         String
+  description  String?
   experimentId String?
-  columns     String     // JSON string of column definitions
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  rows        TableRow[]
-  links       Link[]     @relation("TableLinks")
+  columns      String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  links        Link[]      @relation("NoteLinks")
+  experiment   Experiment? @relation(fields: [experimentId], references: [id])
+  rows         TableRow[]
 }
 
 model TableRow {
   id        String   @id @default(uuid())
-  table     Table    @relation(fields: [tableId], references: [id])
   tableId   String
-  data      String   // JSON string of row data
+  data      String
   rowNumber Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  table     Table    @relation(fields: [tableId], references: [id])
 }
 
 model Protocol {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  category    String   // e.g., "Cell Culture", "PCR", "Western Blot", "Microscopy"
-  version     String   @default("1.0")
-  steps       String   // JSON string of protocol steps
-  equipment   String?  // JSON string of required equipment
-  reagents    String?  // JSON string of required reagents
-  safetyNotes String?  // Safety considerations
-  expectedDuration String? // e.g., "2 hours", "overnight"
-  difficulty  String?  // "Easy", "Medium", "Hard"
-  successRate Float?   // Percentage of successful executions
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  executions  ProtocolExecution[]
-  links       Link[]   @relation("ProtocolLinks")
-  tasks       Task[]
+  id               String              @id @default(uuid())
+  name             String
+  description      String?
+  category         String
+  version          String              @default("1.0")
+  steps            String
+  equipment        String?
+  reagents         String?
+  safetyNotes      String?
+  expectedDuration String?
+  difficulty       String?
+  successRate      Float?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  links            Link[]              @relation("NoteLinks")
+  executions       ProtocolExecution[]
+  tasks            Task[]
+
+  @@index([category])
+  @@index([updatedAt])
+  @@index([createdAt])
 }
 
 model ProtocolExecution {
-  id          String   @id @default(uuid())
-  protocol    Protocol @relation(fields: [protocolId], references: [id])
-  protocolId  String
-  experiment  Experiment? @relation(fields: [experimentId], references: [id])
-  experimentId String?
-  status      String   // "planned", "in_progress", "completed", "failed", "abandoned"
-  startDate   DateTime?
-  endDate     DateTime?
-  notes       String?  // Execution-specific notes
-  modifications String? // JSON string of modifications made to the protocol
-  results     String?  // JSON string of results/observations
-  issues      String?  // JSON string of issues encountered
-  nextSteps   String?  // What to do next
-  executedBy  String?  // Who executed the protocol
-  completedSteps String? // JSON array of completed step IDs or numbers
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  links       Link[]   @relation("ProtocolExecutionLinks")
+  id             String      @id @default(uuid())
+  protocolId     String
+  experimentId   String?
+  status         String
+  startDate      DateTime?
+  endDate        DateTime?
+  notes          String?
+  modifications  String?
+  results        String?
+  issues         String?
+  nextSteps      String?
+  executedBy     String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  completedSteps String?
+  links          Link[]      @relation("NoteLinks")
+  experiment     Experiment? @relation(fields: [experimentId], references: [id])
+  protocol       Protocol    @relation(fields: [protocolId], references: [id])
 }
 
 model Link {
-  id         String   @id @default(uuid())
+  id         String            @id @default(uuid())
   sourceType String
   sourceId   String
   targetType String
   targetId   String
-  createdAt  DateTime @default(now())
-  // Relations for backlinks
-  note           Note?           @relation("NoteLinks", fields: [sourceId], references: [id])
-  highlight      Highlight?      @relation("HighlightLinks", fields: [sourceId], references: [id])
-  databaseEntry  DatabaseEntry?  @relation("DatabaseEntryLinks", fields: [sourceId], references: [id])
-  table          Table?          @relation("TableLinks", fields: [sourceId], references: [id])
-  protocol       Protocol?       @relation("ProtocolLinks", fields: [sourceId], references: [id])
-  protocolExecution ProtocolExecution? @relation("ProtocolExecutionLinks", fields: [sourceId], references: [id])
-  recipeExecution RecipeExecution? @relation("RecipeExecutionLinks", fields: [sourceId], references: [id])
-} 
+  createdAt  DateTime          @default(now())
+  recipeExecution   RecipeExecution   @relation("NoteLinks", fields: [sourceId], references: [id])
+  protocolExecution ProtocolExecution @relation("NoteLinks", fields: [sourceId], references: [id])
+  protocol          Protocol          @relation("NoteLinks", fields: [sourceId], references: [id])
+  table             Table             @relation("NoteLinks", fields: [sourceId], references: [id])
+  databaseEntry     DatabaseEntry     @relation("NoteLinks", fields: [sourceId], references: [id])
+  highlight         Highlight         @relation("NoteLinks", fields: [sourceId], references: [id])
+  note              Note              @relation("NoteLinks", fields: [sourceId], references: [id])
+}
 
 model Recipe {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  category    String   // e.g., "Media", "Buffer", "Solution", "Reagent"
-  type        String   // e.g., "Cell Culture Media", "PBS", "Lysis Buffer"
-  ingredients RecipeIngredient[]
-  steps       String?  // JSON string of recipe steps
-  instructions String?
-  notes       String?
-  pH          Float?
-  osmolarity  String?
-  storage     String?  // e.g., "4°C", "-20°C", "RT"
-  shelfLife   String?
-  source      String?  // e.g., "Lab protocol", "Paper reference", "Commercial"
-  version     String   @default("1.0")
-  isPublic    Boolean  @default(false)
-  createdBy   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               String             @id @default(cuid())
+  name             String
+  description      String?
+  category         String
+  type             String
+  instructions     String?
+  notes            String?
+  pH               Float?
+  osmolarity       String?
+  storage          String?
+  shelfLife        String?
+  source           String?
+  version          String             @default("1.0")
+  isPublic         Boolean            @default(false)
+  createdBy        String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  steps            String?
   recipeExecutions RecipeExecution[]
+  ingredients      RecipeIngredient[]
 
   @@map("recipes")
 }
 
 model RecipeIngredient {
-  id       String  @id @default(cuid())
-  recipeId String
-  recipe   Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-  name     String
-  amount   Float
-  unit     String  // e.g., "g", "mL", "μL", "mM"
-  concentration String? // e.g., "10%", "1M"
-  supplier String?
+  id            String  @id @default(cuid())
+  recipeId      String
+  name          String
+  amount        Float
+  unit          String
+  concentration String?
+  supplier      String?
   catalogNumber String?
-  notes    String?
+  notes         String?
+  recipe        Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
 
   @@map("recipe_ingredients")
-} 
+}
 
 model CalendarEvent {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   type        String
   title       String
   description String?
   start       DateTime
   end         DateTime?
-  allDay      Boolean? @default(false)
+  allDay      Boolean?  @default(false)
   relatedId   String?
-  createdAt   DateTime @default(now())
-  metadata    String? // JSON string for extra data
-} 
-
-model Task {
-  id           String   @id @default(uuid())
-  title        String
-  description  String?
-  status       String   // todo, in_progress, done, overdue, cancelled
-  priority     String   // high, medium, low
-  deadline     DateTime?
-  createdAt    DateTime @default(now())
-  completedAt  DateTime?
-  autoGenerated Boolean @default(false)
-  
-  // Recurring task support
-  isRecurring  Boolean  @default(false)
-  recurringPattern String? // JSON: {type: 'daily'|'weekly'|'monthly'|'yearly', interval: number, endDate?: string, daysOfWeek?: number[]}
-  
-  // Time tracking
-  estimatedHours Float?
-  actualHours    Float?
-  timeEntries    TaskTimeEntry[]
-  
-  // Enhanced task dependencies
-  dependsOn      Task?   @relation("TaskDependencies", fields: [dependsOnId], references: [id])
-  dependsOnId    String?
-  dependentTasks Task[]  @relation("TaskDependencies")
-  
-  // Multiple dependencies support
-  dependencies   TaskDependency[] @relation("TaskDependenciesFrom")
-  dependents     TaskDependency[] @relation("TaskDependenciesTo")
-  
-  // Workflow support
-  workflowId     String?
-  workflowOrder  Int?     // Position in workflow sequence
-  workflowType   String?  // "sequential", "parallel", "conditional"
-  workflow       TaskWorkflow? @relation(fields: [workflowId], references: [id])
-  
-  // Task comments
-  comments       TaskComment[]
-  
-  // Task attachments
-  attachments    TaskAttachment[]
-  
-  // Task templates
-  templateId     String?
-  template       TaskTemplate? @relation(fields: [templateId], references: [id])
-  
-  // Task notifications
-  notifications  TaskNotification[]
-  
-  // Relations
-  project      Project? @relation(fields: [projectId], references: [id])
-  projectId    String?
-  experiment   Experiment? @relation(fields: [experimentId], references: [id])
-  experimentId String?
-  protocol     Protocol? @relation(fields: [protocolId], references: [id])
-  protocolId   String?
-  note         Note? @relation(fields: [noteId], references: [id])
-  noteId       String?
-  
-  // Tags for categorization
-  tags         String? // JSON array of tags
-  
-  // Metadata
-  metadata     String? // JSON for additional data
+  createdAt   DateTime  @default(now())
+  metadata    String?
 }
 
-// New model for multiple task dependencies
+model Task {
+  id               String             @id @default(uuid())
+  title            String
+  description      String?
+  status           String
+  priority         String
+  deadline         DateTime?
+  createdAt        DateTime           @default(now())
+  completedAt      DateTime?
+  autoGenerated    Boolean            @default(false)
+  isRecurring      Boolean            @default(false)
+  recurringPattern String?
+  estimatedHours   Float?
+  actualHours      Float?
+  dependsOnId      String?
+  workflowId       String?
+  workflowOrder    Int?
+  workflowType     String?
+  templateId       String?
+  projectId        String?
+  experimentId     String?
+  protocolId       String?
+  noteId           String?
+  tags             String?
+  metadata         String?
+  note             Note?              @relation(fields: [noteId], references: [id])
+  protocol         Protocol?          @relation(fields: [protocolId], references: [id])
+  experiment       Experiment?        @relation(fields: [experimentId], references: [id])
+  project          Project?           @relation(fields: [projectId], references: [id])
+  template         TaskTemplate?      @relation(fields: [templateId], references: [id])
+  workflow         TaskWorkflow?      @relation(fields: [workflowId], references: [id])
+  dependsOn        Task?              @relation("TaskDependencies", fields: [dependsOnId], references: [id])
+  dependentTasks   Task[]             @relation("TaskDependencies")
+  attachments      TaskAttachment[]
+  comments         TaskComment[]
+  dependents       TaskDependency[]   @relation("TaskDependenciesTo")
+  dependencies     TaskDependency[]   @relation("TaskDependenciesFrom")
+  notifications    TaskNotification[]
+  timeEntries      TaskTimeEntry[]
+
+  @@index([status])
+  @@index([priority])
+  @@index([deadline])
+  @@index([createdAt])
+  @@index([projectId])
+  @@index([experimentId])
+}
+
 model TaskDependency {
-  id            String   @id @default(uuid())
-  fromTask      Task     @relation("TaskDependenciesFrom", fields: [fromTaskId], references: [id], onDelete: Cascade)
-  fromTaskId    String
-  toTask        Task     @relation("TaskDependenciesTo", fields: [toTaskId], references: [id], onDelete: Cascade)
-  toTaskId      String
-  dependencyType String  @default("blocks") // "blocks", "requires", "suggests", "relates"
-  createdAt     DateTime @default(now())
-  
+  id             String   @id @default(uuid())
+  fromTaskId     String
+  toTaskId       String
+  dependencyType String   @default("blocks")
+  createdAt      DateTime @default(now())
+  toTask         Task     @relation("TaskDependenciesTo", fields: [toTaskId], references: [id], onDelete: Cascade)
+  fromTask       Task     @relation("TaskDependenciesFrom", fields: [fromTaskId], references: [id], onDelete: Cascade)
+
   @@unique([fromTaskId, toTaskId])
 }
 
-// New model for workflow definitions
 model TaskWorkflow {
-  id          String   @id @default(uuid())
+  id          String                  @id @default(uuid())
   name        String
   description String?
-  type        String   // "sequential", "parallel", "conditional", "mixed"
+  type        String
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  metadata    String?
   tasks       Task[]
   executions  TaskWorkflowExecution[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  metadata    String?  // JSON for workflow configuration
 }
 
-// New model for workflow execution tracking
 model TaskWorkflowExecution {
-  id          String   @id @default(uuid())
-  workflow    TaskWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  id          String       @id @default(uuid())
   workflowId  String
-  status      String   // "running", "completed", "failed", "paused", "cancelled"
-  startTime   DateTime @default(now())
+  status      String
+  startTime   DateTime     @default(now())
   endTime     DateTime?
-  currentNode String?  // ID of the current node being processed
-  progress    Float    @default(0) // Progress percentage (0-100)
-  logs        String?  // JSON array of execution logs
-  metadata    String?  // JSON for additional execution data
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  currentNode String?
+  progress    Float        @default(0)
+  logs        String?
+  metadata    String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  workflow    TaskWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
 }
 
 model TaskTimeEntry {
-  id          String   @id @default(uuid())
-  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  id          String    @id @default(uuid())
   taskId      String
   startTime   DateTime
   endTime     DateTime?
   description String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
+  task        Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
 }
 
 model TaskComment {
   id        String   @id @default(uuid())
-  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   taskId    String
   content   String
   author    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
 }
 
 model TaskAttachment {
-  id          String   @id @default(uuid())
-  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  taskId      String
-  fileName    String
-  filePath    String
-  fileSize    Int
-  mimeType    String
-  uploadedAt  DateTime @default(now())
+  id         String   @id @default(uuid())
+  taskId     String
+  fileName   String
+  filePath   String
+  fileSize   Int
+  mimeType   String
+  uploadedAt DateTime @default(now())
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
 }
 
 model TaskTemplate {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  title       String
-  defaultPriority String @default("medium")
-  defaultStatus   String @default("todo")
-  estimatedHours  Float?
-  isRecurring     Boolean @default(false)
+  id               String   @id @default(uuid())
+  name             String
+  description      String?
+  title            String
+  defaultPriority  String   @default("medium")
+  defaultStatus    String   @default("todo")
+  estimatedHours   Float?
+  isRecurring      Boolean  @default(false)
   recurringPattern String?
-  tags            String? // JSON array
-  category        String? // Template category
-  variables       String? // JSON object for template variables
-  usageCount      Int     @default(0) // Track usage
-  isPublic        Boolean @default(false) // Whether template can be shared
-  tasks           Task[]
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  tags             String?
+  category         String?
+  variables        String?
+  usageCount       Int      @default(0)
+  isPublic         Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  tasks            Task[]
 }
 
 model TaskNotification {
-  id          String   @id @default(uuid())
-  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  taskId      String
-  type        String   // 'reminder', 'overdue', 'due_soon', 'completed', 'assigned', 'commented', 'time_logged'
-  message     String
-  scheduledFor DateTime
-  sentAt      DateTime?
-  isRead      Boolean  @default(false)
-  deliveryMethod String @default("in_app") // 'in_app', 'email', 'push', 'sms'
-  priority    String   @default("normal") // 'low', 'normal', 'high', 'urgent'
-  metadata    String?  // JSON for additional data (email addresses, custom settings, etc.)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-} 
+  id             String    @id @default(uuid())
+  taskId         String
+  type           String
+  message        String
+  scheduledFor   DateTime
+  sentAt         DateTime?
+  isRead         Boolean   @default(false)
+  deliveryMethod String    @default("in_app")
+  priority       String    @default("normal")
+  metadata       String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  task           Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
 
 model RecipeExecution {
-  id            String   @id @default(uuid())
-  recipe        Recipe   @relation(fields: [recipeId], references: [id])
-  experiment    Experiment? @relation(fields: [experimentId], references: [id])
-  recipeId      String
-  experimentId  String?
-  status        String   // "planned", "in_progress", "completed", "failed", "abandoned"
-  startDate     DateTime?
-  endDate       DateTime?
-  notes         String?
-  modifications String? // JSON string of modifications
-  results     String?  // JSON string of results
-  issues      String?  // JSON string of issues
-  nextSteps   String?
-  executedBy  String?
-  completedSteps String? // JSON array of completed step IDs
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  links       Link[]   @relation("RecipeExecutionLinks")
-} 
+  id             String      @id @default(uuid())
+  recipeId       String
+  experimentId   String?
+  status         String
+  startDate      DateTime?
+  endDate        DateTime?
+  notes          String?
+  modifications  String?
+  results        String?
+  issues         String?
+  nextSteps      String?
+  executedBy     String?
+  completedSteps String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  links          Link[]      @relation("NoteLinks")
+  experiment     Experiment? @relation(fields: [experimentId], references: [id])
+  recipe         Recipe      @relation(fields: [recipeId], references: [id])
+}
 
-// Experimental Variable Tracking Models
 model VariableCategory {
-  id          String   @id @default(uuid())
+  id          String               @id @default(uuid())
   name        String
   description String?
-  color       String?  // Hex color for UI display
-  icon        String?  // Icon identifier
-  unit        String?  // Default unit for this category
-  dataType    String   // "number", "text", "boolean", "date", "select"
-  options     String?  // JSON array for select type variables
-  minValue    Float?   // For numeric variables
-  maxValue    Float?   // For numeric variables
-  isRequired  Boolean  @default(false)
-  isGlobal    Boolean  @default(false) // Available across all projects
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user        User     @relation(fields: [userId], references: [id])
+  color       String?
+  icon        String?
+  unit        String?
+  dataType    String
+  options     String?
+  minValue    Float?
+  maxValue    Float?
+  isRequired  Boolean              @default(false)
+  isGlobal    Boolean              @default(false)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
   userId      String
   variables   ExperimentVariable[]
+  user        User                 @relation(fields: [userId], references: [id])
 }
 
 model ExperimentVariable {
-  id          String   @id @default(uuid())
-  experiment  Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  id           String           @id @default(uuid())
   experimentId String
-  category    VariableCategory @relation(fields: [categoryId], references: [id])
-  categoryId  String
-  name        String
-  description String?
-  unit        String?
-  dataType    String   // Inherited from category but can be overridden
-  isRequired  Boolean  @default(false)
-  order       Int      @default(0) // For UI ordering
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  values      VariableValue[]
+  categoryId   String
+  name         String
+  description  String?
+  unit         String?
+  dataType     String
+  isRequired   Boolean          @default(false)
+  order        Int              @default(0)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  category     VariableCategory @relation(fields: [categoryId], references: [id])
+  experiment   Experiment       @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  values       VariableValue[]
 }
 
 model VariableValue {
-  id          String   @id @default(uuid())
-  variable    ExperimentVariable @relation(fields: [variableId], references: [id], onDelete: Cascade)
-  variableId  String
-  value       String   // Store as string, parse based on dataType
-  timestamp   DateTime @default(now())
-  notes       String?
-  metadata    String?  // JSON string for additional data
-  createdBy   String?  // User who recorded this value
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String             @id @default(uuid())
+  variableId String
+  value      String
+  timestamp  DateTime           @default(now())
+  notes      String?
+  metadata   String?
+  createdBy  String?
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  variable   ExperimentVariable @relation(fields: [variableId], references: [id], onDelete: Cascade)
 }
 
-// Advanced Reporting Models
 model ReportTemplate {
-  id          String   @id @default(uuid())
+  id          String         @id @default(uuid())
   name        String
   description String?
-  category    String   // 'project', 'experiment', 'task', 'analytics', 'custom'
-  dataSources String   // JSON array of data sources
-  layout      String   // JSON object for report layout
-  filters     String?  // JSON array of filter configurations
-  isPublic    Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user        User     @relation(fields: [userId], references: [id])
+  category    String
+  dataSources String
+  layout      String
+  filters     String?
+  isPublic    Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
   userId      String
   reports     CustomReport[]
+  user        User           @relation(fields: [userId], references: [id])
 }
 
 model CustomReport {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  template    ReportTemplate? @relation(fields: [templateId], references: [id])
-  templateId  String?
-  dataSources String   // JSON array of data sources
-  layout      String   // JSON object for report layout
-  filters     String?  // JSON object for applied filters
-  schedule    String?  // JSON object for scheduling configuration
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user        User     @relation(fields: [userId], references: [id])
-  userId      String
-  executions  ReportExecution[]
+  id               String            @id @default(uuid())
+  name             String
+  description      String?
+  templateId       String?
+  dataSources      String
+  layout           String
+  filters          String?
+  schedule         String?
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  userId           String
+  user             User              @relation(fields: [userId], references: [id])
+  template         ReportTemplate?   @relation(fields: [templateId], references: [id])
+  executions       ReportExecution[]
   scheduledReports ScheduledReport[]
 }
 
 model ReportExecution {
-  id          String   @id @default(uuid())
-  report      CustomReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  id          String       @id @default(uuid())
   reportId    String
-  filters     String   // JSON object of applied filters
-  format      String   // 'json', 'csv', 'pdf', 'html', 'xlsx'
-  status      String   // 'pending', 'running', 'completed', 'failed'
-  data        String?  // JSON string of generated report data
-  error       String?  // Error message if failed
-  startedAt   DateTime @default(now())
+  filters     String
+  format      String
+  status      String
+  data        String?
+  error       String?
+  startedAt   DateTime     @default(now())
   completedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user        User     @relation(fields: [userId], references: [id])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
   userId      String
+  user        User         @relation(fields: [userId], references: [id])
+  report      CustomReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
 }
 
 model ScheduledReport {
-  id          String   @id @default(uuid())
-  report      CustomReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  reportId    String
-  schedule    String   // JSON object for schedule configuration
-  lastRun     DateTime?
-  nextRun     DateTime?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user        User     @relation(fields: [userId], references: [id])
-  userId      String
+  id        String       @id @default(uuid())
+  reportId  String
+  schedule  String
+  lastRun   DateTime?
+  nextRun   DateTime?
+  isActive  Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  userId    String
+  user      User         @relation(fields: [userId], references: [id])
+  report    CustomReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
 }

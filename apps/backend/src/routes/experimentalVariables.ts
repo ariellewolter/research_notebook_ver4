@@ -6,6 +6,31 @@ import { z } from 'zod';
 const router = Router();
 const prisma = new PrismaClient();
 
+// Root experimental-variables endpoint
+router.get('/', authenticateToken, async (req: any, res) => {
+    try {
+        res.json({
+            message: 'Experimental Variables API',
+            endpoints: {
+                categories: 'GET /categories',
+                createCategory: 'POST /categories',
+                updateCategory: 'PUT /categories/:id',
+                deleteCategory: 'DELETE /categories/:id',
+                variables: 'GET /variables',
+                createVariable: 'POST /variables',
+                updateVariable: 'PUT /variables/:id',
+                deleteVariable: 'DELETE /variables/:id',
+                values: 'GET /values',
+                createValue: 'POST /values',
+                updateValue: 'PUT /values/:id',
+                deleteValue: 'DELETE /values/:id'
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Experimental Variables service error' });
+    }
+});
+
 // Validation schemas
 const variableCategorySchema = z.object({
     name: z.string().min(1, 'Name is required'),
