@@ -1,40 +1,48 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box,
   Card,
   CardContent,
+  CardHeader,
   Typography,
-  Button,
   Switch,
   FormControlLabel,
-  Divider,
-  Alert,
-  CircularProgress,
+  TextField,
+  Button,
+  Box,
   Chip,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  ListItemSecondaryAction,
-  IconButton,
+  Alert,
+  Divider,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  ListItemSecondaryAction,
+  IconButton,
+  Tooltip
 } from '@mui/material';
 import {
-  Cloud,
-  CloudOff,
-  Settings,
-  Refresh,
-  Delete,
-  CheckCircle,
-  Error,
-  Warning,
-  Info
+  Cloud as CloudIcon,
+  Settings as SettingsIcon,
+  Folder as FolderIcon,
+  Refresh as RefreshIcon,
+  Disconnect as DisconnectIcon,
+  CheckCircle as CheckCircleIcon,
+  Error as ErrorIcon,
+  Warning as WarningIcon
 } from '@mui/icons-material';
-import { useCloudSync, CloudServiceName } from '../../hooks/useCloudSync';
+import { useCloudSync } from '../../hooks/useCloudSync';
+import { CloudServiceName } from '../../utils/cloudSyncAPI';
+import GoogleDriveFolderSelector from '../CloudSync/GoogleDriveFolderSelector';
+
+interface SyncFolderConfig {
+  id: string;
+  name: string;
+  path: string;
+}
 
 const serviceConfigs = {
   dropbox: {
@@ -45,71 +53,83 @@ const serviceConfigs = {
   },
   google: {
     name: 'Google Drive',
-    icon: '🔍',
+    icon: '📁',
     color: '#4285F4',
-    description: 'Connect to Google Drive for file synchronization'
+    description: 'Sync your research files with Google Drive cloud storage'
   },
   apple: {
     name: 'iCloud',
     icon: '🍎',
-    color: '#000000',
-    description: 'Sync with iCloud for seamless Apple ecosystem integration'
+    color: '#007AFF',
+    description: 'Sync your research files with iCloud storage'
   },
   onedrive: {
     name: 'OneDrive',
     icon: '☁️',
     color: '#0078D4',
-    description: 'Microsoft OneDrive integration for file backup'
+    description: 'Sync your research files with Microsoft OneDrive'
   }
 };
 
 export const CloudSyncSettings: React.FC = () => {
   const {
     connectedServices,
-    isConnected,
+    loading,
+    error,
     connectService,
     disconnectService,
-    getSyncStatus,
-    loading,
-    error
+    listFiles,
+    uploadFile,
+    downloadFile,
+    isConnected
   } = useCloudSync();
 
-  const [syncEnabled, setSyncEnabled] = useState(false);
-  const [autoSync, setAutoSync] = useState(false);
-  const [syncInterval, setSyncInterval] = useState(30);
-  const [disconnectDialogOpen, setDisconnectDialogOpen] = useState(false);
-  const [serviceToDisconnect, setServiceToDisconnect] = useState<CloudServiceName | null>(null);
+  const [enableSync, setEnableSync] = useState<boolean>(() => {
+    return localStorage.getItem('cloud_sync_enabled') === 'true';
+  });
 
-  // Load settings from localStorage
+  const [autoSync, setAutoSync] = useState<boolean>(() => {
+    return localStorage.getItem('cloud_sync_auto') === 'true';
+  });
+
+  const [syncInterval, setSyncInterval] = useState<number>(() => {
+    return parseInt(localStorage.getItem('cloud_sync_interval') || '30', 10);
+  });
+
+  const [selectedFolders, setSelectedFolders] = useState<Record<CloudServiceName, SyncFolderConfig | null>>({
+    dropbox: null,
+    google: null,
+    apple: null,
+    onedrive: null
+  });
+
+  const [folderSelectorOpen, setFolderSelectorOpen] = useState<CloudServiceName | null>(null);
+  const [disconnectDialogOpen, setDisconnectDialogOpen] = useState<CloudServiceName | null>(null);
+
+  // Load saved folder configurations
   useEffect(() => {
-    const savedSyncEnabled = localStorage.getItem('cloud_sync_enabled');
-    const savedAutoSync = localStorage.getItem('cloud_sync_auto_sync');
-    const savedSyncInterval = localStorage.getItem('cloud_sync_interval');
-
-    if (savedSyncEnabled) setSyncEnabled(savedSyncEnabled === 'true');
-    if (savedAutoSync) setAutoSync(savedAutoSync === 'true');
-    if (savedSyncInterval) setSyncInterval(parseInt(savedSyncInterval, 10));
+    const savedFolders = localStorage.getItem('cloud_sync_folders');
+    if (savedFolders) {
+      try {
+        const parsed = JSON.parse(savedFolders);
+        setSelectedFolders(prev => ({ ...prev, ...parsed }));
+      } catch (err) {
+        console.error('Failed to parse saved folder config:', err);
+      }
+    }
   }, []);
 
   // Save settings to localStorage
-  const saveSettings = (key: string, value: any) => {
-    localStorage.setItem(key, value.toString());
-  };
+  useEffect(() => {
+    localStorage.setItem('cloud_sync_enabled', enableSync.toString());
+    localStorage.setItem('cloud_sync_auto', autoSync.toString());
+    localStorage.setItem('cloud_sync_interval', syncInterval.toString());
+  }, [enableSync, autoSync, syncInterval]);
 
-  const handleSyncToggle = (enabled: boolean) => {
-    setSyncEnabled(enabled);
-    saveSettings('cloud_sync_enabled', enabled);
-  };
-
-  const handleAutoSyncToggle = (enabled: boolean) => {
-    setAutoSync(enabled);
-    saveSettings('cloud_sync_auto_sync', enabled);
-  };
-
-  const handleSyncIntervalChange = (interval: number) => {
-    setSyncInterval(interval);
-    saveSettings('cloud_sync_interval', interval);
-  };
+  // Save folder configurations
+  useEffect(() => {
+    localStorage.setItem('cloud_sync_folders', JSON.stringify(selectedFolders));
+  }, [selectedFolders]);
 
   const handleConnect = async (serviceName: CloudServiceName) => {
     try {
@@ -119,226 +139,236 @@ export const CloudSyncSettings: React.FC = () => {
     }
   };
 
-  const handleDisconnectClick = (serviceName: CloudServiceName) => {
-    setServiceToDisconnect(serviceName);
-    setDisconnectDialogOpen(true);
-  };
-
-  const handleDisconnectConfirm = () => {
-    if (serviceToDisconnect) {
-      disconnectService(serviceToDisconnect);
-      setDisconnectDialogOpen(false);
-      setServiceToDisconnect(null);
+  const handleDisconnect = async (serviceName: CloudServiceName) => {
+    try {
+      await disconnectService(serviceName);
+      // Clear folder selection when disconnecting
+      setSelectedFolders(prev => ({
+        ...prev,
+        [serviceName]: null
+      }));
+      setDisconnectDialogOpen(null);
+    } catch (err) {
+      console.error(`Failed to disconnect from ${serviceName}:`, err);
     }
   };
 
-  const handleDisconnectCancel = () => {
-    setDisconnectDialogOpen(false);
-    setServiceToDisconnect(null);
+  const handleFolderSelect = (serviceName: CloudServiceName) => {
+    setFolderSelectorOpen(serviceName);
   };
 
-  const getServiceStatus = (serviceName: CloudServiceName) => {
-    const connected = isConnected(serviceName);
-    const status = getSyncStatus(serviceName);
-    
-    if (connected) {
-      return {
-        status: 'connected',
-        text: 'Connected',
-        icon: <CheckCircle color="success" />,
-        color: 'success'
-      };
+  const handleFolderSelected = (folder: { id: string; name: string; path: string }) => {
+    if (folderSelectorOpen) {
+      setSelectedFolders(prev => ({
+        ...prev,
+        [folderSelectorOpen]: folder
+      }));
+      setFolderSelectorOpen(null);
+    }
+  };
+
+  const handleClearFolder = (serviceName: CloudServiceName) => {
+    setSelectedFolders(prev => ({
+      ...prev,
+      [serviceName]: null
+    }));
+  };
+
+  const getConnectionStatus = (serviceName: CloudServiceName) => {
+    if (isConnected(serviceName)) {
+      return { status: 'connected', icon: <CheckCircleIcon color="success" />, text: 'Connected' };
+    } else if (loading) {
+      return { status: 'connecting', icon: <RefreshIcon color="primary" />, text: 'Connecting...' };
     } else {
-      return {
-        status: 'disconnected',
-        text: 'Not Connected',
-        icon: <CloudOff color="disabled" />,
-        color: 'default'
-      };
+      return { status: 'disconnected', icon: <ErrorIcon color="error" />, text: 'Disconnected' };
     }
+  };
+
+  const getFolderDisplayName = (serviceName: CloudServiceName) => {
+    const folder = selectedFolders[serviceName];
+    if (!folder) return 'No folder selected';
+    return folder.name;
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom>
-        Cloud Sync Settings
-      </Typography>
+    <Card sx={{ mb: 3 }}>
+      <CardHeader
+        title={
+          <Box display="flex" alignItems="center">
+            <CloudIcon sx={{ mr: 1 }} />
+            <Typography variant="h6">Cloud Sync Settings</Typography>
+          </Box>
+        }
+        subheader="Configure cloud storage synchronization for your research files"
+      />
+      <CardContent>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error.message}
-        </Alert>
-      )}
-
-      {/* General Settings */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
+        {/* General Settings */}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle1" gutterBottom>
             General Settings
           </Typography>
-          
           <FormControlLabel
             control={
               <Switch
-                checked={syncEnabled}
-                onChange={(e) => handleSyncToggle(e.target.checked)}
-                disabled={loading}
+                checked={enableSync}
+                onChange={(e) => setEnableSync(e.target.checked)}
               />
             }
             label="Enable Cloud Sync"
           />
-          
-          {syncEnabled && (
-            <Box sx={{ mt: 2 }}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={autoSync}
-                    onChange={(e) => handleAutoSyncToggle(e.target.checked)}
-                    disabled={loading}
-                  />
-                }
-                label="Auto-sync files"
+          <FormControlLabel
+            control={
+              <Switch
+                checked={autoSync}
+                onChange={(e) => setAutoSync(e.target.checked)}
+                disabled={!enableSync}
               />
-              
-              {autoSync && (
-                <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Typography variant="body2">Sync interval:</Typography>
-                  <TextField
-                    select
-                    size="small"
-                    value={syncInterval}
-                    onChange={(e) => handleSyncIntervalChange(parseInt(e.target.value, 10))}
-                    sx={{ minWidth: 120 }}
-                  >
-                    <option value={5}>5 minutes</option>
-                    <option value={15}>15 minutes</option>
-                    <option value={30}>30 minutes</option>
-                    <option value={60}>1 hour</option>
-                    <option value={1440}>Daily</option>
-                  </TextField>
-                </Box>
-              )}
-            </Box>
-          )}
-        </CardContent>
-      </Card>
+            }
+            label="Auto-sync files"
+          />
+          <TextField
+            label="Sync Interval (minutes)"
+            type="number"
+            value={syncInterval}
+            onChange={(e) => setSyncInterval(parseInt(e.target.value) || 30)}
+            disabled={!enableSync || !autoSync}
+            sx={{ mt: 2, width: 200 }}
+            inputProps={{ min: 5, max: 1440 }}
+          />
+        </Box>
 
-      {/* Cloud Services */}
-      <Card>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Cloud Services
-          </Typography>
-          
-          <List>
-            {(Object.keys(serviceConfigs) as CloudServiceName[]).map((serviceName) => {
-              const config = serviceConfigs[serviceName];
-              const serviceStatus = getServiceStatus(serviceName);
-              const connected = isConnected(serviceName);
-              
-              return (
-                <ListItem key={serviceName} divider>
-                  <ListItemIcon>
-                    <Box
-                      sx={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: '50%',
-                        backgroundColor: config.color,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'white',
-                        fontSize: '1.2rem'
-                      }}
-                    >
+        <Divider sx={{ my: 2 }} />
+
+        {/* Cloud Services */}
+        <Typography variant="subtitle1" gutterBottom>
+          Cloud Services
+        </Typography>
+
+        <List>
+          {Object.entries(serviceConfigs).map(([serviceName, config]) => {
+            const serviceKey = serviceName as CloudServiceName;
+            const status = getConnectionStatus(serviceKey);
+            const isConnected = status.status === 'connected';
+
+            return (
+              <ListItem key={serviceName} sx={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                <Box display="flex" alignItems="center" justifyContent="space-between" width="100%">
+                  <Box display="flex" alignItems="center">
+                    <Typography variant="h6" sx={{ mr: 1 }}>
                       {config.icon}
-                    </Box>
-                  </ListItemIcon>
-                  
-                  <ListItemText
-                    primary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    </Typography>
+                    <Box>
+                      <Typography variant="subtitle1">
                         {config.name}
-                        <Chip
-                          label={serviceStatus.text}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        {config.description}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Box display="flex" alignItems="center">
+                    {status.icon}
+                    <Typography variant="body2" sx={{ ml: 1 }}>
+                      {status.text}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* Connection Controls */}
+                <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ mt: 1 }}>
+                  <Box display="flex" alignItems="center">
+                    {isConnected ? (
+                      <>
+                        <Button
+                          variant="outlined"
                           size="small"
-                          color={serviceStatus.color as any}
-                          icon={serviceStatus.icon}
-                        />
-                      </Box>
-                    }
-                    secondary={config.description}
-                  />
-                  
-                  <ListItemSecondaryAction>
-                    {connected ? (
-                      <IconButton
-                        edge="end"
-                        onClick={() => handleDisconnectClick(serviceName)}
-                        color="error"
-                        disabled={loading}
-                      >
-                        <Delete />
-                      </IconButton>
+                          startIcon={<FolderIcon />}
+                          onClick={() => handleFolderSelect(serviceKey)}
+                          sx={{ mr: 1 }}
+                        >
+                          {getFolderDisplayName(serviceKey)}
+                        </Button>
+                        {selectedFolders[serviceKey] && (
+                          <Tooltip title="Clear folder selection">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleClearFolder(serviceKey)}
+                            >
+                              <DisconnectIcon />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </>
                     ) : (
                       <Button
                         variant="contained"
-                        onClick={() => handleConnect(serviceName)}
-                        disabled={loading || !syncEnabled}
-                        startIcon={loading ? <CircularProgress size={16} /> : <Cloud />}
-                        sx={{ backgroundColor: config.color }}
+                        size="small"
+                        onClick={() => handleConnect(serviceKey)}
+                        disabled={loading}
+                        sx={{ 
+                          backgroundColor: config.color,
+                          '&:hover': { backgroundColor: config.color }
+                        }}
                       >
                         Connect
                       </Button>
                     )}
-                  </ListItemSecondaryAction>
-                </ListItem>
-              );
-            })}
-          </List>
-        </CardContent>
-      </Card>
+                  </Box>
 
-      {/* Information Card */}
-      <Card sx={{ mt: 3 }}>
-        <CardContent>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-            <Info color="info" />
-            <Typography variant="h6">
-              About Cloud Sync
+                  {isConnected && (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      color="error"
+                      onClick={() => setDisconnectDialogOpen(serviceKey)}
+                    >
+                      Disconnect
+                    </Button>
+                  )}
+                </Box>
+              </ListItem>
+            );
+          })}
+        </List>
+
+        {/* Folder Selector Dialog */}
+        <GoogleDriveFolderSelector
+          open={folderSelectorOpen === 'google'}
+          onClose={() => setFolderSelectorOpen(null)}
+          onFolderSelect={handleFolderSelected}
+          currentFolderId={selectedFolders.google?.id}
+        />
+
+        {/* Disconnect Confirmation Dialog */}
+        <Dialog
+          open={disconnectDialogOpen !== null}
+          onClose={() => setDisconnectDialogOpen(null)}
+        >
+          <DialogTitle>Disconnect Service</DialogTitle>
+          <DialogContent>
+            <Typography>
+              Are you sure you want to disconnect from {disconnectDialogOpen && serviceConfigs[disconnectDialogOpen]?.name}?
+              This will remove all sync configurations and stop file synchronization.
             </Typography>
-          </Box>
-          
-          <Typography variant="body2" color="textSecondary" paragraph>
-            Cloud sync allows you to automatically backup and synchronize your research files 
-            across multiple cloud storage services. Your files are encrypted and securely 
-            transferred using OAuth2 authentication.
-          </Typography>
-          
-          <Typography variant="body2" color="textSecondary">
-            <strong>Supported file types:</strong> PDF, DOC, XLS, TXT, JSON, CSV, and images
-          </Typography>
-        </CardContent>
-      </Card>
-
-      {/* Disconnect Confirmation Dialog */}
-      <Dialog open={disconnectDialogOpen} onClose={handleDisconnectCancel}>
-        <DialogTitle>Disconnect Cloud Service</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to disconnect from {serviceToDisconnect ? serviceConfigs[serviceToDisconnect].name : ''}?
-            This will remove all stored authentication tokens and stop file synchronization.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleDisconnectCancel}>Cancel</Button>
-          <Button onClick={handleDisconnectConfirm} color="error" variant="contained">
-            Disconnect
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDisconnectDialogOpen(null)}>Cancel</Button>
+            <Button
+              onClick={() => disconnectDialogOpen && handleDisconnect(disconnectDialogOpen)}
+              color="error"
+              variant="contained"
+            >
+              Disconnect
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </CardContent>
+    </Card>
   );
 }; 

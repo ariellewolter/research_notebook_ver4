@@ -205,6 +205,9 @@ importers:
       fuse.js:
         specifier: ^7.1.0
         version: 7.1.0
+      googleapis:
+        specifier: ^154.0.0
+        version: 154.0.0
       jspdf:
         specifier: ^3.0.1
         version: 3.0.1

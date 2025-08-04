@@ -6,6 +6,7 @@
  */
 
 import { Dropbox } from 'dropbox';
+import { google } from 'googleapis';
 
 export type CloudServiceName = 'dropbox' | 'google' | 'apple' | 'onedrive';
 
@@ -24,25 +25,21 @@ export interface CloudFile {
   modifiedTime: string;
   isFolder: boolean;
   mimeType?: string;
+  parentId?: string;
 }
 
 export interface CloudSyncStatus {
   isConnected: boolean;
-  serviceName: CloudServiceName;
-  accountInfo?: {
-    email: string;
-    name: string;
-    storageUsed: number;
-    storageTotal: number;
-  };
-  lastSyncTime?: string;
+  lastSync?: string;
+  syncFolder?: string;
+  syncFolderId?: string;
+  error?: string;
 }
 
 export interface CloudSyncError {
   code: string;
   message: string;
-  serviceName: CloudServiceName;
-  timestamp: string;
+  details?: any;
 }
 
 // Provider-specific configurations
@@ -57,7 +54,10 @@ const CLOUD_SERVICE_CONFIGS: Record<CloudServiceName, CloudSyncConfig> = {
     clientId: process.env.REACT_APP_GOOGLE_CLIENT_ID || '',
     clientSecret: process.env.REACT_APP_GOOGLE_CLIENT_SECRET || '',
     redirectUri: `${window.location.origin}/auth/google/callback`,
-    scopes: ['https://www.googleapis.com/auth/drive.file']
+    scopes: [
+      'https://www.googleapis.com/auth/drive.file',
+      'https://www.googleapis.com/auth/drive.metadata.readonly'
+    ]
   },
   apple: {
     clientId: process.env.REACT_APP_APPLE_CLIENT_ID || '',
@@ -69,7 +69,7 @@ const CLOUD_SERVICE_CONFIGS: Record<CloudServiceName, CloudSyncConfig> = {
     clientId: process.env.REACT_APP_ONEDRIVE_CLIENT_ID || '',
     clientSecret: process.env.REACT_APP_ONEDRIVE_CLIENT_SECRET || '',
     redirectUri: `${window.location.origin}/auth/onedrive/callback`,
-    scopes: ['files.readwrite', 'offline_access']
+    scopes: ['Files.ReadWrite', 'Files.ReadWrite.All']
   }
 };
 
@@ -84,10 +84,11 @@ const getRefreshTokenStorageKey = (serviceName: CloudServiceName) =>
  * Cloud Sync Service Class
  * Provides unified interface for cloud storage operations
  */
-class CloudSyncService {
+export class CloudSyncService {
   private connectedServices: Set<CloudServiceName> = new Set();
-  private eventListeners: Map<string, Function[]> = new Map();
   private dropboxClient: Dropbox | null = null;
+  private googleDriveClient: any = null;
+  private eventListeners: Map<string, Function[]> = new Map();
 
   /**
    * Initialize OAuth2 flow for a cloud service
@@ -112,6 +113,8 @@ class CloudSyncService {
         this.connectedServices.add(serviceName);
         if (serviceName === 'dropbox') {
           this.initializeDropboxClient(existingToken);
+        } else if (serviceName === 'google') {
+          await this.initializeGoogleDriveClient(existingToken);
         }
         this.emit('serviceConnected', { serviceName });
         return true;
@@ -131,25 +134,37 @@ class CloudSyncService {
   /**
    * Handle OAuth2 callback and store tokens
    */
-  async handleAuthCallback(serviceName: CloudServiceName, code: string): Promise<boolean> {
+  async handleAuthCallback(serviceName: CloudServiceName, url: string): Promise<boolean> {
     try {
-      const config = CLOUD_SERVICE_CONFIGS[serviceName];
-      const tokenResponse = await this.exchangeCodeForToken(serviceName, code, config);
-      
-      if (tokenResponse.access_token) {
-        this.storeToken(serviceName, tokenResponse.access_token, tokenResponse.refresh_token);
-        this.connectedServices.add(serviceName);
-        
-        // Initialize provider-specific clients
-        if (serviceName === 'dropbox') {
-          this.initializeDropboxClient(tokenResponse.access_token);
-        }
-        
-        this.emit('serviceConnected', { serviceName });
-        return true;
+      const urlParams = new URLSearchParams(url.split('?')[1]);
+      const code = urlParams.get('code');
+      const state = urlParams.get('state');
+      const error = urlParams.get('error');
+
+      if (error) {
+        throw new Error(`Authorization failed: ${error}`);
       }
-      
-      return false;
+
+      if (!code || state !== serviceName) {
+        throw new Error('Invalid authorization response');
+      }
+
+      const config = CLOUD_SERVICE_CONFIGS[serviceName];
+      const tokenData = await this.exchangeCodeForToken(serviceName, code, config);
+
+      // Store tokens
+      this.storeToken(serviceName, tokenData.access_token, tokenData.refresh_token);
+
+      // Initialize service-specific client
+      if (serviceName === 'dropbox') {
+        this.initializeDropboxClient(tokenData.access_token);
+      } else if (serviceName === 'google') {
+        await this.initializeGoogleDriveClient(tokenData.access_token);
+      }
+
+      this.connectedServices.add(serviceName);
+      this.emit('serviceConnected', { serviceName });
+      return true;
     } catch (error) {
       this.handleError(serviceName, error as Error);
       return false;
@@ -169,7 +184,7 @@ class CloudSyncService {
       }
 
       // This will be implemented with provider-specific SDKs
-      const files = await this.providerListFiles(serviceName, token, folderPath);
+      const files = await this.providerListFiles(serviceName, folderPath);
       
       this.emit('filesListed', { serviceName, files, folderPath });
       return files;
@@ -197,7 +212,7 @@ class CloudSyncService {
       }
 
       // This will be implemented with provider-specific SDKs
-      const success = await this.providerUploadFile(serviceName, token, localPath, remotePath, fileContent);
+      const success = await this.providerUploadFile(serviceName, remotePath, fileContent);
       
       if (success) {
         this.emit('fileUploaded', { serviceName, localPath, remotePath });
@@ -227,7 +242,7 @@ class CloudSyncService {
       }
 
       // This will be implemented with provider-specific SDKs
-      const fileContent = await this.providerDownloadFile(serviceName, token, remotePath);
+      const fileContent = await this.providerDownloadFile(serviceName, remotePath);
       
       if (fileContent) {
         this.emit('fileDownloaded', { serviceName, remotePath, localPath });
@@ -243,16 +258,19 @@ class CloudSyncService {
   /**
    * Disconnect from a cloud service
    */
-  disconnectService(serviceName: CloudServiceName): void {
+  async disconnectService(serviceName: CloudServiceName): Promise<boolean> {
     this.connectedServices.delete(serviceName);
     this.clearStoredTokens(serviceName);
     
     // Clean up provider-specific clients
     if (serviceName === 'dropbox') {
       this.dropboxClient = null;
+    } else if (serviceName === 'google') {
+      this.googleDriveClient = null;
     }
     
     this.emit('serviceDisconnected', { serviceName });
+    return true;
   }
 
   /**
@@ -334,6 +352,8 @@ class CloudSyncService {
   ): Promise<any> {
     if (serviceName === 'dropbox') {
       return this.exchangeDropboxCodeForToken(code, config);
+    } else if (serviceName === 'google') {
+      return this.exchangeGoogleCodeForToken(code, config);
     }
     
     // Placeholder for other providers
@@ -376,6 +396,38 @@ class CloudSyncService {
     }
   }
 
+  private async exchangeGoogleCodeForToken(code: string, config: CloudSyncConfig): Promise<any> {
+    try {
+      const oauth2Client = new google.auth.OAuth2(
+        config.clientId,
+        config.clientSecret,
+        config.redirectUri
+      );
+
+      const { tokens } = await oauth2Client.getToken(code);
+      return {
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_in: tokens.expiry_date ? Math.floor((tokens.expiry_date - Date.now()) / 1000) : undefined
+      };
+    } catch (error) {
+      console.error('Google token exchange error:', error);
+      throw error;
+    }
+  }
+
+  private async initializeGoogleDriveClient(accessToken: string): Promise<void> {
+    try {
+      const oauth2Client = new google.auth.OAuth2();
+      oauth2Client.setCredentials({ access_token: accessToken });
+      
+      this.googleDriveClient = google.drive({ version: 'v3', auth: oauth2Client });
+    } catch (error) {
+      console.error('Failed to initialize Google Drive client:', error);
+      throw error;
+    }
+  }
+
   private getStoredToken(serviceName: CloudServiceName): string | null {
     return localStorage.getItem(getTokenStorageKey(serviceName));
   }
@@ -412,43 +464,199 @@ class CloudSyncService {
   // Provider-specific implementations
   private async providerListFiles(
     serviceName: CloudServiceName, 
-    token: string, 
-    folderPath: string
+    folderPath: string = '/'
   ): Promise<CloudFile[]> {
     if (serviceName === 'dropbox') {
       return this.dropboxListFiles(folderPath);
+    } else if (serviceName === 'google') {
+      return this.googleDriveListFiles(folderPath);
     }
-    
-    // Placeholder for other providers
-    return [];
+    throw new Error(`File listing not implemented for ${serviceName}`);
+  }
+
+  private async googleDriveListFiles(folderPath: string = '/'): Promise<CloudFile[]> {
+    if (!this.googleDriveClient) {
+      throw new Error('Google Drive client not initialized');
+    }
+
+    try {
+      let folderId = 'root';
+      
+      // If folderPath is not root, we need to find the folder ID
+      if (folderPath !== '/') {
+        const pathParts = folderPath.split('/').filter(part => part.length > 0);
+        for (const part of pathParts) {
+          const response = await this.googleDriveClient.files.list({
+            q: `name='${part}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+            fields: 'files(id, name)',
+            pageSize: 1
+          });
+          
+          if (response.data.files && response.data.files.length > 0) {
+            folderId = response.data.files[0].id;
+          } else {
+            throw new Error(`Folder not found: ${part}`);
+          }
+        }
+      }
+
+      const response = await this.googleDriveClient.files.list({
+        q: `'${folderId}' in parents and trashed=false`,
+        fields: 'files(id, name, mimeType, size, modifiedTime, parents)',
+        pageSize: 100
+      });
+
+      return response.data.files?.map((file: any) => ({
+        id: file.id,
+        name: file.name,
+        path: folderPath === '/' ? `/${file.name}` : `${folderPath}/${file.name}`,
+        size: parseInt(file.size) || 0,
+        modifiedTime: file.modifiedTime || new Date().toISOString(),
+        isFolder: file.mimeType === 'application/vnd.google-apps.folder',
+        mimeType: file.mimeType,
+        parentId: file.parents?.[0]
+      })) || [];
+    } catch (error) {
+      console.error('Google Drive list files error:', error);
+      throw error;
+    }
   }
 
   private async providerUploadFile(
     serviceName: CloudServiceName, 
-    token: string, 
-    localPath: string, 
-    remotePath: string,
+    remotePath: string, 
     fileContent?: File | Blob
   ): Promise<boolean> {
     if (serviceName === 'dropbox') {
       return this.dropboxUploadFile(remotePath, fileContent);
+    } else if (serviceName === 'google') {
+      return this.googleDriveUploadFile(remotePath, fileContent);
     }
-    
-    // Placeholder for other providers
-    return true;
+    throw new Error(`File upload not implemented for ${serviceName}`);
+  }
+
+  private async googleDriveUploadFile(remotePath: string, fileContent?: File | Blob): Promise<boolean> {
+    if (!this.googleDriveClient) {
+      throw new Error('Google Drive client not initialized');
+    }
+
+    if (!fileContent) {
+      throw new Error('File content is required for upload');
+    }
+
+    try {
+      const fileName = remotePath.split('/').pop() || 'untitled';
+      const arrayBuffer = await fileContent.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      const fileMetadata = {
+        name: fileName,
+        mimeType: this.getMimeType(fileName)
+      };
+
+      const media = {
+        mimeType: this.getMimeType(fileName),
+        body: buffer
+      };
+
+      await this.googleDriveClient.files.create({
+        requestBody: fileMetadata,
+        media: media,
+        fields: 'id'
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Google Drive upload error:', error);
+      throw error;
+    }
   }
 
   private async providerDownloadFile(
     serviceName: CloudServiceName, 
-    token: string, 
     remotePath: string
   ): Promise<Blob | null> {
     if (serviceName === 'dropbox') {
       return this.dropboxDownloadFile(remotePath);
+    } else if (serviceName === 'google') {
+      return this.googleDriveDownloadFile(remotePath);
     }
-    
-    // Placeholder for other providers
-    return null;
+    throw new Error(`File download not implemented for ${serviceName}`);
+  }
+
+  private async googleDriveDownloadFile(remotePath: string): Promise<Blob | null> {
+    if (!this.googleDriveClient) {
+      throw new Error('Google Drive client not initialized');
+    }
+
+    try {
+      // First, find the file ID by path
+      const fileName = remotePath.split('/').pop() || '';
+      const response = await this.googleDriveClient.files.list({
+        q: `name='${fileName}' and trashed=false`,
+        fields: 'files(id, name, mimeType)',
+        pageSize: 1
+      });
+
+      if (!response.data.files || response.data.files.length === 0) {
+        throw new Error(`File not found: ${fileName}`);
+      }
+
+      const fileId = response.data.files[0].id;
+      const file = await this.googleDriveClient.files.get({
+        fileId: fileId,
+        alt: 'media'
+      });
+
+      // Convert the response to a Blob
+      const blob = new Blob([file.data], {
+        type: this.getMimeType(fileName)
+      });
+
+      return blob;
+    } catch (error) {
+      console.error('Google Drive download error:', error);
+      throw error;
+    }
+  }
+
+  // New method for Google Drive folder selection
+  async selectGoogleDriveFolder(): Promise<{ id: string; name: string; path: string } | null> {
+    if (!this.googleDriveClient) {
+      throw new Error('Google Drive client not initialized');
+    }
+
+    try {
+      // Get all folders from Google Drive
+      const response = await this.googleDriveClient.files.list({
+        q: "mimeType='application/vnd.google-apps.folder' and trashed=false",
+        fields: 'files(id, name, parents)',
+        pageSize: 100
+      });
+
+      const folders = response.data.files || [];
+      
+      // For now, return the first available folder or root
+      // In a real implementation, you'd show a folder picker UI
+      if (folders.length > 0) {
+        const folder = folders[0];
+        return {
+          id: folder.id,
+          name: folder.name,
+          path: `/${folder.name}`
+        };
+      }
+
+      // Return root folder if no other folders exist
+      return {
+        id: 'root',
+        name: 'My Drive',
+        path: '/'
+      };
+    } catch (error) {
+      console.error('Error selecting Google Drive folder:', error);
+      throw error;
+    }
   }
 
   // Dropbox-specific implementations
