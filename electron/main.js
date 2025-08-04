@@ -13,9 +13,179 @@ let tray;
 let openWindows = new Map(); // Track all open windows by ID
 let windowCounter = 0; // Counter for generating unique window IDs
 
+// File watcher management
+let fileWatcher = null;
+let watchedFolderPath = null;
+let isFileWatcherEnabled = false;
+
 // Backend server configuration
 const BACKEND_PORT = 3000;
 const FRONTEND_PORT = 5173;
+
+// File watcher settings storage
+const FILE_WATCHER_SETTINGS_KEY = 'fileWatcherSettings';
+
+// Load file watcher settings
+function loadFileWatcherSettings() {
+    try {
+        const settings = app.isPackaged 
+            ? path.join(process.resourcesPath, 'settings.json')
+            : path.join(__dirname, 'settings.json');
+        
+        if (fs.existsSync(settings)) {
+            const data = fs.readFileSync(settings, 'utf8');
+            const config = JSON.parse(data);
+            return {
+                enabled: config.fileWatcherEnabled || false,
+                folderPath: config.watchedFolderPath || null
+            };
+        }
+    } catch (error) {
+        console.warn('Failed to load file watcher settings:', error);
+    }
+    
+    return { enabled: false, folderPath: null };
+}
+
+// Save file watcher settings
+function saveFileWatcherSettings() {
+    try {
+        const settings = app.isPackaged 
+            ? path.join(process.resourcesPath, 'settings.json')
+            : path.join(__dirname, 'settings.json');
+        
+        const config = {
+            fileWatcherEnabled: isFileWatcherEnabled,
+            watchedFolderPath: watchedFolderPath
+        };
+        
+        fs.writeFileSync(settings, JSON.stringify(config, null, 2));
+        console.log('File watcher settings saved');
+    } catch (error) {
+        console.error('Failed to save file watcher settings:', error);
+    }
+}
+
+// Initialize file watcher
+function initializeFileWatcher() {
+    const settings = loadFileWatcherSettings();
+    isFileWatcherEnabled = settings.enabled;
+    watchedFolderPath = settings.folderPath;
+    
+    if (isFileWatcherEnabled && watchedFolderPath) {
+        startFileWatcher(watchedFolderPath);
+    }
+}
+
+// Start file watcher
+function startFileWatcher(folderPath) {
+    if (fileWatcher) {
+        stopFileWatcher();
+    }
+    
+    try {
+        if (!fs.existsSync(folderPath)) {
+            console.warn('Watched folder does not exist:', folderPath);
+            return false;
+        }
+        
+        fileWatcher = fs.watch(folderPath, { recursive: true }, (eventType, filename) => {
+            if (filename) {
+                const filePath = path.join(folderPath, filename);
+                console.log(`File watcher event: ${eventType} - ${filePath}`);
+                
+                // Handle different file events
+                switch (eventType) {
+                    case 'rename':
+                        // Check if file was created or deleted
+                        if (fs.existsSync(filePath)) {
+                            handleFileCreated(filePath);
+                        } else {
+                            handleFileDeleted(filePath);
+                        }
+                        break;
+                    case 'change':
+                        handleFileChanged(filePath);
+                        break;
+                }
+                
+                // Notify all windows about the file change
+                notifyWindowsOfFileChange(eventType, filePath);
+            }
+        });
+        
+        watchedFolderPath = folderPath;
+        console.log(`File watcher started for: ${folderPath}`);
+        return true;
+    } catch (error) {
+        console.error('Failed to start file watcher:', error);
+        return false;
+    }
+}
+
+// Stop file watcher
+function stopFileWatcher() {
+    if (fileWatcher) {
+        fileWatcher.close();
+        fileWatcher = null;
+        watchedFolderPath = null;
+        console.log('File watcher stopped');
+    }
+}
+
+// Handle file created event
+function handleFileCreated(filePath) {
+    console.log('File created:', filePath);
+    
+    // Check if it's a supported file type
+    const supportedExtensions = ['.pdf', '.csv', '.json', '.txt', '.md', '.xlsx', '.xls'];
+    const ext = path.extname(filePath).toLowerCase();
+    
+    if (supportedExtensions.includes(ext)) {
+        // Show notification
+        if (Notification.isSupported()) {
+            new Notification({
+                title: 'New File Detected',
+                body: `File created: ${path.basename(filePath)}`,
+                icon: path.join(__dirname, 'assets', 'app-icon.png')
+            }).show();
+        }
+        
+        // You can add additional logic here, such as:
+        // - Auto-import the file
+        // - Add to recent files
+        // - Update the UI
+    }
+}
+
+// Handle file changed event
+function handleFileChanged(filePath) {
+    console.log('File changed:', filePath);
+    
+    // You can add logic here to handle file modifications
+    // For example, auto-refresh if the file is currently open
+}
+
+// Handle file deleted event
+function handleFileDeleted(filePath) {
+    console.log('File deleted:', filePath);
+    
+    // You can add logic here to handle file deletions
+    // For example, remove from recent files if it was there
+}
+
+// Notify all windows about file changes
+function notifyWindowsOfFileChange(eventType, filePath) {
+    openWindows.forEach((window) => {
+        if (window && !window.isDestroyed()) {
+            window.webContents.send('file-watcher-event', {
+                eventType,
+                filePath,
+                fileName: path.basename(filePath)
+            });
+        }
+    });
+}
 
 // Initialize backend spawner
 function initializeBackend() {
@@ -371,6 +541,7 @@ function createTray() {
 
 // File handling variables
 let pendingFiles = []; // Store files that were opened before app was ready
+let pendingUrls = []; // Store URLs that were opened before app was ready
 let isAppReady = false;
 
 // Function to open PDF file in a new window
@@ -445,6 +616,367 @@ function processPendingFiles() {
     }
 }
 
+// Function to process pending URLs
+function processPendingUrls() {
+    if (pendingUrls.length > 0) {
+        console.log('Processing pending URLs:', pendingUrls);
+        pendingUrls.forEach(url => {
+            handleDeepLink(url);
+        });
+        pendingUrls = [];
+    }
+}
+
+// Function to parse and handle deep links
+function handleDeepLink(url) {
+    try {
+        console.log('Handling deep link:', url);
+        
+        // Parse the URL
+        const urlObj = new URL(url);
+        
+        // Check if it's our custom scheme
+        if (urlObj.protocol !== 'researchnotebook:') {
+            console.warn('Invalid protocol for deep link:', urlObj.protocol);
+            return;
+        }
+        
+        // Parse the path to determine the entity type and ID
+        const pathParts = urlObj.pathname.split('/').filter(part => part.length > 0);
+        
+        if (pathParts.length === 0) {
+            console.warn('No entity type specified in deep link');
+            return;
+        }
+        
+        const entityType = pathParts[0].toLowerCase();
+        const entityId = pathParts[1];
+        const queryParams = Object.fromEntries(urlObj.searchParams.entries());
+        
+        console.log('Deep link parsed:', {
+            entityType,
+            entityId,
+            queryParams
+        });
+        
+        // Handle different entity types
+        switch (entityType) {
+            case 'note':
+                openNote(entityId, queryParams);
+                break;
+            case 'project':
+                openProject(entityId, queryParams);
+                break;
+            case 'pdf':
+                openPDFFromDeepLink(entityId, queryParams);
+                break;
+            case 'protocol':
+                openProtocol(entityId, queryParams);
+                break;
+            case 'recipe':
+                openRecipe(entityId, queryParams);
+                break;
+            case 'task':
+                openTask(entityId, queryParams);
+                break;
+            case 'search':
+                openSearch(queryParams);
+                break;
+            case 'dashboard':
+                openDashboard(queryParams);
+                break;
+            default:
+                console.warn('Unknown entity type:', entityType);
+                // Open main window with the entity as a parameter
+                openMainWindowWithEntity(entityType, entityId, queryParams);
+        }
+        
+    } catch (error) {
+        console.error('Error handling deep link:', error);
+    }
+}
+
+// Function to open a note
+function openNote(noteId, params = {}) {
+    console.log('Opening note:', noteId, params);
+    
+    const noteWindow = createNewWindow({
+        id: `note_${noteId}_${Date.now()}`,
+        title: `Research Notebook - Note`,
+        width: 1000,
+        height: 700,
+        minWidth: 800,
+        minHeight: 600,
+        route: '/notes',
+        params: {
+            windowType: 'note-editor',
+            noteId: noteId,
+            mode: params.mode || 'edit',
+            section: params.section || 'content',
+            ...params
+        },
+        modal: false,
+        resizable: true,
+        maximizable: true,
+        minimizable: true,
+        closable: true,
+        alwaysOnTop: false,
+        skipTaskbar: false
+    });
+    
+    return noteWindow;
+}
+
+// Function to open a project
+function openProject(projectId, params = {}) {
+    console.log('Opening project:', projectId, params);
+    
+    const projectWindow = createNewWindow({
+        id: `project_${projectId}_${Date.now()}`,
+        title: `Research Notebook - Project`,
+        width: 1200,
+        height: 800,
+        minWidth: 1000,
+        minHeight: 700,
+        route: '/projects',
+        params: {
+            windowType: 'project-dashboard',
+            projectId: projectId,
+            view: params.view || 'overview',
+            tab: params.tab || 'details',
+            ...params
+        },
+        modal: false,
+        resizable: true,
+        maximizable: true,
+        minimizable: true,
+        closable: true,
+        alwaysOnTop: false,
+        skipTaskbar: false
+    });
+    
+    return projectWindow;
+}
+
+// Function to open PDF from deep link
+function openPDFFromDeepLink(pdfId, params = {}) {
+    console.log('Opening PDF from deep link:', pdfId, params);
+    
+    // If pdfId is a file path, open it directly
+    if (pdfId && pdfId.includes('/') || pdfId.includes('\\')) {
+        openPDFFile(pdfId);
+        return;
+    }
+    
+    // Otherwise, open PDF viewer with the ID
+    const pdfWindow = createNewWindow({
+        id: `pdf_${pdfId}_${Date.now()}`,
+        title: `Research Notebook - PDF Viewer`,
+        width: 1200,
+        height: 800,
+        minWidth: 800,
+        minHeight: 600,
+        route: '/pdf-viewer',
+        params: {
+            windowType: 'pdf-viewer',
+            pdfId: pdfId,
+            page: params.page || 1,
+            zoom: params.zoom || 1.0,
+            ...params
+        },
+        modal: false,
+        resizable: true,
+        maximizable: true,
+        minimizable: true,
+        closable: true,
+        alwaysOnTop: false,
+        skipTaskbar: false
+    });
+    
+    return pdfWindow;
+}
+
+// Function to open a protocol
+function openProtocol(protocolId, params = {}) {
+    console.log('Opening protocol:', protocolId, params);
+    
+    const protocolWindow = createNewWindow({
+        id: `protocol_${protocolId}_${Date.now()}`,
+        title: `Research Notebook - Protocol`,
+        width: 1200,
+        height: 800,
+        minWidth: 1000,
+        minHeight: 700,
+        route: '/protocols',
+        params: {
+            windowType: 'protocol-viewer',
+            protocolId: protocolId,
+            step: params.step || 1,
+            mode: params.mode || 'view',
+            ...params
+        },
+        modal: false,
+        resizable: true,
+        maximizable: true,
+        minimizable: true,
+        closable: true,
+        alwaysOnTop: false,
+        skipTaskbar: false
+    });
+    
+    return protocolWindow;
+}
+
+// Function to open a recipe
+function openRecipe(recipeId, params = {}) {
+    console.log('Opening recipe:', recipeId, params);
+    
+    const recipeWindow = createNewWindow({
+        id: `recipe_${recipeId}_${Date.now()}`,
+        title: `Research Notebook - Recipe`,
+        width: 1200,
+        height: 800,
+        minWidth: 1000,
+        minHeight: 700,
+        route: '/recipes',
+        params: {
+            windowType: 'recipe-viewer',
+            recipeId: recipeId,
+            step: params.step || 1,
+            mode: params.mode || 'view',
+            ...params
+        },
+        modal: false,
+        resizable: true,
+        maximizable: true,
+        minimizable: true,
+        closable: true,
+        alwaysOnTop: false,
+        skipTaskbar: false
+    });
+    
+    return recipeWindow;
+}
+
+// Function to open a task
+function openTask(taskId, params = {}) {
+    console.log('Opening task:', taskId, params);
+    
+    const taskWindow = createNewWindow({
+        id: `task_${taskId}_${Date.now()}`,
+        title: `Research Notebook - Task`,
+        width: 1000,
+        height: 700,
+        minWidth: 800,
+        minHeight: 600,
+        route: '/tasks',
+        params: {
+            windowType: 'task-editor',
+            taskId: taskId,
+            mode: params.mode || 'edit',
+            ...params
+        },
+        modal: false,
+        resizable: true,
+        maximizable: true,
+        minimizable: true,
+        closable: true,
+        alwaysOnTop: false,
+        skipTaskbar: false
+    });
+    
+    return taskWindow;
+}
+
+// Function to open search
+function openSearch(params = {}) {
+    console.log('Opening search with params:', params);
+    
+    const searchWindow = createNewWindow({
+        id: `search_${Date.now()}`,
+        title: `Research Notebook - Search`,
+        width: 1000,
+        height: 700,
+        minWidth: 800,
+        minHeight: 600,
+        route: '/search',
+        params: {
+            windowType: 'search',
+            query: params.q || params.query || '',
+            type: params.type || 'all',
+            filters: params.filters || {},
+            ...params
+        },
+        modal: false,
+        resizable: true,
+        maximizable: true,
+        minimizable: true,
+        closable: true,
+        alwaysOnTop: false,
+        skipTaskbar: false
+    });
+    
+    return searchWindow;
+}
+
+// Function to open dashboard
+function openDashboard(params = {}) {
+    console.log('Opening dashboard with params:', params);
+    
+    const dashboardWindow = createNewWindow({
+        id: `dashboard_${Date.now()}`,
+        title: `Research Notebook - Dashboard`,
+        width: 1400,
+        height: 900,
+        minWidth: 1200,
+        minHeight: 800,
+        route: '/dashboard',
+        params: {
+            windowType: 'dashboard',
+            view: params.view || 'overview',
+            filters: params.filters || {},
+            ...params
+        },
+        modal: false,
+        resizable: true,
+        maximizable: true,
+        minimizable: true,
+        closable: true,
+        alwaysOnTop: false,
+        skipTaskbar: false
+    });
+    
+    return dashboardWindow;
+}
+
+// Function to open main window with entity
+function openMainWindowWithEntity(entityType, entityId, params = {}) {
+    console.log('Opening main window with entity:', entityType, entityId, params);
+    
+    // Focus existing main window or create new one
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.focus();
+        // Send the entity data to the main window
+        mainWindow.webContents.send('deep-link-entity', {
+            entityType,
+            entityId,
+            params
+        });
+    } else {
+        createWindow();
+        // Store the entity data to be sent when window is ready
+        setTimeout(() => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('deep-link-entity', {
+                    entityType,
+                    entityId,
+                    params
+                });
+            }
+        }, 2000);
+    }
+}
+
 // App event handlers
 app.whenReady().then(() => {
     // Register file protocol handler for PDF files
@@ -456,11 +988,51 @@ app.whenReady().then(() => {
         app.setAsDefaultProtocolClient('research-notebook');
     }
 
+    // Register as default PDF handler (macOS)
+    if (process.platform === 'darwin') {
+        app.setAsDefaultProtocolClient('file');
+    }
+
+    // Register custom URL scheme protocol
+    if (process.defaultApp) {
+        if (process.argv.length >= 2) {
+            app.setAsDefaultProtocolClient('researchnotebook', process.execPath, [path.resolve(process.argv[1])]);
+        }
+    } else {
+        app.setAsDefaultProtocolClient('researchnotebook');
+    }
+
     // Handle files opened via protocol (macOS)
     app.on('open-file', (event, filePath) => {
         event.preventDefault();
         console.log('File opened via protocol:', filePath);
         handleFileOpen(filePath);
+    });
+
+    // Handle files opened via file protocol (Windows/Linux)
+    app.on('open-url', (event, url) => {
+        event.preventDefault();
+        console.log('URL opened via protocol:', url);
+        
+        // Handle our custom deep link scheme
+        if (url.startsWith('researchnotebook://')) {
+            if (!isAppReady) {
+                console.log('App not ready, storing URL for later:', url);
+                pendingUrls.push(url);
+                return;
+            }
+            console.log('App ready, handling deep link:', url);
+            handleDeepLink(url);
+            return;
+        }
+        
+        // Handle file:// URLs
+        if (url.startsWith('file://')) {
+            const filePath = decodeURIComponent(url.replace('file://', ''));
+            if (filePath.toLowerCase().endsWith('.pdf')) {
+                handleFileOpen(filePath);
+            }
+        }
     });
 
     // Handle files opened via command line arguments (Windows/Linux)
@@ -478,14 +1050,18 @@ app.whenReady().then(() => {
     // Initialize backend server first
     initializeBackend();
 
+    // Initialize file watcher
+    initializeFileWatcher();
+
     // Wait a moment for backend to start, then create window and tray
     setTimeout(() => {
         createWindow();
         createTray();
         
-        // Mark app as ready and process any pending files
+        // Mark app as ready and process any pending files and URLs
         isAppReady = true;
         processPendingFiles();
+        processPendingUrls();
     }, 3000);
 
     app.on('activate', () => {
@@ -519,6 +1095,18 @@ app.whenReady().then(() => {
                 console.log('Files from second instance:', filesFromSecondInstance);
                 filesFromSecondInstance.forEach(filePath => {
                     openPDFFile(filePath);
+                });
+            }
+
+            // Check for deep links in command line arguments
+            const deepLinksFromSecondInstance = commandLine.slice(1).filter(arg => 
+                arg.startsWith('researchnotebook://')
+            );
+            
+            if (deepLinksFromSecondInstance.length > 0) {
+                console.log('Deep links from second instance:', deepLinksFromSecondInstance);
+                deepLinksFromSecondInstance.forEach(url => {
+                    handleDeepLink(url);
                 });
             }
         });
@@ -653,6 +1241,30 @@ ipcMain.handle('save-file-dialog-with-content', async (event, defaultFileName, c
         }
     }
     return { success: false, canceled: true };
+});
+
+// IPC handler for saving file dialog with content
+ipcMain.handle('save-file-dialog-with-content', async (event, filePath, content) => {
+    try {
+        // Write content to the specified file path
+        if (typeof content === 'string') {
+            fs.writeFileSync(filePath, content, 'utf8');
+        } else if (content instanceof Buffer) {
+            fs.writeFileSync(filePath, content);
+        } else if (content instanceof Blob) {
+            // Convert blob to buffer and write
+            const arrayBuffer = await content.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            fs.writeFileSync(filePath, buffer);
+        } else {
+            throw new Error('Unsupported content type');
+        }
+        
+        return { success: true, filePath };
+    } catch (error) {
+        console.error('Error saving file with content:', error);
+        return { success: false, error: error.message };
+    }
 });
 
 // Local settings management
@@ -1056,6 +1668,226 @@ ipcMain.handle('register-file-associations', async () => {
         return { success: true };
     } catch (error) {
         console.error('Error registering file associations:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// IPC handler for creating deep links
+ipcMain.handle('create-deep-link', async (event, entityType, entityId, params = {}) => {
+    try {
+        const url = new URL(`researchnotebook://${entityType}/${entityId}`);
+        
+        // Add query parameters
+        Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+                url.searchParams.set(key, value.toString());
+            }
+        });
+        
+        const deepLink = url.toString();
+        console.log('Created deep link:', deepLink);
+        
+        return { success: true, deepLink };
+    } catch (error) {
+        console.error('Error creating deep link:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// IPC handler for opening deep links programmatically
+ipcMain.handle('open-deep-link', async (event, url) => {
+    try {
+        if (!url.startsWith('researchnotebook://')) {
+            throw new Error('Invalid deep link URL');
+        }
+        
+        handleDeepLink(url);
+        return { success: true };
+    } catch (error) {
+        console.error('Error opening deep link:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// IPC handler for getting current window context for deep linking
+ipcMain.handle('get-deep-link-context', async (event) => {
+    try {
+        const sender = event.sender;
+        // Find the window that sent this request
+        for (const [id, window] of openWindows.entries()) {
+            if (window.webContents === sender) {
+                return {
+                    success: true,
+                    windowId: id,
+                    route: window.route || '/',
+                    params: window.params || {},
+                    canCreateDeepLink: true
+                };
+            }
+        }
+        return { success: false, error: 'Window context not found' };
+    } catch (error) {
+        console.error('Error getting deep link context:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// File Watcher IPC Handlers
+
+// Get file watcher status
+ipcMain.handle('file-watcher:get-status', async () => {
+    try {
+        return {
+            success: true,
+            enabled: isFileWatcherEnabled,
+            folderPath: watchedFolderPath,
+            isWatching: fileWatcher !== null
+        };
+    } catch (error) {
+        console.error('Error getting file watcher status:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Enable/disable file watcher
+ipcMain.handle('file-watcher:set-enabled', async (event, enabled) => {
+    try {
+        isFileWatcherEnabled = enabled;
+        
+        if (enabled && watchedFolderPath) {
+            const success = startFileWatcher(watchedFolderPath);
+            if (!success) {
+                isFileWatcherEnabled = false;
+                return { success: false, error: 'Failed to start file watcher' };
+            }
+        } else if (!enabled) {
+            stopFileWatcher();
+        }
+        
+        saveFileWatcherSettings();
+        
+        return {
+            success: true,
+            enabled: isFileWatcherEnabled,
+            folderPath: watchedFolderPath
+        };
+    } catch (error) {
+        console.error('Error setting file watcher enabled:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Set watched folder
+ipcMain.handle('file-watcher:set-folder', async (event, folderPath) => {
+    try {
+        if (!folderPath) {
+            stopFileWatcher();
+            watchedFolderPath = null;
+            saveFileWatcherSettings();
+            return { success: true, enabled: false, folderPath: null };
+        }
+        
+        // Validate folder path
+        if (!fs.existsSync(folderPath)) {
+            return { success: false, error: 'Folder does not exist' };
+        }
+        
+        const stats = fs.statSync(folderPath);
+        if (!stats.isDirectory()) {
+            return { success: false, error: 'Path is not a directory' };
+        }
+        
+        watchedFolderPath = folderPath;
+        
+        // Start watcher if enabled
+        if (isFileWatcherEnabled) {
+            const success = startFileWatcher(folderPath);
+            if (!success) {
+                return { success: false, error: 'Failed to start file watcher' };
+            }
+        }
+        
+        saveFileWatcherSettings();
+        
+        return {
+            success: true,
+            enabled: isFileWatcherEnabled,
+            folderPath: watchedFolderPath
+        };
+    } catch (error) {
+        console.error('Error setting file watcher folder:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Select folder dialog
+ipcMain.handle('file-watcher:select-folder', async () => {
+    try {
+        const result = await dialog.showOpenDialog({
+            properties: ['openDirectory'],
+            title: 'Select Folder to Watch'
+        });
+        
+        if (!result.canceled && result.filePaths.length > 0) {
+            const folderPath = result.filePaths[0];
+            return { success: true, folderPath };
+        } else {
+            return { success: false, error: 'No folder selected' };
+        }
+    } catch (error) {
+        console.error('Error selecting folder:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Get supported file types
+ipcMain.handle('file-watcher:get-supported-types', async () => {
+    try {
+        const supportedTypes = [
+            { extension: '.pdf', name: 'PDF Documents', mimeType: 'application/pdf' },
+            { extension: '.csv', name: 'CSV Files', mimeType: 'text/csv' },
+            { extension: '.json', name: 'JSON Files', mimeType: 'application/json' },
+            { extension: '.txt', name: 'Text Files', mimeType: 'text/plain' },
+            { extension: '.md', name: 'Markdown Files', mimeType: 'text/markdown' },
+            { extension: '.xlsx', name: 'Excel Files', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+            { extension: '.xls', name: 'Excel Files (Legacy)', mimeType: 'application/vnd.ms-excel' }
+        ];
+        
+        return { success: true, supportedTypes };
+    } catch (error) {
+        console.error('Error getting supported file types:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Test file watcher
+ipcMain.handle('file-watcher:test', async () => {
+    try {
+        if (!isFileWatcherEnabled || !watchedFolderPath) {
+            return { success: false, error: 'File watcher is not enabled or no folder is set' };
+        }
+        
+        // Create a test file to verify watcher is working
+        const testFileName = `test-${Date.now()}.txt`;
+        const testFilePath = path.join(watchedFolderPath, testFileName);
+        const testContent = `Test file created at ${new Date().toISOString()}`;
+        
+        fs.writeFileSync(testFilePath, testContent);
+        
+        // Remove the test file after a short delay
+        setTimeout(() => {
+            try {
+                if (fs.existsSync(testFilePath)) {
+                    fs.unlinkSync(testFilePath);
+                }
+            } catch (error) {
+                console.warn('Failed to remove test file:', error);
+            }
+        }, 2000);
+        
+        return { success: true, message: 'Test file created successfully' };
+    } catch (error) {
+        console.error('Error testing file watcher:', error);
         return { success: false, error: error.message };
     }
 }); 

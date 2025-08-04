@@ -5,6 +5,7 @@ import axios from 'axios';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { zoteroSyncService, ZoteroConfig } from '../services/zoteroSyncService';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -19,7 +20,11 @@ router.get('/', async (req, res) => {
                 items: 'GET /items',
                 collections: 'GET /collections',
                 import: 'POST /import',
-                search: 'GET /search'
+                search: 'GET /search',
+                sync: 'POST /sync',
+                syncStatus: 'GET /sync/status',
+                backgroundSync: 'POST /sync/background',
+                backgroundSyncStatus: 'GET /sync/background/status'
             }
         });
     } catch (error) {
@@ -63,6 +68,11 @@ const zoteroConfigSchema = z.object({
     groupId: z.string().optional(),
 });
 
+const backgroundSyncSchema = z.object({
+    enabled: z.boolean(),
+    intervalMinutes: z.number().min(1).max(1440), // 1 minute to 24 hours
+});
+
 const importItemSchema = z.object({
     zoteroKey: z.string().min(1),
     title: z.string().min(1),
@@ -76,12 +86,7 @@ const importItemSchema = z.object({
 });
 
 // Zotero API configuration
-let zoteroConfig: {
-    apiKey: string;
-    userId: string;
-    groupId?: string;
-    baseUrl: string;
-} | null = null;
+let zoteroConfig: ZoteroConfig | null = null;
 
 // Configure Zotero API
 router.post('/config', async (req, res) => {
@@ -93,6 +98,9 @@ router.post('/config', async (req, res) => {
             baseUrl: 'https://api.zotero.org'
         };
 
+        // Update the sync service configuration
+        zoteroSyncService.setConfig(zoteroConfig);
+
         // Test the configuration
         const testUrl = `${zoteroConfig.baseUrl}/users/${zoteroConfig.userId}/items?limit=1`;
         const response = await axios.get(testUrl, {
@@ -103,55 +111,53 @@ router.post('/config', async (req, res) => {
         });
 
         res.json({
-            message: 'Zotero configuration successful',
-            itemsCount: response.headers['total-results'] || 0
+            message: 'Zotero configuration saved successfully',
+            config: {
+                userId: zoteroConfig.userId,
+                hasGroupId: !!zoteroConfig.groupId,
+                testSuccessful: true
+            }
         });
     } catch (error) {
-        if (error instanceof z.ZodError) {
-            return res.status(400).json({ error: 'Validation error', details: error.errors });
-        }
         console.error('Error configuring Zotero:', error);
-        res.status(500).json({ error: 'Failed to configure Zotero API' });
+        res.status(500).json({ error: 'Failed to configure Zotero' });
     }
 });
 
-// Get Zotero library items
+// Get Zotero items
 router.get('/items', async (req, res) => {
     try {
         if (!zoteroConfig) {
             return res.status(400).json({ error: 'Zotero not configured' });
         }
 
-        const { limit = '50', start = '0', itemType = 'journalArticle' } = req.query;
+        const { limit = 50, offset = 0, collection } = req.query;
+        let url = `${zoteroConfig.baseUrl}/users/${zoteroConfig.userId}/items`;
 
-        const url = `${zoteroConfig.baseUrl}/users/${zoteroConfig.userId}/items`;
-        const params = new URLSearchParams({
-            limit: limit as string,
-            start: start as string,
-            itemType: itemType as string,
-            format: 'json'
-        });
+        if (collection) {
+            url = `${zoteroConfig.baseUrl}/users/${zoteroConfig.userId}/collections/${collection}/items`;
+        }
 
-        const response = await axios.get(`${url}?${params}`, {
+        const response = await axios.get(url, {
             headers: {
                 'Zotero-API-Key': zoteroConfig.apiKey,
                 'Zotero-API-Version': '3'
+            },
+            params: {
+                limit,
+                start: offset,
+                format: 'json'
             }
         });
 
-        res.json({
-            items: response.data,
-            total: response.headers['total-results'] || 0,
-            start: parseInt(start as string),
-            limit: parseInt(limit as string)
-        });
+        res.json(response.data);
     } catch (error) {
         console.error('Error fetching Zotero items:', error);
         res.status(500).json({ error: 'Failed to fetch Zotero items' });
     }
 });
 
-// Get a specific Zotero item
+// Get specific Zotero item
 router.get('/items/:key', async (req, res) => {
     try {
         if (!zoteroConfig) {
@@ -159,7 +165,6 @@ router.get('/items/:key', async (req, res) => {
         }
 
         const { key } = req.params;
-
         const url = `${zoteroConfig.baseUrl}/users/${zoteroConfig.userId}/items/${key}`;
         const response = await axios.get(url, {
             headers: {
@@ -175,26 +180,19 @@ router.get('/items/:key', async (req, res) => {
     }
 });
 
-// Import Zotero item as PDF with metadata
+// Import PDF with Zotero metadata
 router.post('/import', upload.single('pdf'), async (req, res) => {
     try {
         if (!req.file) {
-            return res.status(400).json({ error: 'No PDF file uploaded' });
+            return res.status(400).json({ error: 'No PDF file provided' });
         }
 
         const validatedData = importItemSchema.parse(req.body);
 
-        // Create PDF entry
-        const pdf = await prisma.pDF.create({
-            data: {
-                title: validatedData.title,
-                filePath: req.file.path,
-            }
-        });
-
-        // Create database entry for the reference
+        // Create database entry
         const properties = JSON.stringify({
             zoteroKey: validatedData.zoteroKey,
+            title: validatedData.title,
             authors: validatedData.authors || [],
             abstract: validatedData.abstract,
             publicationYear: validatedData.publicationYear,
@@ -206,7 +204,7 @@ router.post('/import', upload.single('pdf'), async (req, res) => {
             importedAt: new Date().toISOString()
         });
 
-        const databaseEntry = await prisma.databaseEntry.create({
+        const entry = await prisma.databaseEntry.create({
             data: {
                 type: 'REFERENCE',
                 name: validatedData.title,
@@ -215,31 +213,32 @@ router.post('/import', upload.single('pdf'), async (req, res) => {
             }
         });
 
-        // Create link between PDF and reference
-        await prisma.link.create({
+        // Create PDF entry
+        const pdf = await prisma.pDF.create({
             data: {
-                sourceType: 'databaseEntry',
-                sourceId: databaseEntry.id,
-                targetType: 'highlight',
-                targetId: pdf.id // Using PDF as target for now
+                title: validatedData.title,
+                fileName: req.file.filename,
+                filePath: req.file.path,
+                fileSize: req.file.size,
+                properties: JSON.stringify({
+                    zoteroKey: validatedData.zoteroKey,
+                    importedFrom: 'zotero'
+                })
             }
         });
 
-        res.status(201).json({
-            pdf,
-            reference: databaseEntry,
-            message: 'Successfully imported from Zotero'
+        res.json({
+            message: 'PDF imported successfully with Zotero metadata',
+            entry,
+            pdf
         });
     } catch (error) {
-        if (error instanceof z.ZodError) {
-            return res.status(400).json({ error: 'Validation error', details: error.errors });
-        }
-        console.error('Error importing from Zotero:', error);
-        res.status(500).json({ error: 'Failed to import from Zotero' });
+        console.error('Error importing PDF:', error);
+        res.status(500).json({ error: 'Failed to import PDF' });
     }
 });
 
-// Search Zotero library
+// Search Zotero items
 router.get('/search/:query', async (req, res) => {
     try {
         if (!zoteroConfig) {
@@ -247,27 +246,22 @@ router.get('/search/:query', async (req, res) => {
         }
 
         const { query } = req.params;
-        const { limit = '20' } = req.query;
+        const { limit = 20 } = req.query;
 
         const url = `${zoteroConfig.baseUrl}/users/${zoteroConfig.userId}/items`;
-        const params = new URLSearchParams({
-            q: query,
-            limit: limit as string,
-            format: 'json'
-        });
-
-        const response = await axios.get(`${url}?${params}`, {
+        const response = await axios.get(url, {
             headers: {
                 'Zotero-API-Key': zoteroConfig.apiKey,
                 'Zotero-API-Version': '3'
+            },
+            params: {
+                q: query,
+                limit,
+                format: 'json'
             }
         });
 
-        res.json({
-            items: response.data,
-            total: response.headers['total-results'] || 0,
-            query
-        });
+        res.json(response.data);
     } catch (error) {
         console.error('Error searching Zotero:', error);
         res.status(500).json({ error: 'Failed to search Zotero' });
@@ -304,27 +298,22 @@ router.get('/collections/:key/items', async (req, res) => {
         }
 
         const { key } = req.params;
-        const { limit = '50', start = '0' } = req.query;
+        const { limit = 50, offset = 0 } = req.query;
 
         const url = `${zoteroConfig.baseUrl}/users/${zoteroConfig.userId}/collections/${key}/items`;
-        const params = new URLSearchParams({
-            limit: limit as string,
-            start: start as string,
-            format: 'json'
-        });
-
-        const response = await axios.get(`${url}?${params}`, {
+        const response = await axios.get(url, {
             headers: {
                 'Zotero-API-Key': zoteroConfig.apiKey,
                 'Zotero-API-Version': '3'
+            },
+            params: {
+                limit,
+                start: offset,
+                format: 'json'
             }
         });
 
-        res.json({
-            items: response.data,
-            total: response.headers['total-results'] || 0,
-            collectionKey: key
-        });
+        res.json(response.data);
     } catch (error) {
         console.error('Error fetching collection items:', error);
         res.status(500).json({ error: 'Failed to fetch collection items' });
@@ -341,7 +330,7 @@ router.post('/sync-highlights/:pdfId', async (req, res) => {
         const { pdfId } = req.params;
         const { zoteroKey } = req.body;
 
-        // Get Zotero item annotations
+        // Get PDF annotations from Zotero
         const url = `${zoteroConfig.baseUrl}/users/${zoteroConfig.userId}/items/${zoteroKey}/children`;
         const response = await axios.get(url, {
             headers: {
@@ -351,16 +340,20 @@ router.post('/sync-highlights/:pdfId', async (req, res) => {
         });
 
         const annotations = response.data.filter((item: any) => item.data.itemType === 'annotation');
-
-        // Create highlights for each annotation
         const highlights = [];
+
         for (const annotation of annotations) {
             const highlight = await prisma.highlight.create({
                 data: {
                     pdfId,
-                    page: annotation.data.pageIndex + 1, // Zotero uses 0-based indexing
-                    text: annotation.data.text || '',
-                    coords: JSON.stringify(annotation.data.rects || [])
+                    page: annotation.data.pageIndex + 1,
+                    text: annotation.data.text,
+                    color: annotation.data.color || '#FFD700',
+                    position: JSON.stringify(annotation.data.position),
+                    properties: JSON.stringify({
+                        zoteroKey: annotation.key,
+                        importedFrom: 'zotero'
+                    })
                 }
             });
             highlights.push(highlight);
@@ -376,75 +369,91 @@ router.post('/sync-highlights/:pdfId', async (req, res) => {
     }
 });
 
-// Sync Zotero library
+// Manual sync Zotero library
 router.post('/sync', async (req, res) => {
     try {
-        if (!zoteroConfig) {
-            return res.status(400).json({ error: 'Zotero not configured' });
-        }
-
-        // Get all items from Zotero
-        const url = `${zoteroConfig.baseUrl}/users/${zoteroConfig.userId}/items`;
-        const response = await axios.get(url, {
-            headers: {
-                'Zotero-API-Key': zoteroConfig.apiKey,
-                'Zotero-API-Version': '3'
-            },
-            params: {
-                limit: 100,
-                format: 'json'
-            }
-        });
-
-        const items = response.data;
-        let syncedCount = 0;
-
-        // Process each item and create database entries if they don't exist
-        for (const item of items) {
-            const existingEntry = await prisma.databaseEntry.findFirst({
-                where: {
-                    properties: {
-                        contains: `"zoteroKey":"${item.key}"`
-                    }
-                }
+        const result = await zoteroSyncService.performSync();
+        
+        if (result.success) {
+            res.json({
+                message: result.message,
+                totalItems: result.totalItems,
+                syncedCount: result.syncedCount,
+                newItems: result.newItems,
+                updatedItems: result.updatedItems,
+                errors: result.errors
             });
-
-            if (!existingEntry) {
-                const properties = JSON.stringify({
-                    zoteroKey: item.key,
-                    title: item.data.title,
-                    authors: item.data.creators?.map((creator: any) => `${creator.firstName} ${creator.lastName}`.trim()) || [],
-                    abstract: item.data.abstractNote,
-                    publicationYear: item.data.date ? new Date(item.data.date).getFullYear() : null,
-                    journal: item.data.publicationTitle,
-                    doi: item.data.DOI,
-                    url: item.data.url,
-                    tags: item.data.tags?.map((tag: any) => tag.tag) || [],
-                    itemType: item.data.itemType,
-                    importedFrom: 'zotero',
-                    importedAt: new Date().toISOString()
-                });
-
-                await prisma.databaseEntry.create({
-                    data: {
-                        type: 'REFERENCE',
-                        name: item.data.title,
-                        description: item.data.abstractNote,
-                        properties
-                    }
-                });
-                syncedCount++;
-            }
+        } else {
+            res.status(400).json({
+                error: result.message,
+                errors: result.errors
+            });
         }
-
-        res.json({
-            message: `Successfully synced ${syncedCount} new items from Zotero`,
-            totalItems: items.length,
-            syncedCount
-        });
     } catch (error) {
         console.error('Error syncing Zotero library:', error);
         res.status(500).json({ error: 'Failed to sync Zotero library' });
+    }
+});
+
+// Get sync status
+router.get('/sync/status', async (req, res) => {
+    try {
+        const config = zoteroSyncService.getConfig();
+        const lastSyncTime = zoteroSyncService.getLastSyncTime();
+        const isSyncing = zoteroSyncService.isSyncInProgress();
+
+        res.json({
+            configured: !!config,
+            lastSyncTime: lastSyncTime?.toISOString(),
+            isSyncing,
+            config: config ? {
+                userId: config.userId,
+                hasGroupId: !!config.groupId
+            } : null
+        });
+    } catch (error) {
+        console.error('Error getting sync status:', error);
+        res.status(500).json({ error: 'Failed to get sync status' });
+    }
+});
+
+// Configure background sync
+router.post('/sync/background', async (req, res) => {
+    try {
+        const validatedData = backgroundSyncSchema.parse(req.body);
+
+        if (validatedData.enabled) {
+            zoteroSyncService.startBackgroundSync(validatedData.intervalMinutes);
+        } else {
+            zoteroSyncService.stopBackgroundSync();
+        }
+
+        res.json({
+            message: validatedData.enabled 
+                ? `Background sync enabled with ${validatedData.intervalMinutes} minute interval`
+                : 'Background sync disabled',
+            enabled: validatedData.enabled,
+            intervalMinutes: validatedData.enabled ? validatedData.intervalMinutes : null
+        });
+    } catch (error) {
+        console.error('Error configuring background sync:', error);
+        res.status(500).json({ error: 'Failed to configure background sync' });
+    }
+});
+
+// Get background sync status
+router.get('/sync/background/status', async (req, res) => {
+    try {
+        const isActive = zoteroSyncService.isBackgroundSyncActive();
+        const interval = zoteroSyncService.getBackgroundSyncInterval();
+
+        res.json({
+            active: isActive,
+            intervalMinutes: interval ? Math.round(interval / (60 * 1000)) : null
+        });
+    } catch (error) {
+        console.error('Error getting background sync status:', error);
+        res.status(500).json({ error: 'Failed to get background sync status' });
     }
 });
 
@@ -478,10 +487,7 @@ router.post('/import-item/:key', async (req, res) => {
         });
 
         if (existingEntry) {
-            return res.status(409).json({
-                error: 'Item already imported',
-                entry: existingEntry
-            });
+            return res.status(400).json({ error: 'Item already imported' });
         }
 
         // Create database entry
@@ -500,7 +506,7 @@ router.post('/import-item/:key', async (req, res) => {
             importedAt: new Date().toISOString()
         });
 
-        const databaseEntry = await prisma.databaseEntry.create({
+        const entry = await prisma.databaseEntry.create({
             data: {
                 type: 'REFERENCE',
                 name: item.data.title,
@@ -509,9 +515,9 @@ router.post('/import-item/:key', async (req, res) => {
             }
         });
 
-        res.status(201).json({
-            message: 'Successfully imported item from Zotero',
-            entry: databaseEntry
+        res.json({
+            message: 'Zotero item imported successfully',
+            entry
         });
     } catch (error) {
         console.error('Error importing Zotero item:', error);

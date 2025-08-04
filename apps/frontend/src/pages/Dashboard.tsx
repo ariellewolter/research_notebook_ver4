@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Add as AddIcon,
@@ -14,11 +14,11 @@ import {
 } from '@mui/icons-material';
 
 // Import our new UI components
-import { Button, Card, Input, PanelLayout } from '../components/UI/index.js';
+import { Button, Card, Input, PanelLayout } from '../components/UI/index';
 import { GridLayout, SinglePanelLayout } from '../components/Layout/Layout';
 
 // Import services
-import { notesApi, projectsApi, pdfsApi, databaseApi } from '../services/api';
+import { notesApi, projectsApi, pdfsApi } from '../services/api';
 import { useWorkspaceTabs } from './WorkspaceTabsContext';
 
 const EnhancedDashboard = () => {
@@ -34,11 +34,8 @@ const EnhancedDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
+  // Memoize the loadDashboardData function to prevent unnecessary recreations
+  const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       // Simulate API calls
@@ -69,13 +66,21 @@ const EnhancedDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadDashboardData();
     setRefreshing(false);
   };
+
+  // Generate unique keys using a counter to avoid duplicates
+  const keyCounter = React.useRef(0);
+  const generateUniqueKey = (prefix: string) => `${prefix}-${Date.now()}-${++keyCounter.current}`;
 
   const StatCard = ({ title, value, icon: Icon, color, trend }: {
     title: string;
@@ -88,35 +93,35 @@ const EnhancedDashboard = () => {
       switch (title.toLowerCase()) {
         case 'notes':
           return {
-            key: `notes-${Date.now()}`,
+            key: generateUniqueKey('notes'),
             title: 'Notes',
             path: '/notes',
             icon: <NoteIcon />
           };
         case 'projects':
           return {
-            key: `projects-${Date.now()}`,
+            key: generateUniqueKey('projects'),
             title: 'Projects',
             path: '/projects',
             icon: <ProjectIcon />
           };
         case 'pdfs':
           return {
-            key: `pdfs-${Date.now()}`,
+            key: generateUniqueKey('pdfs'),
             title: 'PDF Management',
             path: '/pdfs',
             icon: <PdfIcon />
           };
         case 'database entries':
           return {
-            key: `database-${Date.now()}`,
+            key: generateUniqueKey('database'),
             title: 'Database',
             path: '/database',
             icon: <DatabaseIcon />
           };
         default:
           return {
-            key: `dashboard-${Date.now()}`,
+            key: generateUniqueKey('dashboard'),
             title: 'Dashboard',
             path: '/dashboard',
             icon: <NoteIcon />
@@ -129,9 +134,15 @@ const EnhancedDashboard = () => {
         className="hover-lift card-hover interactive cursor-pointer"
         hover
         onClick={() => {
-          const tabData = getTabData();
-          openTab(tabData);
-          navigate(tabData.path);
+          try {
+            const tabData = getTabData();
+            openTab(tabData);
+            navigate(tabData.path);
+          } catch (error) {
+            console.error('Error opening tab:', error);
+            // Fallback to direct navigation if tab opening fails
+            navigate(getTabData().path);
+          }
         }}
       >
         <Card.Content>
@@ -182,49 +193,55 @@ const EnhancedDashboard = () => {
     };
 
     const handleActivityClick = () => {
-      const getTabData = () => {
-        switch (activity.type) {
-          case 'note':
-            return {
-              key: `note-${activity.id}-${Date.now()}`,
-              title: activity.title,
-              path: '/notes',
-              icon: <NoteIcon />
-            };
-          case 'project':
-            return {
-              key: `project-${activity.id}-${Date.now()}`,
-              title: activity.title,
-              path: '/projects',
-              icon: <ProjectIcon />
-            };
-          case 'pdf':
-            return {
-              key: `pdf-${activity.id}-${Date.now()}`,
-              title: activity.title,
-              path: '/pdfs',
-              icon: <PdfIcon />
-            };
-          case 'database':
-            return {
-              key: `database-${activity.id}-${Date.now()}`,
-              title: activity.title,
-              path: '/database',
-              icon: <DatabaseIcon />
-            };
-          default:
-            return {
-              key: `activity-${activity.id}-${Date.now()}`,
-              title: activity.title,
-              path: '/dashboard',
-              icon: <NoteIcon />
-            };
-        }
-      };
+      try {
+        const getTabData = () => {
+          switch (activity.type) {
+            case 'note':
+              return {
+                key: generateUniqueKey(`note-${activity.id}`),
+                title: activity.title,
+                path: '/notes',
+                icon: <NoteIcon />
+              };
+            case 'project':
+              return {
+                key: generateUniqueKey(`project-${activity.id}`),
+                title: activity.title,
+                path: '/projects',
+                icon: <ProjectIcon />
+              };
+            case 'pdf':
+              return {
+                key: generateUniqueKey(`pdf-${activity.id}`),
+                title: activity.title,
+                path: '/pdfs',
+                icon: <PdfIcon />
+              };
+            case 'database':
+              return {
+                key: generateUniqueKey(`database-${activity.id}`),
+                title: activity.title,
+                path: '/database',
+                icon: <DatabaseIcon />
+              };
+            default:
+              return {
+                key: generateUniqueKey(`activity-${activity.id}`),
+                title: activity.title,
+                path: '/dashboard',
+                icon: <NoteIcon />
+              };
+          }
+        };
 
-      const tabData = getTabData();
-      openTab(tabData);
-      navigate(tabData.path);
+        const tabData = getTabData();
+        openTab(tabData);
+        navigate(tabData.path);
+      } catch (error) {
+        console.error('Error handling activity click:', error);
+        // Fallback to direct navigation if tab opening fails
+        navigate('/dashboard');
+      }
     };
 
     return (
@@ -260,7 +277,7 @@ const EnhancedDashboard = () => {
             className="flex flex-col items-center gap-2 h-20 button-enhanced hover-grow"
             onClick={() => {
               openTab({
-                key: `notes-new-${Date.now()}`,
+                key: generateUniqueKey('notes-new'),
                 title: 'New Note',
                 path: '/notes/new',
                 icon: <NoteIcon />
@@ -276,7 +293,7 @@ const EnhancedDashboard = () => {
             className="flex flex-col items-center gap-2 h-20 button-enhanced hover-grow"
             onClick={() => {
               openTab({
-                key: `projects-new-${Date.now()}`,
+                key: generateUniqueKey('projects-new'),
                 title: 'New Project',
                 path: '/projects/new',
                 icon: <ProjectIcon />
@@ -292,7 +309,7 @@ const EnhancedDashboard = () => {
             className="flex flex-col items-center gap-2 h-20 button-enhanced hover-grow"
             onClick={() => {
               openTab({
-                key: `pdfs-${Date.now()}`,
+                key: generateUniqueKey('pdfs-new'),
                 title: 'PDF Management',
                 path: '/pdfs',
                 icon: <PdfIcon />
@@ -308,7 +325,7 @@ const EnhancedDashboard = () => {
             className="flex flex-col items-center gap-2 h-20 button-enhanced hover-grow"
             onClick={() => {
               openTab({
-                key: `database-${Date.now()}`,
+                key: generateUniqueKey('database-new'),
                 title: 'Database',
                 path: '/database',
                 icon: <DatabaseIcon />
@@ -363,7 +380,7 @@ const EnhancedDashboard = () => {
             className="flex items-center gap-3 p-2 rounded border-l-4 border-red-400 bg-red-50 hover:bg-red-100 transition-colors duration-200 cursor-pointer"
             onClick={() => {
               openTab({
-                key: `task-lab-meeting-${Date.now()}`,
+                key: generateUniqueKey('task-lab-meeting'),
                 title: 'Lab Meeting',
                 path: '/tasks',
                 icon: <CalendarIcon />
@@ -381,7 +398,7 @@ const EnhancedDashboard = () => {
             className="flex items-center gap-3 p-2 rounded border-l-4 border-yellow-400 bg-yellow-50 hover:bg-yellow-100 transition-colors duration-200 cursor-pointer"
             onClick={() => {
               openTab({
-                key: `task-experiment-review-${Date.now()}`,
+                key: generateUniqueKey('task-experiment-review'),
                 title: 'Experiment Review',
                 path: '/tasks',
                 icon: <TimelineIcon />
@@ -399,7 +416,7 @@ const EnhancedDashboard = () => {
             className="flex items-center gap-3 p-2 rounded border-l-4 border-blue-400 bg-blue-50 hover:bg-blue-100 transition-colors duration-200 cursor-pointer"
             onClick={() => {
               openTab({
-                key: `task-data-analysis-${Date.now()}`,
+                key: generateUniqueKey('task-data-analysis'),
                 title: 'Data Analysis',
                 path: '/tasks',
                 icon: <AnalyticsIcon />

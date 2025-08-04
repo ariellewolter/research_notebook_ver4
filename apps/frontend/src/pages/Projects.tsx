@@ -34,6 +34,7 @@ import {
     InputLabel,
     Select,
     MenuItem,
+    Stack,
 } from '@mui/material';
 import {
     Science as ScienceIcon,
@@ -42,12 +43,16 @@ import {
     Delete as DeleteIcon,
     ExpandMore as ExpandMoreIcon,
     Biotech as ExperimentIcon,
+    CloudUpload as ImportIcon,
+    Download as DownloadIcon,
 } from '@mui/icons-material';
 import { projectsApi } from '../services/api';
 import ColorLegend from '../components/Legend/ColorLegend';
 import { useThemePalette } from '../services/ThemePaletteContext';
 import { NOTE_TYPE_TO_PALETTE_ROLE } from '../services/colorPalettes';
 import ImportExportDialog from '../components/ImportExportDialog';
+import ExportModal, { ExportData } from '../components/ExportModal';
+import { exportService, ExportOptions } from '../services/exportService';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -56,6 +61,7 @@ import { linksApi, notesApi, protocolsApi, recipesApi, pdfsApi } from '../servic
 import Autocomplete from '@mui/material/Autocomplete';
 import UniversalLinking from '../components/UniversalLinking/UniversalLinking';
 import LinkRenderer from '../components/UniversalLinking/LinkRenderer';
+import { ZoteroItem } from '../types/zotero';
 
 // Update Project interface
 type ProjectStatus = 'active' | 'archived' | 'future';
@@ -180,6 +186,9 @@ const Projects: React.FC = () => {
 
     // Add state for import/export dialog
     const [importExportOpen, setImportExportOpen] = useState(false);
+    const [openImportDialog, setOpenImportDialog] = useState(false);
+    const [openExportModal, setOpenExportModal] = useState(false);
+    const [selectedImportItems, setSelectedImportItems] = useState<ZoteroItem[]>([]);
 
     // Add state for linked entities
     const [linkedNotes, setLinkedNotes] = useState<any[]>([]);
@@ -525,30 +534,55 @@ const Projects: React.FC = () => {
         setSnackbar({ open: true, message: 'Import successful!', severity: 'success' });
     };
     const handleExport = (format: 'csv' | 'json' | 'xlsx') => {
-        const exportData = projects.map(p => ({
-            name: p.name,
-            description: p.description,
-            status: p.status,
-            startDate: p.startDate,
-            lastActivity: p.lastActivity,
-            createdAt: p.createdAt,
+        const data = projects.map(project => ({
+            name: project.name,
+            description: project.description,
+            status: project.status,
+            startDate: project.startDate,
+            lastActivity: project.lastActivity,
+            createdAt: project.createdAt
         }));
-        if (format === 'json') {
-            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-            saveAs(blob, 'projects.json');
-        } else if (format === 'csv') {
-            const csv = Papa.unparse(exportData);
-            const blob = new Blob([csv], { type: 'text/csv' });
-            saveAs(blob, 'projects.csv');
+
+        if (format === 'csv') {
+            const csv = Papa.unparse(data);
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            saveAs(blob, `projects_export_${new Date().toISOString().split('T')[0]}.csv`);
+        } else if (format === 'json') {
+            const json = JSON.stringify(data, null, 2);
+            const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+            saveAs(blob, `projects_export_${new Date().toISOString().split('T')[0]}.json`);
         } else if (format === 'xlsx') {
-            const ws = XLSX.utils.json_to_sheet(exportData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Projects');
-            const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-            const blob = new Blob([wbout], { type: 'application/octet-stream' });
-            saveAs(blob, 'projects.xlsx');
+            const worksheet = XLSX.utils.json_to_sheet(data);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Projects');
+            const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            saveAs(blob, `projects_export_${new Date().toISOString().split('T')[0]}.xlsx`);
         }
-        setSnackbar({ open: true, message: `Exported as ${format.toUpperCase()}`, severity: 'success' });
+    };
+
+    const handleExportWithModal = async (format: string, options: string[], filename?: string) => {
+        try {
+            // Prepare export data
+            const exportData: ExportData = {
+                projects: projects,
+                experiments: projects.flatMap(project => project.experiments || [])
+            };
+
+            // Prepare export options
+            const exportOptions: ExportOptions = {
+                includeMetadata: options.includes('includeMetadata'),
+                includeRelationships: options.includes('includeRelationships'),
+                includeNotes: options.includes('includeNotes'),
+                includeFiles: options.includes('includeFiles')
+            };
+
+            // Perform export
+            await exportService.exportData(format, exportData, exportOptions, filename || 'projects_export');
+        } catch (error) {
+            console.error('Export failed:', error);
+            throw error;
+        }
     };
 
     const handleLinkNote = async (noteId: string) => {
@@ -867,14 +901,29 @@ const Projects: React.FC = () => {
             <ColorLegend types={['project', 'experiment']} />
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                 <Typography variant="h4">Projects</Typography>
-                <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={() => handleOpenProjectDialog()}
-                >
-                    New Project
-                </Button>
-                <Button variant="outlined" sx={{ mr: 1 }} onClick={() => setImportExportOpen(true)}>Import/Export</Button>
+                <Stack direction="row" spacing={1}>
+                    <Button
+                        variant="outlined"
+                        startIcon={<ImportIcon />}
+                        onClick={() => setOpenImportDialog(true)}
+                    >
+                        Import
+                    </Button>
+                    <Button
+                        variant="outlined"
+                        startIcon={<DownloadIcon />}
+                        onClick={() => setOpenExportModal(true)}
+                    >
+                        Export
+                    </Button>
+                    <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={() => handleOpenProjectDialog()}
+                    >
+                        New Project
+                    </Button>
+                </Stack>
             </Box>
 
             {error && (
@@ -1352,11 +1401,28 @@ const Projects: React.FC = () => {
             <ImportExportDialog
                 open={importExportOpen}
                 onClose={() => setImportExportOpen(false)}
-                entityType="Project"
-                fields={PROJECT_FIELDS}
+                entityType="projects"
+                fields={[
+                    { key: 'name', label: 'Name' },
+                    { key: 'description', label: 'Description' },
+                    { key: 'status', label: 'Status' },
+                    { key: 'startDate', label: 'Start Date' }
+                ]}
                 onImport={handleImport}
                 onExport={handleExport}
                 data={projects}
+            />
+
+            {/* Export Modal */}
+            <ExportModal
+                open={openExportModal}
+                onClose={() => setOpenExportModal(false)}
+                title="Projects"
+                data={{
+                    projects: projects,
+                    experiments: projects.flatMap(project => project.experiments || [])
+                }}
+                onExport={handleExportWithModal}
             />
         </Box >
     );

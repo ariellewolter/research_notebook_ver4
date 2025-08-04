@@ -71,6 +71,7 @@ import {
 import { zoteroApi } from '../services/api';
 import ZoteroDragDrop from '../components/Zotero/ZoteroDragDrop';
 import CSLSupport from '../components/Zotero/CSLSupport';
+import ZoteroSyncSettings from '../components/Zotero/ZoteroSyncSettings';
 
 interface ZoteroItem {
     id: string;
@@ -522,15 +523,20 @@ const ZoteroPage: React.FC = () => {
                                         {stats.syncedItems}
                                     </Typography>
                                     <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                                        With PDFs
+                                        Synced Items
                                     </Typography>
                                 </Box>
-                                <PdfIcon sx={{ fontSize: 40, opacity: 0.8 }} />
+                                <SyncIcon sx={{ fontSize: 40, opacity: 0.8 }} />
                             </Box>
                         </CardContent>
                     </Card>
                 </Grid>
             </Grid>
+
+            {/* Sync Settings */}
+            <Box sx={{ mb: 4 }}>
+                <ZoteroSyncSettings />
+            </Box>
 
             {/* Tabs */}
             <Paper sx={{ mb: 3 }}>

@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Fixed
+- **AutomationNotificationsPanel Component Bugs**: Fixed 5 critical bugs in the AutomationNotificationsPanel.tsx component
+  - Fixed type mismatch in `clearEventsByCategory` function by replacing `any` type with proper TypeScript typing
+  - Added proper error handling and user feedback for retry operations instead of console-only logging
+  - Resolved race condition in useEffect initialization order to prevent state conflicts
+  - Improved search filter reliability with proper null handling for metadata properties
+  - Enhanced null safety for all metadata property accesses in the component
+- **Dashboard Component Bugs**: Fixed 5 critical bugs in the Dashboard.tsx component
+  - Fixed import path mismatch by removing `.js` extension from TypeScript component imports
+  - Removed unused `databaseApi` import to clean up dependencies
+  - Added comprehensive error handling for tab operations with fallback navigation
+  - Memoized `loadDashboardData` function using `useCallback` to prevent unnecessary re-renders
+  - Implemented unique key generation system to prevent React rendering issues from duplicate keys
+- **TypeScript Configuration**: Enhanced frontend TypeScript configuration
+  - Added `esModuleInterop` and `allowSyntheticDefaultImports` flags to resolve module import issues
+  - Improved JSX compilation settings for better React component support
+
+### Improved
+- **Code Quality**: Enhanced error handling and performance optimization in Dashboard and AutomationNotificationsPanel components
+- **Developer Experience**: Improved TypeScript configuration for better development workflow
+- **Application Stability**: Fixed potential memory leaks and React rendering issues
+- **User Experience**: Better error feedback and more reliable automation event management
+
 ## [1.0.2] - 2025-08-03
 ### Fixed
 - **PDF Download Feature**: Implemented missing PDF download functionality in Zotero integration

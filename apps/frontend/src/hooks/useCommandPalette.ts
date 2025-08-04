@@ -5,8 +5,8 @@ export const useCommandPalette = () => {
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            // Open command palette with Ctrl+K or Cmd+K
-            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            // Open command palette with Ctrl+K, Cmd+K, Ctrl+P, or Cmd+P
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'p')) {
                 e.preventDefault();
                 setIsOpen(true);
             }

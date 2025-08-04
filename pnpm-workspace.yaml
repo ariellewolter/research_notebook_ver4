@@ -8,3 +8,9 @@ ignoredBuiltDependencies:
   - canvas
   - esbuild
   - prisma
+
+onlyBuiltDependencies:
+  - citation-js
+  - core-js
+  - electron
+  - sharp

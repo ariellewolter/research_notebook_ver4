@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // File system operations
     openFileDialog: () => ipcRenderer.invoke('open-file-dialog'),
     saveFileDialog: (defaultName) => ipcRenderer.invoke('save-file-dialog', defaultName),
+    saveFileDialogWithContent: (filePath, content) => ipcRenderer.invoke('save-file-dialog-with-content', filePath, content),
     selectDirectory: () => ipcRenderer.invoke('select-directory'),
 
     // App control
@@ -143,6 +144,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveLocalSettings: (settings) => ipcRenderer.invoke('save-local-settings', settings),
     loadSettings: () => ipcRenderer.invoke('settings:load'),
     saveSettings: (settings) => ipcRenderer.invoke('settings:save', settings),
+
+    // Deep linking APIs
+    createDeepLink: (entityType, entityId, params) => ipcRenderer.invoke('create-deep-link', entityType, entityId, params),
+    openDeepLink: (url) => ipcRenderer.invoke('open-deep-link', url),
+    getDeepLinkContext: () => ipcRenderer.invoke('get-deep-link-context'),
+    onDeepLinkEntity: (callback) => ipcRenderer.on('deep-link-entity', callback),
+    removeDeepLinkEntityListener: () => ipcRenderer.removeAllListeners('deep-link-entity'),
+
+    // File watcher APIs
+    getFileWatcherStatus: () => ipcRenderer.invoke('file-watcher:get-status'),
+    setFileWatcherEnabled: (enabled) => ipcRenderer.invoke('file-watcher:set-enabled', enabled),
+    setFileWatcherFolder: (folderPath) => ipcRenderer.invoke('file-watcher:set-folder', folderPath),
+    selectFileWatcherFolder: () => ipcRenderer.invoke('file-watcher:select-folder'),
+    getSupportedFileTypes: () => ipcRenderer.invoke('file-watcher:get-supported-types'),
+    testFileWatcher: () => ipcRenderer.invoke('file-watcher:test'),
+    onFileWatcherEvent: (callback) => ipcRenderer.on('file-watcher-event', callback),
+    removeFileWatcherEventListener: () => ipcRenderer.removeAllListeners('file-watcher-event'),
 
     // Environment detection
     isElectron: true,

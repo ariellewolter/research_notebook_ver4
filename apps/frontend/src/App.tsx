@@ -4,7 +4,10 @@ import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemePaletteProvider, useThemePalette } from './services/ThemePaletteContext';
 import { WorkspaceTabsProvider } from './pages/WorkspaceTabsContext';
-import { CommandPaletteProvider } from './components/CommandPalette/CommandPaletteProvider';
+import EnhancedCommandPaletteProvider from './components/CommandPalette/EnhancedCommandPaletteProvider';
+import GlobalDragDropOverlay from './components/GlobalDragDropOverlay';
+import AutomationNotificationsPanel from './components/Notifications/AutomationNotificationsPanel';
+import { notificationService } from './services/notificationService';
 
 // Import the new Obsidian-style layout
 import ObsidianLayout from './components/Layout/ObsidianLayout';
@@ -33,6 +36,7 @@ import AdvancedReporting from './pages/AdvancedReporting';
 import TimeBlocking from './pages/TimeBlocking';
 import Login from './components/Auth/Login';
 import ElectronFeatureTest from './components/ElectronFeatureTest';
+import DeepLinkDemo from './components/DeepLinkDemo';
 
 // Protected route wrapper
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -101,17 +105,14 @@ const ProtectedRoutes: React.FC = () => {
                 <Route path="search" element={<Search />} />
                 <Route path="links" element={<Links />} />
                 <Route path="settings" element={<Settings />} />
-                <Route path="advanced-reporting" element={<AdvancedReporting />} />
                 <Route path="advanced-features" element={<AdvancedFeatures />} />
                 <Route path="experimental-variables" element={<ExperimentalVariables />} />
+                <Route path="advanced-reporting" element={<AdvancedReporting />} />
                 <Route path="time-blocking" element={<TimeBlocking />} />
                 <Route path="electron-test" element={<ElectronFeatureTest />} />
+                <Route path="deep-link-demo" element={<DeepLinkDemo />} />
 
-                {/* Workspace routes */}
-                <Route path="workspace/new" element={<div>New Workspace</div>} />
-                <Route path="workspace/:id" element={<div>Workspace</div>} />
-
-                {/* Fallback */}
+                {/* Catch-all route */}
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Route>
         </Routes>
@@ -121,94 +122,49 @@ const ProtectedRoutes: React.FC = () => {
 // Themed app wrapper
 const ThemedApp: React.FC = () => {
     const { palette } = useThemePalette();
+    const [notificationsPanelOpen, setNotificationsPanelOpen] = React.useState(false);
 
     const theme = createTheme({
         palette: {
-            primary: { main: palette.primary },
-            secondary: { main: palette.secondary },
+            mode: palette.mode,
+            primary: {
+                main: palette.primary,
+            },
+            secondary: {
+                main: palette.secondary,
+            },
             background: {
                 default: palette.background,
-                paper: palette.paper,
+                paper: palette.surface,
             },
             text: {
-                primary: palette.text,
+                primary: palette.onSurface,
+                secondary: palette.onSurfaceVariant,
             },
-            error: { main: palette.error },
-            success: { main: palette.success },
-            warning: { main: palette.warning },
-            info: { main: palette.info },
-            divider: palette.divider,
         },
-        // Enhanced theme for Obsidian-style workspace
         components: {
             MuiCssBaseline: {
                 styleOverrides: {
                     body: {
-                        margin: 0,
-                        padding: 0,
-                        overflow: 'hidden',
+                        backgroundColor: palette.background,
+                        color: palette.onSurface,
                     },
-                    '#root': {
-                        height: '100vh',
-                        width: '100vw',
-                        overflow: 'hidden',
-                    }
-                }
+                },
             },
-            MuiPaper: {
-                styleOverrides: {
-                    root: {
-                        backgroundImage: 'none',
-                    }
-                }
-            },
-            MuiDrawer: {
-                styleOverrides: {
-                    paper: {
-                        borderRadius: 0,
-                    }
-                }
-            },
-            MuiTab: {
-                styleOverrides: {
-                    root: {
-                        textTransform: 'none',
-                        minWidth: 'auto',
-                        padding: '6px 12px',
-                    }
-                }
-            },
-            MuiButton: {
-                styleOverrides: {
-                    root: {
-                        textTransform: 'none',
-                    }
-                }
-            }
         },
-        typography: {
-            fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-            h1: { fontWeight: 600 },
-            h2: { fontWeight: 600 },
-            h3: { fontWeight: 600 },
-            h4: { fontWeight: 600 },
-            h5: { fontWeight: 600 },
-            h6: { fontWeight: 600 },
-        },
-        shape: {
-            borderRadius: 8,
-        },
-        spacing: 8,
     });
 
     return (
         <ThemeProvider theme={theme}>
             <CssBaseline />
-            <Router>
-                <CommandPaletteProvider>
-                    <ProtectedRoutes />
-                </CommandPaletteProvider>
-            </Router>
+            <EnhancedCommandPaletteProvider>
+                <GlobalDragDropOverlay />
+                <AutomationNotificationsPanel
+                    open={notificationsPanelOpen}
+                    onClose={() => setNotificationsPanelOpen(false)}
+                />
+                <ProtectedRoutes />
+            </EnhancedCommandPaletteProvider>
         </ThemeProvider>
     );
 };

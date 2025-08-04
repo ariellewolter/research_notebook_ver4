@@ -2,6 +2,26 @@
 
 ---
 
+## 📚 Documentation
+
+All documentation has been organized into a comprehensive structure for easy navigation:
+
+### 📁 [Documentation Directory](./docs/)
+- **[Implementation Guides](./docs/implementation/)** - Detailed feature implementation documentation
+- **[Electron Documentation](./docs/electron/)** - Desktop app configuration and setup
+- **[Testing Documentation](./docs/testing/)** - Test suites and testing procedures
+- **[Project Management](./docs/project-management/)** - Changelog, TODO, and project status
+- **[Guides](./docs/guides/)** - User guides and reference documentation
+- **[Developer Guide](./docs/DEVELOPER_GUIDE.md)** - Comprehensive development reference
+
+### 🎯 Quick Documentation Links
+- [Developer Guide](./docs/DEVELOPER_GUIDE.md) - Start here for development
+- [Changelog](./docs/project-management/CHANGELOG.md) - Version history and updates
+- [TODO List](./docs/project-management/TODO.md) - Current project status
+- [Troubleshooting](./docs/project-management/TROUBLESHOOTING.md) - Common issues and solutions
+
+---
+
 ## 🚀 Quick Start Guide
 
 ### 1. **Install Required Dependencies**

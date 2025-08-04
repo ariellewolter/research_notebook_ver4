@@ -35,6 +35,7 @@ import {
 import { colorPalettes, Palette, PaletteRole } from '../services/colorPalettes';
 import { useThemePalette } from '../services/ThemePaletteContext';
 import { zoteroApi, googleCalendarApi, outlookCalendarApi, appleCalendarApi } from '../services/api';
+import FileWatcherSettings from '../components/FileWatcherSettings';
 
 const CUSTOM_PALETTE_KEY = 'Custom';
 const PALETTE_ROLES: PaletteRole[] = [
@@ -1272,6 +1273,9 @@ const Settings: React.FC = () => {
                     </Box>
                 </CardContent>
             </Card>
+
+            {/* File Watcher Settings */}
+            <FileWatcherSettings />
 
             <Snackbar
                 open={snackbar.open}

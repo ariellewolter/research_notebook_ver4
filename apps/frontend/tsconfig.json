@@ -5,6 +5,8 @@
         "outDir": "dist",
         "rootDir": "src",
         "baseUrl": "./src",
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
         "paths": {
             "@shared/*": [
                 "../../../packages/shared/*"

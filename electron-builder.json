@@ -50,7 +50,11 @@
                     "CFBundleTypeExtensions": ["pdf"],
                     "CFBundleTypeIconFile": "app-icon.icns",
                     "LSHandlerRank": "Owner",
-                    "LSItemContentTypes": ["com.adobe.pdf"]
+                    "LSItemContentTypes": ["com.adobe.pdf"],
+                    "CFBundleTypeOSTypes": ["PDF "],
+                    "CFBundleTypeMIMETypes": ["application/pdf"],
+                    "LSTypeIsPackage": false,
+                    "CFBundleTypeIconSystemGenerated": 0
                 }
             ],
             "UTExportedTypeDeclarations": [
@@ -63,7 +67,16 @@
                         "public.mime-type": "application/pdf"
                     }
                 }
-            ]
+            ],
+            "CFBundleURLTypes": [
+                {
+                    "CFBundleURLName": "Research Notebook URL Scheme",
+                    "CFBundleURLSchemes": ["researchnotebook"],
+                    "CFBundleURLIconFile": "app-icon.icns"
+                }
+            ],
+            "NSDocumentRevisionsKeepEveryOne": true,
+            "LSUIElement": false
         }
     },
     "win": {
@@ -88,7 +101,15 @@
                 "name": "PDF Document",
                 "description": "PDF Document",
                 "icon": "electron/assets/app-icon.ico",
-                "role": "Viewer"
+                "role": "Viewer",
+                "mimeType": "application/pdf",
+                "perMachine": true
+            }
+        ],
+        "protocols": [
+            {
+                "name": "Research Notebook URL Scheme",
+                "schemes": ["researchnotebook"]
             }
         ]
     },
@@ -138,7 +159,11 @@
         "uninstallerIcon": "electron/assets/app-icon.ico",
         "installerHeaderIcon": "electron/assets/app-icon.ico",
         "deleteAppDataOnUninstall": false,
-        "include": "electron/assets/installer.nsh"
+        "include": "electron/assets/installer.nsh",
+        "perMachine": true,
+        "allowElevation": true,
+        "installerSidebar": "electron/assets/installer-sidebar.bmp",
+        "uninstallerSidebar": "electron/assets/uninstaller-sidebar.bmp"
     },
     "dmg": {
         "title": "Research Notebook",

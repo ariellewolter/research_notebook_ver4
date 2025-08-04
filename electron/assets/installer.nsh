@@ -8,6 +8,23 @@
   ; Set proper icon for shortcuts
   SetOutPath "$INSTDIR"
   File "electron/assets/app-icon.ico"
+  
+  ; Register file associations for PDF files
+  WriteRegStr HKCR ".pdf" "" "ResearchNotebook.PDF"
+  WriteRegStr HKCR "ResearchNotebook.PDF" "" "PDF Document"
+  WriteRegStr HKCR "ResearchNotebook.PDF\DefaultIcon" "" "$INSTDIR\app-icon.ico,0"
+  WriteRegStr HKCR "ResearchNotebook.PDF\shell\open\command" "" '"$INSTDIR\Research Notebook.exe" "%1"'
+  WriteRegStr HKCR "ResearchNotebook.PDF\shell\print\command" "" '"$INSTDIR\Research Notebook.exe" "%1"'
+  
+  ; Register MIME type
+  WriteRegStr HKCR "MIME\Database\Content Type\application\pdf" "Extension" ".pdf"
+  WriteRegStr HKCR "MIME\Database\Content Type\application\pdf" "CLSID" "{25336920-03F9-11cf-8FD0-00AA00686F13}"
+  
+  ; Register custom URL scheme protocol
+  WriteRegStr HKCR "researchnotebook" "" "URL:Research Notebook Protocol"
+  WriteRegStr HKCR "researchnotebook" "URL Protocol" ""
+  WriteRegStr HKCR "researchnotebook\DefaultIcon" "" "$INSTDIR\app-icon.ico,0"
+  WriteRegStr HKCR "researchnotebook\shell\open\command" "" '"$INSTDIR\Research Notebook.exe" "%1"'
 !macroend
 
 !macro customUnInstall
@@ -19,6 +36,14 @@
   
   ; Clean up icon file
   Delete "$INSTDIR\app-icon.ico"
+  
+  ; Clean up file associations
+  DeleteRegKey HKCR ".pdf"
+  DeleteRegKey HKCR "ResearchNotebook.PDF"
+  DeleteRegKey HKCR "MIME\Database\Content Type\application\pdf"
+  
+  ; Clean up custom URL scheme protocol
+  DeleteRegKey HKCR "researchnotebook"
 !macroend
 
 ; Ensure proper icon association
