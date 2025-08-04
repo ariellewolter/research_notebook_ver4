@@ -158,7 +158,7 @@ const EnhancedCommandPalette: React.FC<CommandPaletteProps> = ({
     const searchInputRef = useRef<HTMLInputElement>(null);
 
     // Define all available commands with enhanced functionality
-    const baseCommands: Command[] = [
+    const baseCommands: Command[] = useMemo(() => [
         // Navigation Commands
         {
             id: 'nav-dashboard',
@@ -252,167 +252,11 @@ const EnhancedCommandPalette: React.FC<CommandPaletteProps> = ({
             category: 'navigation',
             keywords: ['calculators', 'calculations', 'formulas', 'convert', 'math'],
             priority: 6
-        },
-        {
-            id: 'nav-literature',
-            title: 'Go to Literature',
-            subtitle: 'Literature notes and reviews',
-            description: 'Literature management and notes',
-            icon: <LiteratureIcon />,
-            action: () => onNavigate('/literature'),
-            category: 'navigation',
-            keywords: ['literature', 'papers', 'articles', 'research', 'reviews'],
-            priority: 7
-        },
-        {
-            id: 'nav-tasks',
-            title: 'Go to Tasks',
-            subtitle: 'Manage tasks and to-dos',
-            description: 'Task management and tracking',
-            icon: <TaskIcon />,
-            action: () => onNavigate('/tasks'),
-            category: 'navigation',
-            keywords: ['tasks', 'todo', 'checklist', 'assignments'],
-            priority: 7
-        },
-        {
-            id: 'nav-pdfs',
-            title: 'Go to PDFs',
-            subtitle: 'Manage PDF documents',
-            description: 'PDF document management',
-            icon: <PdfIcon />,
-            action: () => onNavigate('/pdfs'),
-            category: 'navigation',
-            keywords: ['pdfs', 'documents', 'files', 'papers'],
-            priority: 7
-        },
-
-        // Create Commands
-        {
-            id: 'create-note',
-            title: 'Create New Note',
-            subtitle: 'Start a new lab note',
-            description: 'Create a new laboratory note',
-            icon: <AddIcon />,
-            action: onCreateNote,
-            category: 'create',
-            keywords: ['new', 'create', 'note', 'add', 'lab note'],
-            shortcut: 'Ctrl+N',
-            priority: 10
-        },
-        {
-            id: 'create-project',
-            title: 'Create New Project',
-            subtitle: 'Start a new research project',
-            description: 'Create a new research project',
-            icon: <AddIcon />,
-            action: onCreateProject,
-            category: 'create',
-            keywords: ['new', 'create', 'project', 'research', 'experiment'],
-            shortcut: 'Ctrl+Shift+N',
-            priority: 9
-        },
-        {
-            id: 'create-protocol',
-            title: 'Create New Protocol',
-            subtitle: 'Document a new procedure',
-            description: 'Create a new laboratory protocol',
-            icon: <AddIcon />,
-            action: () => onNavigate('/protocols/new'),
-            category: 'create',
-            keywords: ['new', 'create', 'protocol', 'procedure', 'method'],
-            priority: 8
-        },
-        {
-            id: 'create-recipe',
-            title: 'Create New Recipe',
-            subtitle: 'Document a new recipe',
-            description: 'Create a new experimental recipe',
-            icon: <AddIcon />,
-            action: () => onNavigate('/recipes/new'),
-            category: 'create',
-            keywords: ['new', 'create', 'recipe', 'experiment', 'formula'],
-            priority: 8
-        },
-
-        // Action Commands
-        {
-            id: 'action-import',
-            title: 'Import File',
-            subtitle: 'Import data or documents',
-            description: 'Import files into the system',
-            icon: <ImportIcon />,
-            action: onImportFile || (() => {}),
-            category: 'actions',
-            keywords: ['import', 'upload', 'file', 'data', 'load'],
-            shortcut: 'Ctrl+I',
-            priority: 8
-        },
-        {
-            id: 'action-export',
-            title: 'Export Project',
-            subtitle: 'Export project data',
-            description: 'Export project data and reports',
-            icon: <ExportIcon />,
-            action: onExportProject || (() => {}),
-            category: 'actions',
-            keywords: ['export', 'download', 'project', 'data', 'report'],
-            shortcut: 'Ctrl+E',
-            priority: 8
-        },
-        {
-            id: 'action-refresh',
-            title: 'Refresh Data',
-            subtitle: 'Refresh all data sources',
-            description: 'Refresh data from all sources',
-            icon: <RefreshIcon />,
-            action: () => window.location.reload(),
-            category: 'actions',
-            keywords: ['refresh', 'reload', 'update', 'sync'],
-            shortcut: 'F5',
-            priority: 6
-        },
-        {
-            id: 'action-search',
-            title: 'Search Everything',
-            subtitle: 'Search across all content',
-            description: 'Global search functionality',
-            icon: <SearchIcon />,
-            action: () => onNavigate('/search'),
-            category: 'search',
-            keywords: ['search', 'find', 'lookup', 'query'],
-            shortcut: 'Ctrl+Shift+F',
-            priority: 9
-        },
-
-        // Settings
-        {
-            id: 'settings',
-            title: 'Open Settings',
-            subtitle: 'Configure your workspace',
-            description: 'Application settings and preferences',
-            icon: <SettingsIcon />,
-            action: onOpenSettings || (() => onNavigate('/settings')),
-            category: 'settings',
-            keywords: ['settings', 'preferences', 'config', 'setup', 'options'],
-            shortcut: 'Ctrl+,',
-            priority: 7
-        },
-        {
-            id: 'help',
-            title: 'Help & Documentation',
-            subtitle: 'Get help and view docs',
-            description: 'Access help and documentation',
-            icon: <HelpIcon />,
-            action: () => onNavigate('/help'),
-            category: 'settings',
-            keywords: ['help', 'docs', 'documentation', 'support', 'guide'],
-            priority: 6
         }
-    ];
+    ], [onNavigate]);
 
     // Convert items to commands
-    const itemCommands: Command[] = items.map(item => ({
+    const itemCommands: Command[] = useMemo(() => items.map(item => ({
         id: `item-${item.id}`,
         title: item.title,
         subtitle: `${item.type.charAt(0).toUpperCase() + item.type.slice(1)} • ${item.lastModified ? new Date(item.lastModified).toLocaleDateString() : 'No date'}`,
@@ -428,10 +272,10 @@ const EnhancedCommandPalette: React.FC<CommandPaletteProps> = ({
             type: item.type,
             lastModified: item.lastModified,
         }
-    }));
+    })), [items, onNavigate]);
 
     // Add recent items to commands
-    const recentCommands: Command[] = recentItems.map((item, index) => ({
+    const recentCommands: Command[] = useMemo(() => recentItems.map((item, index) => ({
         id: `recent-${index}`,
         title: item.title,
         subtitle: 'Recently accessed',
@@ -445,16 +289,21 @@ const EnhancedCommandPalette: React.FC<CommandPaletteProps> = ({
             id: item.id,
             type: item.type,
         }
-    }));
+    })), [recentItems, onNavigate]);
 
     // Add workspace commands
-    const workspaceCommandsList: Command[] = workspaceCommands.map(cmd => ({
+    const workspaceCommandsList: Command[] = useMemo(() => workspaceCommands.map(cmd => ({
         ...cmd,
         category: cmd.category as 'navigation' | 'create' | 'recent' | 'settings' | 'actions' | 'search' | 'favorites',
         priority: 5
-    }));
+    })), [workspaceCommands]);
 
-    const allCommands = [...baseCommands, ...itemCommands, ...workspaceCommandsList, ...recentCommands];
+    const allCommands = useMemo(() => [
+        ...baseCommands, 
+        ...itemCommands, 
+        ...workspaceCommandsList, 
+        ...recentCommands
+    ], [baseCommands, itemCommands, workspaceCommandsList, recentCommands]);
 
     // Fuzzy search with scoring
     const performFuzzySearch = useMemo(() => {

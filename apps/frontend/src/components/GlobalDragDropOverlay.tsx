@@ -108,13 +108,24 @@ const GlobalDragDropOverlay: React.FC = () => {
     }>({ open: false, message: '', severity: 'info' });
 
     const navigate = useNavigate();
-    const { addRecentItem } = useEnhancedCommandPaletteContext();
+    
+    // Try to get the command palette context, but don't fail if it's not available
+    let addRecentItem: ((item: any) => void) | undefined;
+    try {
+        const { addRecentItem: contextAddRecentItem } = useEnhancedCommandPaletteContext();
+        addRecentItem = contextAddRecentItem;
+    } catch (error) {
+        // Command palette context not available, continue without it
+        console.warn('Command palette context not available for drag drop overlay');
+    }
+    
     const overlayRef = useRef<HTMLDivElement>(null);
 
     // File type detection
-    const getFileType = (file: File): FileImportInfo['type'] => {
-        const extension = file.name.split('.').pop()?.toLowerCase();
-        const mimeType = file.type;
+    const getFileType = (file: File | string): FileImportInfo['type'] => {
+        const fileName = typeof file === 'string' ? file : file.name;
+        const extension = fileName.split('.').pop()?.toLowerCase();
+        const mimeType = typeof file === 'string' ? '' : file.type;
 
         if (mimeType === 'application/pdf' || extension === 'pdf') return 'pdf';
         if (mimeType === 'text/csv' || extension === 'csv') return 'csv';
@@ -303,28 +314,30 @@ const GlobalDragDropOverlay: React.FC = () => {
             );
 
             // Add to recent items in command palette
-            addRecentItem({
-                id: `import_${Date.now()}`,
-                title: `Imported: ${file.name}`,
-                type: 'import',
-                description: `Successfully imported ${file.name}`,
-                action: () => {
-                    // Navigate to appropriate page based on file type
-                    const fileType = getFileType(file.name);
-                    switch (fileType) {
-                        case 'pdf':
-                            navigate('/pdfs');
-                            break;
-                        case 'csv':
-                        case 'json':
-                        case 'xlsx':
-                            navigate('/database');
-                            break;
-                        default:
-                            navigate('/dashboard');
+            if (addRecentItem) {
+                addRecentItem({
+                    id: `import_${Date.now()}`,
+                    title: `Imported: ${file.name}`,
+                    type: 'import',
+                    description: `Successfully imported ${file.name}`,
+                    action: () => {
+                        // Navigate to appropriate page based on file type
+                        const fileType = getFileType(file.name);
+                        switch (fileType) {
+                            case 'pdf':
+                                navigate('/pdfs');
+                                break;
+                            case 'csv':
+                            case 'json':
+                            case 'excel':
+                                navigate('/database');
+                                break;
+                            default:
+                                navigate('/dashboard');
+                        }
                     }
-                }
-            });
+                });
+            }
 
             setSnackbar({
                 open: true,

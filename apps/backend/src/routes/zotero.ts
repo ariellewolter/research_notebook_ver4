@@ -217,13 +217,7 @@ router.post('/import', upload.single('pdf'), async (req, res) => {
         const pdf = await prisma.pDF.create({
             data: {
                 title: validatedData.title,
-                fileName: req.file.filename,
-                filePath: req.file.path,
-                fileSize: req.file.size,
-                properties: JSON.stringify({
-                    zoteroKey: validatedData.zoteroKey,
-                    importedFrom: 'zotero'
-                })
+                filePath: req.file.path
             }
         });
 
@@ -348,12 +342,7 @@ router.post('/sync-highlights/:pdfId', async (req, res) => {
                     pdfId,
                     page: annotation.data.pageIndex + 1,
                     text: annotation.data.text,
-                    color: annotation.data.color || '#FFD700',
-                    position: JSON.stringify(annotation.data.position),
-                    properties: JSON.stringify({
-                        zoteroKey: annotation.key,
-                        importedFrom: 'zotero'
-                    })
+                    coords: JSON.stringify(annotation.data.position)
                 }
             });
             highlights.push(highlight);

@@ -656,7 +656,7 @@ const NotionWorkspace: React.FC = () => {
     // Render block content based on type
     const renderBlockContent = (block: Block) => {
         switch (block.type) {
-            case 'text':
+            case 'text': {
                 return (
                     <div
                         className={`relative group flex items-start gap-2 ${draggedBlockId === block.id ? 'opacity-50' : ''}`}
@@ -697,28 +697,13 @@ const NotionWorkspace: React.FC = () => {
                                 </div>
                             )}
                         </div>
-                                // The SlashCommandMenu will receive this via searchQuery prop
-                            }
-                        }}
-                            >
-                        {block.content}
                     </div>
-
-                            {/* Slash Command Menu */ }
-                <SlashCommandMenu
-                    anchorEl={slashCommandAnchor}
-                    open={slashCommandOpen}
-                    onClose={() => setSlashCommandOpen(false)}
-                    onCommandSelect={(command) => handleSlashCommand(block.id, command)}
-                    searchQuery={block.content}
-                />
-                        </div >
-                    </div >
                 );
+            }
 
-            case 'heading':
-const level = block.metadata?.level || 1;
-const headingProps = {
+            case 'heading': {
+                const level = block.metadata?.level || 1;
+                const headingProps = {
     contentEditable: true,
     suppressContentEditableWarning: true,
     'data-block-id': block.id,
@@ -821,8 +806,9 @@ return (
         </div>
     </div>
 );
+            }
 
-            case 'table':
+            case 'table': {
 try {
     const tableData = JSON.parse(block.content);
     return (
@@ -916,9 +902,10 @@ try {
 } catch (error) {
     return <div className="text-red-500">Invalid table data</div>;
 }
+            }
 
-            case 'code':
-return (
+            case 'code': {
+                return (
     <div
         className={`group flex items-start gap-2 ${draggedBlockId === block.id ? 'opacity-50' : ''}`}
         draggable
@@ -949,8 +936,9 @@ return (
         </div>
     </div>
 );
+            }
 
-            case 'quote':
+            case 'quote': {
 return (
     <div
         className={`group flex items-start gap-2 ${draggedBlockId === block.id ? 'opacity-50' : ''}`}
@@ -982,8 +970,9 @@ return (
         </div>
     </div>
 );
+            }
 
-            case 'list':
+            case 'list': {
 return (
     <div
         className={`group flex items-start gap-2 ${draggedBlockId === block.id ? 'opacity-50' : ''}`}
@@ -1015,9 +1004,10 @@ return (
         </div>
     </div>
 );
+            }
 
-            case 'divider':
-return (
+            case 'divider': {
+                return (
     <div
         className={`group flex items-center gap-2 ${draggedBlockId === block.id ? 'opacity-50' : ''}`}
         draggable
@@ -1044,9 +1034,10 @@ return (
         </div>
     </div>
 );
+            }
 
-            case 'link':
-return (
+            case 'link': {
+                return (
     <div
         className={`group flex items-start gap-2 ${draggedBlockId === block.id ? 'opacity-50' : ''}`}
         draggable
@@ -1101,9 +1092,10 @@ return (
         </div>
     </div>
 );
+            }
 
-            case 'image':
-return (
+            case 'image': {
+                return (
     <div
         className={`group flex items-start gap-2 ${draggedBlockId === block.id ? 'opacity-50' : ''}`}
         draggable
@@ -1145,9 +1137,10 @@ return (
         </div>
     </div>
 );
+            }
 
-            case 'math':
-return (
+            case 'math': {
+                return (
     <div
         className={`group flex items-start gap-2 ${draggedBlockId === block.id ? 'opacity-50' : ''}`}
         draggable
@@ -1190,8 +1183,8 @@ return (
     </div>
 );
 
-            default:
-return (
+            default: {
+                return (
     <div
         className={`group flex items-start gap-2 ${draggedBlockId === block.id ? 'opacity-50' : ''}`}
         draggable
@@ -1222,6 +1215,7 @@ return (
         </div>
     </div>
 );
+            }
         }
     };
 

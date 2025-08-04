@@ -84,61 +84,18 @@ import {
 } from 'recharts';
 import api from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
+import {
+    VariableCategory,
+    ExperimentVariable,
+    VariableValue,
+    Experiment,
+    AnalyticsData,
+    CategoryFormData,
+    VariableFormData,
+    ValueFormData
+} from '../../types/experimentalVariables';
 
-interface VariableCategory {
-    id: string;
-    name: string;
-    description?: string;
-    color?: string;
-    icon?: string;
-    unit?: string;
-    dataType: 'number' | 'text' | 'boolean' | 'date' | 'select';
-    options?: string; // JSON array for select type
-    minValue?: number;
-    maxValue?: number;
-    isRequired: boolean;
-    isGlobal: boolean;
-    createdAt: string;
-    updatedAt: string;
-}
 
-interface ExperimentVariable {
-    id: string;
-    experimentId: string;
-    categoryId: string;
-    name: string;
-    description?: string;
-    unit?: string;
-    dataType: 'number' | 'text' | 'boolean' | 'date' | 'select';
-    isRequired: boolean;
-    order: number;
-    createdAt: string;
-    updatedAt: string;
-    category: VariableCategory;
-    values: VariableValue[];
-}
-
-interface VariableValue {
-    id: string;
-    variableId: string;
-    value: string;
-    timestamp: string;
-    notes?: string;
-    metadata?: string;
-    createdBy?: string;
-    createdAt: string;
-    updatedAt: string;
-}
-
-interface Experiment {
-    id: string;
-    name: string;
-    description?: string;
-    project: {
-        id: string;
-        name: string;
-    };
-}
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D', '#FFC658', '#8DD1E1'];
 
@@ -150,7 +107,7 @@ const ExperimentalVariableTracker: React.FC = () => {
     const [experiments, setExperiments] = useState<Experiment[]>([]);
     const [selectedExperiment, setSelectedExperiment] = useState<string>('');
     const [experimentVariables, setExperimentVariables] = useState<ExperimentVariable[]>([]);
-    const [analytics, setAnalytics] = useState<any>(null);
+    const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     // Dialog states
@@ -164,19 +121,7 @@ const ExperimentalVariableTracker: React.FC = () => {
     const [editingVariable, setEditingVariable] = useState<ExperimentVariable | null>(null);
     const [selectedVariable, setSelectedVariable] = useState<ExperimentVariable | null>(null);
 
-    const [categoryForm, setCategoryForm] = useState<{
-        name: string;
-        description: string;
-        color: string;
-        icon: string;
-        unit: string;
-        dataType: 'number' | 'text' | 'boolean' | 'date' | 'select';
-        options: string;
-        minValue: string;
-        maxValue: string;
-        isRequired: boolean;
-        isGlobal: boolean;
-    }>({
+    const [categoryForm, setCategoryForm] = useState<CategoryFormData>({
         name: '',
         description: '',
         color: '#0088FE',
@@ -190,15 +135,7 @@ const ExperimentalVariableTracker: React.FC = () => {
         isGlobal: false
     });
 
-    const [variableForm, setVariableForm] = useState<{
-        categoryId: string;
-        name: string;
-        description: string;
-        unit: string;
-        dataType: 'number' | 'text' | 'boolean' | 'date' | 'select';
-        isRequired: boolean;
-        order: number;
-    }>({
+    const [variableForm, setVariableForm] = useState<VariableFormData>({
         categoryId: '',
         name: '',
         description: '',
@@ -208,7 +145,7 @@ const ExperimentalVariableTracker: React.FC = () => {
         order: 0
     });
 
-    const [valueForm, setValueForm] = useState({
+    const [valueForm, setValueForm] = useState<ValueFormData>({
         value: '',
         notes: ''
     });
@@ -230,8 +167,8 @@ const ExperimentalVariableTracker: React.FC = () => {
             });
             setCategories(response.data);
             setError(null);
-        } catch (error: any) {
-            if (error.name === 'AbortError') return; // Ignore aborted requests
+        } catch (error: unknown) {
+            if (error instanceof Error && error.name === 'AbortError') return; // Ignore aborted requests
             console.error('Failed to fetch categories:', error);
             setError('Failed to fetch categories. Please try again.');
         }
@@ -250,8 +187,8 @@ const ExperimentalVariableTracker: React.FC = () => {
             });
             setExperiments(response.data);
             setError(null);
-        } catch (error: any) {
-            if (error.name === 'AbortError') return; // Ignore aborted requests
+        } catch (error: unknown) {
+            if (error instanceof Error && error.name === 'AbortError') return; // Ignore aborted requests
             console.error('Failed to fetch experiments:', error);
             setError('Failed to fetch experiments. Please try again.');
         }

@@ -67,7 +67,7 @@ import {
     Error as ErrorIcon,
     Pending as PendingIcon
 } from '@mui/icons-material';
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 import { advancedReportingApi } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -724,7 +724,7 @@ const AdvancedReporting: React.FC = () => {
                                         <CartesianGrid strokeDasharray="3 3" />
                                         <XAxis dataKey="date" />
                                         <YAxis />
-                                        <Tooltip />
+                                        <RechartsTooltip />
                                         <Legend />
                                         <Line type="monotone" dataKey="count" stroke="#8884d8" />
                                     </LineChart>

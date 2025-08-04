@@ -274,10 +274,10 @@ const Workspace: React.FC = () => {
             </Box>
         </Box>
 
-        {/* New Note Dialog */ }
-    <Dialog open={newNoteDialogOpen} onClose={() => setNewNoteDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Create New Note</DialogTitle>
-        <DialogContent>
+        {/* New Note Dialog */}
+        <Dialog open={newNoteDialogOpen} onClose={() => setNewNoteDialogOpen(false)} maxWidth="sm" fullWidth>
+            <DialogTitle>Create New Note</DialogTitle>
+            <DialogContent>
             <TextField
                 autoFocus
                 margin="dense"

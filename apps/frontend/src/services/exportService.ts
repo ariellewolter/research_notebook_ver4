@@ -301,7 +301,7 @@ class ExportService {
                     type: 'note',
                     title: note.title,
                     content: note.content,
-                    type: note.type,
+                    itemType: note.type,
                     createdAt: note.createdAt
                 };
                 
@@ -321,7 +321,7 @@ class ExportService {
                     type: 'database_entry',
                     name: entry.name,
                     description: entry.description,
-                    type: entry.type,
+                    itemType: entry.type,
                     createdAt: entry.createdAt
                 };
                 

@@ -70,7 +70,7 @@ import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
 import { useWorkspaceTabs } from '../../pages/WorkspaceTabsContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { useCommandPaletteContext } from '../CommandPalette/CommandPaletteProvider';
+import { useEnhancedCommandPaletteContext } from '../CommandPalette/EnhancedCommandPaletteProvider';
 import { CommandButton } from '../CommandPalette';
 import { useNotionWorkspace } from '../../hooks/useNotionWorkspace';
 import { getWorkspaceCommands } from '../CommandPalette/WorkspaceCommands';
@@ -340,7 +340,7 @@ const ObsidianLayout: React.FC = () => {
     const location = useLocation();
     const { user, logout } = useAuth();
     const { tabGroups, setTabGroups, openTab, closeTab } = useWorkspaceTabs();
-    const { openCommandPalette } = useCommandPaletteContext();
+    const { openCommandPalette } = useEnhancedCommandPaletteContext();
     const { createNewWorkspace, createMixedWorkspace, recentWorkspaces } = useNotionWorkspace();
 
     const [sidebarOpen, setSidebarOpen] = useState(false);

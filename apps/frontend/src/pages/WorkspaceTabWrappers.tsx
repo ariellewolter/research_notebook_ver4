@@ -3,12 +3,13 @@ import { Box, Typography, Button, TextField, FormControl, InputLabel, Select, Me
 import { Edit as EditIcon, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { notesApi, projectsApi, protocolsApi, recipesApi, databaseApi } from '../services/api';
+import { Note, Project, Protocol, DatabaseEntry } from '../types/common';
 
 // Note Tab Component
 export const NoteTab: React.FC<{ noteId: string }> = ({ noteId }) => {
-    const [note, setNote] = useState<any>(null);
+    const [note, setNote] = useState<Note | null>(null);
     const [editMode, setEditMode] = useState(false);
-    const [editData, setEditData] = useState<any>({});
+    const [editData, setEditData] = useState<Partial<Note>>({});
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -110,9 +111,9 @@ export const NoteTab: React.FC<{ noteId: string }> = ({ noteId }) => {
 
 // Project Tab Component
 export const ProjectTab: React.FC<{ projectId: string }> = ({ projectId }) => {
-    const [project, setProject] = useState<any>(null);
+    const [project, setProject] = useState<Project | null>(null);
     const [editMode, setEditMode] = useState(false);
-    const [editData, setEditData] = useState<any>({});
+    const [editData, setEditData] = useState<Partial<Project>>({});
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -214,9 +215,9 @@ export const ProjectTab: React.FC<{ projectId: string }> = ({ projectId }) => {
 
 // Protocol Tab Component
 export const ProtocolTab: React.FC<{ protocolId: string }> = ({ protocolId }) => {
-    const [protocol, setProtocol] = useState<any>(null);
+    const [protocol, setProtocol] = useState<Protocol | null>(null);
     const [editMode, setEditMode] = useState(false);
-    const [editData, setEditData] = useState<any>({});
+    const [editData, setEditData] = useState<Partial<Protocol>>({});
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -319,9 +320,9 @@ export const ProtocolTab: React.FC<{ protocolId: string }> = ({ protocolId }) =>
 
 // Database Entry Tab Component
 export const DatabaseEntryTab: React.FC<{ entryId: string }> = ({ entryId }) => {
-    const [entry, setEntry] = useState<any>(null);
+    const [entry, setEntry] = useState<DatabaseEntry | null>(null);
     const [editMode, setEditMode] = useState(false);
-    const [editData, setEditData] = useState<any>({});
+    const [editData, setEditData] = useState<Partial<DatabaseEntry>>({});
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {

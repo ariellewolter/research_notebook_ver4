@@ -126,7 +126,7 @@ const ThemedApp: React.FC = () => {
 
     const theme = createTheme({
         palette: {
-            mode: palette.mode,
+            mode: 'light', // Default to light mode
             primary: {
                 main: palette.primary,
             },
@@ -135,19 +135,32 @@ const ThemedApp: React.FC = () => {
             },
             background: {
                 default: palette.background,
-                paper: palette.surface,
+                paper: palette.paper,
             },
             text: {
-                primary: palette.onSurface,
-                secondary: palette.onSurfaceVariant,
+                primary: palette.text,
+                secondary: palette.text,
             },
+            error: {
+                main: palette.error,
+            },
+            success: {
+                main: palette.success,
+            },
+            warning: {
+                main: palette.warning,
+            },
+            info: {
+                main: palette.info,
+            },
+            divider: palette.divider,
         },
         components: {
             MuiCssBaseline: {
                 styleOverrides: {
                     body: {
                         backgroundColor: palette.background,
-                        color: palette.onSurface,
+                        color: palette.text,
                     },
                 },
             },
@@ -157,7 +170,7 @@ const ThemedApp: React.FC = () => {
     return (
         <ThemeProvider theme={theme}>
             <CssBaseline />
-            <EnhancedCommandPaletteProvider>
+            <EnhancedCommandPaletteProvider navigate={(path) => window.location.href = path}>
                 <GlobalDragDropOverlay />
                 <AutomationNotificationsPanel
                     open={notificationsPanelOpen}
@@ -171,13 +184,15 @@ const ThemedApp: React.FC = () => {
 
 // Main App component
 const App: React.FC = () => (
-    <AuthProvider>
-        <ThemePaletteProvider>
-            <WorkspaceTabsProvider>
-                <ThemedApp />
-            </WorkspaceTabsProvider>
-        </ThemePaletteProvider>
-    </AuthProvider>
+    <Router>
+        <AuthProvider>
+            <ThemePaletteProvider>
+                <WorkspaceTabsProvider>
+                    <ThemedApp />
+                </WorkspaceTabsProvider>
+            </ThemePaletteProvider>
+        </AuthProvider>
+    </Router>
 );
 
 export default App; 

@@ -184,21 +184,20 @@ class ZoteroSyncService {
         });
 
         const properties = JSON.stringify({
-            zoteroKey: item.key,
-            title: item.data.title,
+            title: item.data.title || 'Untitled',
             authors: item.data.creators?.map(creator => 
                 `${creator.firstName} ${creator.lastName}`.trim()
             ) || [],
-            abstract: item.data.abstractNote,
-            publicationYear: item.data.date ? new Date(item.data.date).getFullYear() : null,
-            journal: item.data.publicationTitle,
-            doi: item.data.DOI,
-            url: item.data.url,
+            abstract: item.data.abstractNote || '',
+            publicationYear: item.data.date ? new Date(item.data.date).getFullYear().toString() : undefined,
+            journal: item.data.publicationTitle || '',
+            doi: item.data.DOI || '',
+            url: item.data.url || '',
             tags: item.data.tags?.map(tag => tag.tag) || [],
-            itemType: item.data.itemType,
+            itemType: item.data.itemType || '',
             importedFrom: 'zotero',
-            lastModified: item.meta?.lastModified,
-            version: item.meta?.version
+            lastModified: item.meta?.lastModified || '',
+            version: item.meta?.version || 0
         });
 
         if (!existingEntry) {
@@ -206,8 +205,8 @@ class ZoteroSyncService {
             await prisma.databaseEntry.create({
                 data: {
                     type: 'REFERENCE',
-                    name: item.data.title,
-                    description: item.data.abstractNote,
+                    name: item.data.title || 'Untitled',
+                    description: item.data.abstractNote || '',
                     properties
                 }
             });
@@ -215,11 +214,11 @@ class ZoteroSyncService {
             return { isNew: true, isUpdated: false };
         } else {
             // Check if item needs updating
-            const existingProperties = JSON.parse(existingEntry.properties);
+            const existingProperties = JSON.parse(existingEntry.properties || '{}');
             const changes: string[] = [];
 
             // Compare properties to detect changes
-            if (existingProperties.title !== item.data.title) {
+            if (existingProperties.title !== (item.data.title || 'Untitled')) {
                 changes.push('title');
             }
             if (existingProperties.abstract !== item.data.abstractNote) {
@@ -234,8 +233,8 @@ class ZoteroSyncService {
                 await prisma.databaseEntry.update({
                     where: { id: existingEntry.id },
                     data: {
-                        name: item.data.title,
-                        description: item.data.abstractNote,
+                        name: item.data.title || 'Untitled',
+                        description: item.data.abstractNote || '',
                         properties
                     }
                 });
@@ -281,7 +280,7 @@ class ZoteroSyncService {
     }
 
     getBackgroundSyncInterval(): number | null {
-        return this.syncInterval ? this.syncInterval.refresh : null;
+        return this.syncInterval ? (this.syncInterval as any).refresh : null;
     }
 }
 

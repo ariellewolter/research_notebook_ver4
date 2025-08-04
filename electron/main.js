@@ -1220,28 +1220,7 @@ ipcMain.handle('show-notification', async (event, title, body) => {
     return false;
 });
 
-// Enhanced file save dialog with content
-ipcMain.handle('save-file-dialog-with-content', async (event, defaultFileName, content) => {
-    const result = await dialog.showSaveDialog(mainWindow, {
-        defaultPath: defaultFileName,
-        filters: [
-            { name: 'Text Files', extensions: ['txt'] },
-            { name: 'JSON Files', extensions: ['json'] },
-            { name: 'All Files', extensions: ['*'] }
-        ]
-    });
 
-    if (!result.canceled && result.filePath) {
-        try {
-            await fileUtils.saveFile(content, result.filePath);
-            return { success: true, filePath: result.filePath };
-        } catch (error) {
-            console.error('Error saving file:', error);
-            return { success: false, error: error.message };
-        }
-    }
-    return { success: false, canceled: true };
-});
 
 // IPC handler for saving file dialog with content
 ipcMain.handle('save-file-dialog-with-content', async (event, filePath, content) => {

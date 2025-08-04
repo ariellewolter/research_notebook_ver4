@@ -1,25 +1,30 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useCommandPalette } from '../../hooks/useCommandPalette';
 import { useWorkspaceTabs } from '../../pages/WorkspaceTabsContext';
+import { useCommandPalette } from '../../hooks/useCommandPalette';
 import { useNotionWorkspace } from '../../hooks/useNotionWorkspace';
-import { getWorkspaceCommands } from './WorkspaceCommands';
 import EnhancedCommandPalette from './EnhancedCommandPalette';
+
+// Icons
 import {
-    Note as NoteIcon,
-    Folder as ProjectIcon,
     Dashboard as DashboardIcon,
+    Note as NoteIcon,
+    Assignment as ProjectIcon,
     Science as ProtocolIcon,
     Storage as DatabaseIcon,
     CalendarToday as CalendarIcon,
-    Assessment as AnalyticsIcon,
+    Analytics as AnalyticsIcon,
     Calculate as CalculateIcon,
-    Book as LiteratureIcon,
+    MenuBook as LiteratureIcon,
     Search as SearchIcon,
     Settings as SettingsIcon,
+    Task as TaskIcon,
     PictureAsPdf as PdfIcon,
-    CheckBox as TaskIcon,
     Restaurant as RecipeIcon,
+    Add as AddIcon,
+    FileUpload as ImportIcon,
+    FileDownload as ExportIcon,
+    Settings as SettingsIcon2
 } from '@mui/icons-material';
 
 interface CommandPaletteContextType {
@@ -33,8 +38,16 @@ interface CommandPaletteContextType {
 
 const CommandPaletteContext = createContext<CommandPaletteContextType | null>(null);
 
-export const EnhancedCommandPaletteProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+// Wrapper component that provides navigation
+export const CommandPaletteWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const navigate = useNavigate();
+    return <EnhancedCommandPaletteProvider navigate={navigate}>{children}</EnhancedCommandPaletteProvider>;
+};
+
+export const EnhancedCommandPaletteProvider: React.FC<{ 
+    children: React.ReactNode;
+    navigate?: (path: string) => void;
+}> = ({ children, navigate }) => {
     const { openTab } = useWorkspaceTabs();
     const commandPalette = useCommandPalette();
     const { createNewWorkspace, createMixedWorkspace, recentWorkspaces } = useNotionWorkspace();
@@ -144,7 +157,7 @@ export const EnhancedCommandPaletteProvider: React.FC<{ children: React.ReactNod
             openTab(newTab);
         }
 
-        navigate(path);
+        navigate?.(path);
     };
 
     const handleCreateNote = () => {
@@ -156,7 +169,7 @@ export const EnhancedCommandPaletteProvider: React.FC<{ children: React.ReactNod
             isDirty: true,
         };
         openTab(newTab);
-        navigate('/notes/new');
+        navigate?.(`/notes/new`);
         
         // Add to recent items
         addRecentItem({
@@ -176,7 +189,7 @@ export const EnhancedCommandPaletteProvider: React.FC<{ children: React.ReactNod
             isDirty: true,
         };
         openTab(newTab);
-        navigate('/projects/new');
+        navigate?.(`/projects/new`);
         
         // Add to recent items
         addRecentItem({
@@ -230,7 +243,7 @@ export const EnhancedCommandPaletteProvider: React.FC<{ children: React.ReactNod
     };
 
     const handleOpenSettings = () => {
-        navigate('/settings');
+        navigate?.(`/settings`);
         addRecentItem({
             title: 'Settings',
             path: '/settings',
@@ -240,15 +253,30 @@ export const EnhancedCommandPaletteProvider: React.FC<{ children: React.ReactNod
     };
 
     const handleSearch = (query: string) => {
-        navigate(`/search?q=${encodeURIComponent(query)}`);
+        navigate?.(`/search?q=${encodeURIComponent(query)}`);
     };
 
     // Get workspace commands
-    const workspaceCommands = getWorkspaceCommands(
-        createNewWorkspace,
-        createMixedWorkspace,
-        recentWorkspaces
-    );
+    const workspaceCommands = [
+        {
+            id: 'create-workspace',
+            title: 'Create New Workspace',
+            subtitle: 'Start a new workspace',
+            icon: <AddIcon />,
+            action: handleCreateWorkspace,
+            category: 'create',
+            keywords: ['workspace', 'new', 'create', 'start']
+        },
+        {
+            id: 'create-lab-workspace',
+            title: 'Create Lab Workspace',
+            subtitle: 'Start a new lab workspace',
+            icon: <ProtocolIcon />,
+            action: handleCreateLabWorkspace,
+            category: 'create',
+            keywords: ['lab', 'workspace', 'new', 'create', 'start']
+        }
+    ];
 
     // Mock recent items - replace with real data from your app
     const mockRecentItems = [
