@@ -552,26 +552,21 @@ router.get('/analytics', authenticateToken, async (req: any, res) => {
             { type: 'database', count: await prisma.databaseEntry.count() },
             { type: 'protocols', count: await prisma.protocol.count() },
             { type: 'recipes', count: await prisma.recipe.count() },
-            { type: 'tasks', count: await prisma.task.count({ where: { userId } }) }
+            { type: 'tasks', count: await prisma.task.count({ where: { project: { userId } } }) }
         ];
 
         // Calculate average results per search
         const averageResults = totalSearches > 0 ?
             Math.round((resultTypes.reduce((sum, type) => sum + type.count, 0) / totalSearches) * 10) / 10 : 0;
 
-        // Get most searched tags (from tasks and notes)
+        // Get most searched tags (from tasks only - notes don't have tags)
         const taskTags = await prisma.task.findMany({
-            where: { userId },
-            select: { tags: true }
-        });
-
-        const noteTags = await prisma.note.findMany({
-            where: { experiment: { project: { userId } } },
+            where: { project: { userId } },
             select: { tags: true }
         });
 
         const tagCounts: { [key: string]: number } = {};
-        [...taskTags, ...noteTags].forEach(item => {
+        taskTags.forEach(item => {
             if (item.tags) {
                 try {
                     const tags = JSON.parse(item.tags);

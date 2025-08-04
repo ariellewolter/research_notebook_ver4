@@ -4,7 +4,7 @@ import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemePaletteProvider, useThemePalette } from './services/ThemePaletteContext';
 import { WorkspaceTabsProvider } from './pages/WorkspaceTabsContext';
-import EnhancedCommandPaletteProvider from './components/CommandPalette/EnhancedCommandPaletteProvider';
+import { EnhancedCommandPaletteProvider } from './components/CommandPalette/EnhancedCommandPaletteProvider';
 import GlobalDragDropOverlay from './components/GlobalDragDropOverlay';
 import AutomationNotificationsPanel from './components/Notifications/AutomationNotificationsPanel';
 import { notificationService } from './services/notificationService';
