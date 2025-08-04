@@ -99,6 +99,9 @@ public
 tmp/
 temp/
 
+# Electron build outputs
+dist-electron/
+
 # Vite
 .vite/
 
