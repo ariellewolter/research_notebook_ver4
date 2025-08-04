@@ -1,14 +1,29 @@
-import api from './apiClient';
+import { apiClient } from './apiClient';
+import { Link, CreateLinkData, LinkWithEntities } from '../../types/link.types';
 
 export const linksApi = {
-    getAll: (params?: { sourceType?: string; sourceId?: string; targetType?: string; targetId?: string }) =>
-        api.get('/links', { params }),
-    getBacklinks: (type: string, id: string) => api.get(`/links/backlinks/${type}/${id}`),
-    getOutgoing: (type: string, id: string) => api.get(`/links/outgoing/${type}/${id}`),
-    create: (data: { sourceType: string; sourceId: string; targetType: string; targetId: string }) =>
-        api.post('/links', data),
-    delete: (id: string) => api.delete(`/links/${id}`),
-    getGraph: (params?: { limit?: number }) => api.get('/links/graph', { params }),
-    search: (query: string, params?: { type?: string; limit?: number }) =>
-        api.get(`/links/search/${query}`, { params }),
+    getAll: (params?: {
+        sourceType?: string;
+        sourceId?: string;
+        targetType?: string;
+        targetId?: string;
+    }) => apiClient.get<LinkWithEntities[]>('/links', params),
+
+    getBacklinks: (entityType: string, entityId: string) =>
+        apiClient.get<LinkWithEntities[]>(`/links/backlinks/${entityType}/${entityId}`),
+
+    getOutgoing: (entityType: string, entityId: string) =>
+        apiClient.get<LinkWithEntities[]>(`/links/outgoing/${entityType}/${entityId}`),
+
+    create: (data: CreateLinkData) =>
+        apiClient.post<Link>('/links', data),
+
+    delete: (id: string) =>
+        apiClient.delete(`/links/${id}`),
+
+    getGraph: (params?: { entityType?: string; maxDepth?: number }) =>
+        apiClient.get('/links/graph', params),
+
+    search: (query: string, params?: { limit?: number }) =>
+        apiClient.get(`/links/search/${query}`, params),
 }; 
