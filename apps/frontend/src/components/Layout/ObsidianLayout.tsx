@@ -96,8 +96,6 @@ interface TabGroup {
     isMinimized?: boolean;
 }
 
-
-
 // Floating Action Panel
 const FloatingActionPanel: React.FC<{
     onNewNote: () => void;
@@ -352,8 +350,9 @@ const ObsidianLayout: React.FC = () => {
     const isDirectRoute = directRoutes.includes(location.pathname);
 
     const handleNewNote = useCallback(() => {
+        const tabKey = `note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         openTab({
-            key: `note-${Date.now()}`,
+            key: tabKey,
             title: 'New Note',
             path: '/notes/new',
             icon: <NoteIcon />,
@@ -377,10 +376,10 @@ const ObsidianLayout: React.FC = () => {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [handleNewNote]);
+    }, [handleNewNote, setSidebarOpen]);
 
     const handleNewProject = () => {
-        const tabKey = `project-new-${Date.now()}`;
+        const tabKey = `project-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         console.log('Opening new project tab with key:', tabKey);
         openTab({
             key: tabKey,
@@ -412,32 +411,24 @@ const ObsidianLayout: React.FC = () => {
     };
 
     const handleTabClose = (groupIdx: number, tabKey: string) => {
-        try {
-            closeTab(tabKey, groupIdx);
-        } catch (error) {
-            console.error('Error closing tab:', error);
-            // Fallback: manually remove the tab from the group
-            setTabGroups(prev => {
-                const groups = [...prev];
-                const group = groups[groupIdx];
-                if (group) {
-                    group.openTabs = group.openTabs.filter(tab => tab.key !== tabKey);
-                    // If the closed tab was active, set the first remaining tab as active
-                    if (group.activeTab === tabKey && group.openTabs.length > 0) {
-                        group.activeTab = group.openTabs[0].key;
-                        navigate(group.openTabs[0].path);
-                    } else if (group.openTabs.length === 0) {
-                        group.activeTab = null;
-                    }
-                }
-                return groups;
-            });
-        }
+        closeTab(tabKey, groupIdx);
     };
 
     const handleSplitPanel = () => {
         setWorkspaceLayout('split');
-        // Add new tab group logic here
+        // Create a new tab group for the split layout
+        const newGroupId = `group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        setTabGroups(prev => {
+            const groups = [...prev];
+            // Add a new empty tab group
+            groups.push({
+                id: newGroupId,
+                openTabs: [],
+                activeTab: null,
+                layout: 'vertical',
+            });
+            return groups;
+        });
     };
 
     const handleTabPin = (groupIdx: number, tabKey: string) => {
@@ -461,12 +452,16 @@ const ObsidianLayout: React.FC = () => {
             if (group) {
                 const tab = group.openTabs.find(t => t.key === tabKey);
                 if (tab) {
+                    // Create a clean duplicate without potentially large metadata
                     const duplicatedTab: TabData = {
-                        ...tab,
-                        key: `${tab.key}-copy-${Date.now()}`,
+                        key: `${tab.key}-copy-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                         title: `${tab.title} (Copy)`,
+                        path: tab.path,
+                        icon: tab.icon,
                         lastAccessed: Date.now(),
                         isDirty: false, // Reset dirty state for duplicated tab
+                        isPinned: false, // Reset pin state for duplicated tab
+                        // Don't copy metadata to prevent memory leaks
                     };
                     group.openTabs.push(duplicatedTab);
                     group.activeTab = duplicatedTab.key;
@@ -502,7 +497,7 @@ const ObsidianLayout: React.FC = () => {
     ];
 
     const handleSidebarItemClick = (item: any) => {
-        const tabKey = `${item.key}-${Date.now()}`;
+        const tabKey = `${item.key}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         openTab({
             key: tabKey,
             title: item.label,

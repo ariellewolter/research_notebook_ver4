@@ -1183,38 +1183,38 @@ return (
     </div>
 );
 
-            default: {
+                        default: {
                 return (
-    <div
-        className={`group flex items-start gap-2 ${draggedBlockId === block.id ? 'opacity-50' : ''}`}
-        draggable
-        onDragStart={(e) => handleDragStart(e, block.id)}
-        onDragOver={handleDragOver}
-        onDrop={(e) => handleDrop(e, block.id)}
-        onDragEnd={handleDragEnd}
-    >
-        {/* Drag Handle */}
-        <div
-            className="flex-shrink-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
-            onClick={(e) => handleContextMenuOpen(e, block.id)}
-            onMouseDown={(e) => e.stopPropagation()}
-        >
-            <DragIndicatorIcon className="text-gray-400 hover:text-gray-600" fontSize="small" />
-        </div>
+                    <div
+                        className={`group flex items-start gap-2 ${draggedBlockId === block.id ? 'opacity-50' : ''}`}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, block.id)}
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, block.id)}
+                        onDragEnd={handleDragEnd}
+                    >
+                        {/* Drag Handle */}
+                        <div
+                            className="flex-shrink-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
+                            onClick={(e) => handleContextMenuOpen(e, block.id)}
+                            onMouseDown={(e) => e.stopPropagation()}
+                        >
+                            <DragIndicatorIcon className="text-gray-400 hover:text-gray-600" fontSize="small" />
+                        </div>
 
-        {/* Content */}
-        <div className="flex-1">
-            <div
-                contentEditable
-                suppressContentEditableWarning={true}
-                className="outline-none mb-6 min-h-6 text-gray-800 leading-relaxed"
-                onBlur={(e: React.FocusEvent<HTMLElement>) => handleBlockContentChange(block.id, e.currentTarget.textContent || '')}
-            >
-                {block.content}
-            </div>
-        </div>
-    </div>
-);
+                        {/* Content */}
+                        <div className="flex-1">
+                            <div
+                                contentEditable
+                                suppressContentEditableWarning={true}
+                                className="outline-none mb-6 min-h-6 text-gray-800 leading-relaxed"
+                                onBlur={(e: React.FocusEvent<HTMLElement>) => handleBlockContentChange(block.id, e.currentTarget.textContent || '')}
+                            >
+                                {block.content}
+                            </div>
+                        </div>
+                    </div>
+                );
             }
         }
     };

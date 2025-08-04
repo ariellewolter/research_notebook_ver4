@@ -278,38 +278,38 @@ const Workspace: React.FC = () => {
         <Dialog open={newNoteDialogOpen} onClose={() => setNewNoteDialogOpen(false)} maxWidth="sm" fullWidth>
             <DialogTitle>Create New Note</DialogTitle>
             <DialogContent>
-            <TextField
-                autoFocus
-                margin="dense"
-                label="Title"
-                fullWidth
-                variant="outlined"
-                value={newNoteTitle}
-                onChange={(e) => setNewNoteTitle(e.target.value)}
-                sx={{ mb: 2 }}
-            />
-            <TextField
-                margin="dense"
-                label="Content"
-                fullWidth
-                multiline
-                rows={4}
-                variant="outlined"
-                value={newNoteContent}
-                onChange={(e) => setNewNoteContent(e.target.value)}
-            />
-        </DialogContent>
-        <DialogActions>
-            <Button onClick={() => setNewNoteDialogOpen(false)}>Cancel</Button>
-            <Button
-                onClick={handleCreateNote}
-                variant="contained"
-                disabled={!newNoteTitle.trim() || isCreatingNote}
-            >
-                {isCreatingNote ? 'Creating...' : 'Create Note'}
-            </Button>
-        </DialogActions>
-    </Dialog>
+                <TextField
+                    autoFocus
+                    margin="dense"
+                    label="Title"
+                    fullWidth
+                    variant="outlined"
+                    value={newNoteTitle}
+                    onChange={(e) => setNewNoteTitle(e.target.value)}
+                    sx={{ mb: 2 }}
+                />
+                <TextField
+                    margin="dense"
+                    label="Content"
+                    fullWidth
+                    multiline
+                    rows={4}
+                    variant="outlined"
+                    value={newNoteContent}
+                    onChange={(e) => setNewNoteContent(e.target.value)}
+                />
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={() => setNewNoteDialogOpen(false)}>Cancel</Button>
+                <Button
+                    onClick={handleCreateNote}
+                    variant="contained"
+                    disabled={!newNoteTitle.trim() || isCreatingNote}
+                >
+                    {isCreatingNote ? 'Creating...' : 'Create Note'}
+                </Button>
+            </DialogActions>
+        </Dialog>
     );
 };
 
