@@ -22,6 +22,13 @@
    - Type categorization
    - Statistics
 
+3. **Links Service** ✅
+   - Full CRUD operations
+   - Bidirectional linking
+   - Graph visualization support
+   - Backlinks and outgoing links
+   - Entity relationship management
+
 ### **Backend Structure**
 ```
 apps/backend/src/
@@ -33,14 +40,17 @@ apps/backend/src/
 ├── controllers/                     # ✅ HTTP request handling
 │   ├── projectsController.ts        # ✅ Projects controller
 │   ├── notesController.ts           # ✅ Notes controller
+│   ├── linksController.ts           # ✅ Links controller
 │   └── index.ts                     # ✅ Barrel exports
 ├── services/                        # ✅ Business logic layer
 │   ├── ProjectService.ts            # ✅ Project business logic
 │   ├── NoteService.ts               # ✅ Note business logic
+│   ├── LinkService.ts               # ✅ Link business logic
 │   └── index.ts                     # ✅ Barrel exports
 ├── repositories/                    # ✅ Data access layer
 │   ├── ProjectRepository.ts         # ✅ Project data access
 │   ├── NoteRepository.ts            # ✅ Note data access
+│   ├── LinkRepository.ts            # ✅ Link data access
 │   └── index.ts                     # ✅ Barrel exports
 ├── middleware/                      # ✅ Reusable middleware
 │   ├── auth.ts                      # ✅ Auth middleware (placeholder)
@@ -63,7 +73,8 @@ apps/backend/src/
 │   ├── api/
 │   │   ├── index.ts               # ✅ API route grouping
 │   │   ├── projects.ts            # ✅ Projects routes
-│   │   └── notes.ts               # ✅ Notes routes
+│   │   ├── notes.ts               # ✅ Notes routes
+│   │   └── links.ts               # ✅ Links routes
 │   ├── auth/
 │   │   └── index.ts               # ✅ Auth routes (placeholder)
 │   └── integration/
@@ -91,12 +102,18 @@ apps/backend/src/
    - Date filtering
    - Statistics
 
-3. **useApi** ✅
+3. **useLinks** ✅
+   - Full CRUD operations
+   - Backlinks and outgoing links
+   - Graph visualization
+   - Entity relationships
+
+4. **useApi** ✅
    - Generic API hook for common patterns
    - List operations support
    - Error handling utilities
 
-4. **UI Hooks** ✅
+5. **UI Hooks** ✅
    - useModal: Modal state management
    - useForm: Form state management with validation
 
@@ -121,6 +138,7 @@ apps/frontend/src/
 │   ├── api/                       # ✅ API-related hooks
 │   │   ├── useProjects.ts         # ✅ Projects state management
 │   │   ├── useNotes.ts            # ✅ Notes state management
+│   │   ├── useLinks.ts            # ✅ Links state management
 │   │   ├── useApi.ts              # ✅ Generic API hook
 │   │   └── index.ts               # ✅ Barrel exports
 │   └── ui/                        # ✅ UI-related hooks
@@ -149,7 +167,6 @@ apps/frontend/src/
 
 ### **Backend Tasks**
 1. **Implement remaining services**:
-   - Links Service
    - Database Service
    - Tasks Service
    - Notifications Service

@@ -19,6 +19,7 @@ export { outlookCalendarApi } from './outlookCalendarApi';
 export { appleCalendarApi } from './appleCalendarApi';
 export { advancedReportingApi } from './advancedReportingApi';
 export { searchApi } from './searchApi';
+export { cloudSyncApi } from './cloudSyncApi';
 
 // Re-export types
 export * from '../../types/api.types'; 
