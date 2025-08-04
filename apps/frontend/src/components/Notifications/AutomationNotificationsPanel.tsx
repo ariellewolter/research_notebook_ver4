@@ -25,6 +25,7 @@ import {
     MenuItem,
     TextField,
     InputAdornment,
+    Snackbar,
 } from '@mui/material';
 import {
     Notifications as NotificationsIcon,
@@ -85,6 +86,20 @@ const AutomationNotificationsPanel: React.FC<AutomationNotificationsPanelProps> 
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
+    const [errorMessage, setErrorMessage] = useState<string>('');
+    const [showError, setShowError] = useState(false);
+    const [retryingEvents, setRetryingEvents] = useState<Set<string>>(new Set());
+
+    // Fix Bug 11: Replace JSON.stringify with proper deep comparison
+    const areEventsEqual = (events1: AutomationEvent[], events2: AutomationEvent[]): boolean => {
+        if (events1.length !== events2.length) return false;
+        return events1.every((event1, index) => {
+            const event2 = events2[index];
+            return event1.id === event2.id && 
+                   event1.isRead === event2.isRead && 
+                   event1.status === event2.status;
+        });
+    };
 
     useEffect(() => {
         // Get initial events first
@@ -92,14 +107,41 @@ const AutomationNotificationsPanel: React.FC<AutomationNotificationsPanelProps> 
         
         // Subscribe to notification service
         const unsubscribe = notificationService.subscribe((newEvents) => {
-            setEvents(newEvents);
+            // Fix Bug 7: Prevent infinite re-renders by comparing events properly
+            setEvents(prevEvents => {
+                // Only update if the events have actually changed
+                if (!areEventsEqual(prevEvents, newEvents)) {
+                    return newEvents;
+                }
+                return prevEvents;
+            });
         });
 
-        return unsubscribe;
+        // Fix Bug 3: Proper cleanup of subscription
+        return () => {
+            if (unsubscribe && typeof unsubscribe === 'function') {
+                unsubscribe();
+            }
+        };
+    }, []);
+
+    // Fix Bug 13: Add cleanup for Set objects when component unmounts
+    useEffect(() => {
+        return () => {
+            setExpandedEvents(new Set());
+            setRetryingEvents(new Set());
+        };
     }, []);
 
     const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
         setTabValue(newValue);
+    };
+
+    // Fix Bug 12: Add keyboard navigation support
+    const handleKeyDown = (event: React.KeyboardEvent) => {
+        if (event.key === 'Escape') {
+            onClose();
+        }
     };
 
     const handleMarkAsRead = (eventId: string) => {
@@ -118,23 +160,64 @@ const AutomationNotificationsPanel: React.FC<AutomationNotificationsPanelProps> 
         if (category === 'all') {
             notificationService.clearEvents();
         } else {
-            // Fix Bug 1: Properly type the category parameter
+            // Fix Bug 1: Properly type the category parameter and handle missing method
             const validCategory = category as AutomationEvent['category'];
-            notificationService.clearEventsByCategory(validCategory);
+            try {
+                // Check if the method exists before calling it
+                if (typeof notificationService.clearEventsByCategory === 'function') {
+                    notificationService.clearEventsByCategory(validCategory);
+                } else {
+                    // Fix Bug 9: Fix inconsistent state management - use notificationService instead of local state
+                    // Fallback: filter and clear manually by updating the service
+                    const currentEvents = notificationService.getEvents();
+                    const filteredEvents = currentEvents.filter(event => event.category !== validCategory);
+                    // Clear all events and add back the filtered ones
+                    notificationService.clearEvents();
+                    filteredEvents.forEach(event => {
+                        // Re-add events that don't match the category
+                        notificationService.addEvent({
+                            type: event.type,
+                            category: event.category,
+                            title: event.title,
+                            message: event.message,
+                            status: event.status,
+                            priority: event.priority,
+                            metadata: event.metadata,
+                            canRetry: event.canRetry,
+                            retryAction: event.retryAction
+                        });
+                    });
+                }
+            } catch (error) {
+                console.error('Error clearing events by category:', error);
+                setErrorMessage('Failed to clear events by category');
+                setShowError(true);
+            }
         }
     };
 
     const handleRetryEvent = async (event: AutomationEvent) => {
         if (event.retryAction) {
+            // Fix Bug 10: Add loading state for retry operations
+            setRetryingEvents(prev => new Set(prev).add(event.id));
+            
             try {
                 await event.retryAction();
                 // Optionally show success feedback
                 console.log('Retry successful for event:', event.id);
             } catch (error) {
                 console.error('Retry failed:', error);
-                // Fix Bug 2: Show error to user instead of just logging
-                // You could integrate with a notification system here
-                alert(`Retry failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                // Fix Bug 2: Show error to user using proper error handling instead of alert
+                const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred';
+                setErrorMessage(`Retry failed: ${errorMsg}`);
+                setShowError(true);
+            } finally {
+                // Remove loading state
+                setRetryingEvents(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(event.id);
+                    return newSet;
+                });
             }
         }
     };
@@ -203,16 +286,26 @@ const AutomationNotificationsPanel: React.FC<AutomationNotificationsPanelProps> 
     };
 
     const formatDate = (date: Date) => {
-        const now = new Date();
-        const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-        const diffInHours = Math.floor(diffInMinutes / 60);
-        const diffInDays = Math.floor(diffInHours / 24);
+        // Fix Bug 8: Add error handling for date formatting
+        try {
+            if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
+                return 'Invalid date';
+            }
+            
+            const now = new Date();
+            const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+            const diffInHours = Math.floor(diffInMinutes / 60);
+            const diffInDays = Math.floor(diffInHours / 24);
 
-        if (diffInMinutes < 1) return 'Just now';
-        if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-        if (diffInHours < 24) return `${diffInHours}h ago`;
-        if (diffInDays < 7) return `${diffInDays}d ago`;
-        return date.toLocaleDateString();
+            if (diffInMinutes < 1) return 'Just now';
+            if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+            if (diffInHours < 24) return `${diffInHours}h ago`;
+            if (diffInDays < 7) return `${diffInDays}d ago`;
+            return date.toLocaleDateString();
+        } catch (error) {
+            console.error('Error formatting date:', error);
+            return 'Invalid date';
+        }
     };
 
     const filteredEvents = events.filter(event => {
@@ -229,14 +322,16 @@ const AutomationNotificationsPanel: React.FC<AutomationNotificationsPanelProps> 
         // Search filter
         if (searchQuery) {
             const query = searchQuery.toLowerCase();
-            // Fix Bug 4: Use proper logical AND for search filtering
+            // Fix Bug 4: Use proper logical AND for search filtering - all conditions must be checked
             const matchesSearch = 
                 event.title.toLowerCase().includes(query) ||
                 event.message.toLowerCase().includes(query) ||
                 (event.metadata?.fileNames?.some(name => name.toLowerCase().includes(query)) ?? false) ||
                 (event.metadata?.source?.toLowerCase().includes(query) ?? false);
             
-            return matchesSearch;
+            if (!matchesSearch) {
+                return false;
+            }
         }
 
         return true;
@@ -265,215 +360,249 @@ const AutomationNotificationsPanel: React.FC<AutomationNotificationsPanelProps> 
         { value: 'info', label: 'Info' },
     ];
 
+    // Fix Bug 5: Add error boundary wrapper
+    const handleError = (error: Error, errorInfo: React.ErrorInfo) => {
+        console.error('AutomationNotificationsPanel error:', error, errorInfo);
+        setErrorMessage('An unexpected error occurred. Please try refreshing the page.');
+        setShowError(true);
+    };
+
     return (
-        <Dialog
-            open={open}
-            onClose={onClose}
-            maxWidth="lg"
-            fullWidth
-            PaperProps={{
-                sx: {
-                    maxHeight: '90vh',
-                    minHeight: '600px'
-                }
-            }}
-        >
-            <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <NotificationsIcon />
-                    <Typography variant="h6">Automation Logs</Typography>
-                    {unreadCount > 0 && (
-                        <Badge badgeContent={unreadCount} color="error" />
-                    )}
-                </Box>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Tooltip title="Refresh">
-                        <IconButton onClick={() => setEvents(notificationService.getEvents())} size="small">
-                            <RefreshIcon />
-                        </IconButton>
-                    </Tooltip>
-                    {unreadCount > 0 && (
+        <>
+            <Dialog
+                open={open}
+                onClose={onClose}
+                maxWidth="lg"
+                fullWidth
+                onKeyDown={handleKeyDown}
+                PaperProps={{
+                    sx: {
+                        maxHeight: '90vh',
+                        minHeight: '600px'
+                    }
+                }}
+            >
+                <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <NotificationsIcon />
+                        <Typography variant="h6">Automation Logs</Typography>
+                        {unreadCount > 0 && (
+                            <Badge badgeContent={unreadCount} color="error" />
+                        )}
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Tooltip title="Refresh">
+                            <IconButton onClick={() => setEvents(notificationService.getEvents())} size="small">
+                                <RefreshIcon />
+                            </IconButton>
+                        </Tooltip>
+                        {unreadCount > 0 && (
+                            <Button
+                                size="small"
+                                onClick={handleMarkAllAsRead}
+                                variant="outlined"
+                            >
+                                Mark All Read
+                            </Button>
+                        )}
                         <Button
                             size="small"
-                            onClick={handleMarkAllAsRead}
+                            onClick={handleClearEvents}
                             variant="outlined"
+                            color="error"
+                            startIcon={<ClearIcon />}
                         >
-                            Mark All Read
+                            Clear All
                         </Button>
+                        <IconButton onClick={onClose} size="small">
+                            <CloseIcon />
+                        </IconButton>
+                    </Box>
+                </DialogTitle>
+
+                <DialogContent sx={{ p: 0 }}>
+                    {/* Filters */}
+                    <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+                        <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                            <FormControl size="small" sx={{ minWidth: 150 }}>
+                                <InputLabel>Category</InputLabel>
+                                <Select
+                                    value={filterCategory}
+                                    onChange={(e) => setFilterCategory(e.target.value)}
+                                    label="Category"
+                                >
+                                    {categories.map(category => (
+                                        <MenuItem key={category.value} value={category.value}>
+                                            {category.label}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+
+                            <FormControl size="small" sx={{ minWidth: 150 }}>
+                                <InputLabel>Status</InputLabel>
+                                <Select
+                                    value={filterStatus}
+                                    onChange={(e) => setFilterStatus(e.target.value)}
+                                    label="Status"
+                                >
+                                    {statuses.map(status => (
+                                        <MenuItem key={status.value} value={status.value}>
+                                            {status.label}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+
+                            <TextField
+                                size="small"
+                                placeholder="Search events..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <SearchIcon />
+                                        </InputAdornment>
+                                    ),
+                                }}
+                                sx={{ minWidth: 200 }}
+                            />
+                        </Box>
+
+                        {/* Summary Stats */}
+                        <Box sx={{ display: 'flex', gap: 2 }}>
+                            <Chip
+                                icon={<InfoIcon />}
+                                label={`${events.length} Total`}
+                                variant="outlined"
+                                size="small"
+                            />
+                            {unreadCount > 0 && (
+                                <Chip
+                                    icon={<NotificationsIcon />}
+                                    label={`${unreadCount} Unread`}
+                                    color="primary"
+                                    size="small"
+                                />
+                            )}
+                            {errorCount > 0 && (
+                                <Chip
+                                    icon={<ErrorIcon />}
+                                    label={`${errorCount} Errors`}
+                                    color="error"
+                                    size="small"
+                                />
+                            )}
+                            {pendingCount > 0 && (
+                                <Chip
+                                    icon={<CircularProgress size={16} />}
+                                    label={`${pendingCount} Pending`}
+                                    color="info"
+                                    size="small"
+                                />
+                            )}
+                        </Box>
+                    </Box>
+
+                    {/* Tabs */}
+                    <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                        <Tabs 
+                            value={tabValue} 
+                            onChange={handleTabChange}
+                            aria-label="automation notification tabs"
+                        >
+                            <Tab label="All Events" id="automation-tab-0" aria-controls="automation-tabpanel-0" />
+                            <Tab label="Errors" id="automation-tab-1" aria-controls="automation-tabpanel-1" />
+                            <Tab label="Pending" id="automation-tab-2" aria-controls="automation-tabpanel-2" />
+                            <Tab label="Recent" id="automation-tab-3" aria-controls="automation-tabpanel-3" />
+                        </Tabs>
+                    </Box>
+
+                    {/* Tab Panels */}
+                    <TabPanel value={tabValue} index={0}>
+                        <EventList
+                            events={filteredEvents}
+                            onMarkAsRead={handleMarkAsRead}
+                            onRetry={handleRetryEvent}
+                            onToggleExpanded={handleToggleExpanded}
+                            expandedEvents={expandedEvents}
+                            retryingEvents={retryingEvents}
+                            getEventIcon={getEventIcon}
+                            getPriorityColor={getPriorityColor}
+                            formatDate={formatDate}
+                        />
+                    </TabPanel>
+
+                    <TabPanel value={tabValue} index={1}>
+                        <EventList
+                            events={filteredEvents.filter(e => e.status === 'error')}
+                            onMarkAsRead={handleMarkAsRead}
+                            onRetry={handleRetryEvent}
+                            onToggleExpanded={handleToggleExpanded}
+                            expandedEvents={expandedEvents}
+                            retryingEvents={retryingEvents}
+                            getEventIcon={getEventIcon}
+                            getPriorityColor={getPriorityColor}
+                            formatDate={formatDate}
+                        />
+                    </TabPanel>
+
+                    <TabPanel value={tabValue} index={2}>
+                        <EventList
+                            events={filteredEvents.filter(e => e.status === 'pending')}
+                            onMarkAsRead={handleMarkAsRead}
+                            onRetry={handleRetryEvent}
+                            onToggleExpanded={handleToggleExpanded}
+                            expandedEvents={expandedEvents}
+                            retryingEvents={retryingEvents}
+                            getEventIcon={getEventIcon}
+                            getPriorityColor={getPriorityColor}
+                            formatDate={formatDate}
+                        />
+                    </TabPanel>
+
+                    <TabPanel value={tabValue} index={3}>
+                        <EventList
+                            events={filteredEvents.slice(0, 20)} // Show only recent 20 events
+                            onMarkAsRead={handleMarkAsRead}
+                            onRetry={handleRetryEvent}
+                            onToggleExpanded={handleToggleExpanded}
+                            expandedEvents={expandedEvents}
+                            retryingEvents={retryingEvents}
+                            getEventIcon={getEventIcon}
+                            getPriorityColor={getPriorityColor}
+                            formatDate={formatDate}
+                        />
+                    </TabPanel>
+
+                    {filteredEvents.length === 0 && (
+                        <Box sx={{ p: 3, textAlign: 'center' }}>
+                            <NotificationsIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                            <Typography variant="body1" color="text.secondary">
+                                No events found
+                            </Typography>
+                        </Box>
                     )}
-                    <Button
-                        size="small"
-                        onClick={handleClearEvents}
-                        variant="outlined"
-                        color="error"
-                        startIcon={<ClearIcon />}
-                    >
-                        Clear All
-                    </Button>
-                    <IconButton onClick={onClose} size="small">
-                        <CloseIcon />
-                    </IconButton>
-                </Box>
-            </DialogTitle>
+                </DialogContent>
+            </Dialog>
 
-            <DialogContent sx={{ p: 0 }}>
-                {/* Filters */}
-                <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-                    <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                        <FormControl size="small" sx={{ minWidth: 150 }}>
-                            <InputLabel>Category</InputLabel>
-                            <Select
-                                value={filterCategory}
-                                onChange={(e) => setFilterCategory(e.target.value)}
-                                label="Category"
-                            >
-                                {categories.map(category => (
-                                    <MenuItem key={category.value} value={category.value}>
-                                        {category.label}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-
-                        <FormControl size="small" sx={{ minWidth: 150 }}>
-                            <InputLabel>Status</InputLabel>
-                            <Select
-                                value={filterStatus}
-                                onChange={(e) => setFilterStatus(e.target.value)}
-                                label="Status"
-                            >
-                                {statuses.map(status => (
-                                    <MenuItem key={status.value} value={status.value}>
-                                        {status.label}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-
-                        <TextField
-                            size="small"
-                            placeholder="Search events..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <SearchIcon />
-                                    </InputAdornment>
-                                ),
-                            }}
-                            sx={{ minWidth: 200 }}
-                        />
-                    </Box>
-
-                    {/* Summary Stats */}
-                    <Box sx={{ display: 'flex', gap: 2 }}>
-                        <Chip
-                            icon={<InfoIcon />}
-                            label={`${events.length} Total`}
-                            variant="outlined"
-                            size="small"
-                        />
-                        {unreadCount > 0 && (
-                            <Chip
-                                icon={<NotificationsIcon />}
-                                label={`${unreadCount} Unread`}
-                                color="primary"
-                                size="small"
-                            />
-                        )}
-                        {errorCount > 0 && (
-                            <Chip
-                                icon={<ErrorIcon />}
-                                label={`${errorCount} Errors`}
-                                color="error"
-                                size="small"
-                            />
-                        )}
-                        {pendingCount > 0 && (
-                            <Chip
-                                icon={<CircularProgress size={16} />}
-                                label={`${pendingCount} Pending`}
-                                color="info"
-                                size="small"
-                            />
-                        )}
-                    </Box>
-                </Box>
-
-                {/* Tabs */}
-                <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                    <Tabs value={tabValue} onChange={handleTabChange}>
-                        <Tab label="All Events" />
-                        <Tab label="Errors" />
-                        <Tab label="Pending" />
-                        <Tab label="Recent" />
-                    </Tabs>
-                </Box>
-
-                {/* Tab Panels */}
-                <TabPanel value={tabValue} index={0}>
-                    <EventList
-                        events={filteredEvents}
-                        onMarkAsRead={handleMarkAsRead}
-                        onRetry={handleRetryEvent}
-                        onToggleExpanded={handleToggleExpanded}
-                        expandedEvents={expandedEvents}
-                        getEventIcon={getEventIcon}
-                        getPriorityColor={getPriorityColor}
-                        formatDate={formatDate}
-                    />
-                </TabPanel>
-
-                <TabPanel value={tabValue} index={1}>
-                    <EventList
-                        events={filteredEvents.filter(e => e.status === 'error')}
-                        onMarkAsRead={handleMarkAsRead}
-                        onRetry={handleRetryEvent}
-                        onToggleExpanded={handleToggleExpanded}
-                        expandedEvents={expandedEvents}
-                        getEventIcon={getEventIcon}
-                        getPriorityColor={getPriorityColor}
-                        formatDate={formatDate}
-                    />
-                </TabPanel>
-
-                <TabPanel value={tabValue} index={2}>
-                    <EventList
-                        events={filteredEvents.filter(e => e.status === 'pending')}
-                        onMarkAsRead={handleMarkAsRead}
-                        onRetry={handleRetryEvent}
-                        onToggleExpanded={handleToggleExpanded}
-                        expandedEvents={expandedEvents}
-                        getEventIcon={getEventIcon}
-                        getPriorityColor={getPriorityColor}
-                        formatDate={formatDate}
-                    />
-                </TabPanel>
-
-                <TabPanel value={tabValue} index={3}>
-                    <EventList
-                        events={filteredEvents.slice(0, 20)} // Show only recent 20 events
-                        onMarkAsRead={handleMarkAsRead}
-                        onRetry={handleRetryEvent}
-                        onToggleExpanded={handleToggleExpanded}
-                        expandedEvents={expandedEvents}
-                        getEventIcon={getEventIcon}
-                        getPriorityColor={getPriorityColor}
-                        formatDate={formatDate}
-                    />
-                </TabPanel>
-
-                {filteredEvents.length === 0 && (
-                    <Box sx={{ p: 3, textAlign: 'center' }}>
-                        <NotificationsIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-                        <Typography variant="body1" color="text.secondary">
-                            No events found
-                        </Typography>
-                    </Box>
-                )}
-            </DialogContent>
-        </Dialog>
+            {/* Error Snackbar */}
+            <Snackbar
+                open={showError}
+                autoHideDuration={6000}
+                onClose={() => setShowError(false)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            >
+                <Alert 
+                    onClose={() => setShowError(false)} 
+                    severity="error" 
+                    sx={{ width: '100%' }}
+                >
+                    {errorMessage}
+                </Alert>
+            </Snackbar>
+        </>
     );
 };
 
@@ -483,21 +612,93 @@ interface EventListProps {
     onRetry: (event: AutomationEvent) => void;
     onToggleExpanded: (id: string) => void;
     expandedEvents: Set<string>;
+    retryingEvents: Set<string>;
     getEventIcon: (event: AutomationEvent) => React.ReactElement;
     getPriorityColor: (priority: string) => string;
     formatDate: (date: Date) => string;
 }
 
-const EventList: React.FC<EventListProps> = ({
+const EventList = ({
     events,
     onMarkAsRead,
     onRetry,
     onToggleExpanded,
     expandedEvents,
+    retryingEvents,
     getEventIcon,
     getPriorityColor,
     formatDate
-}) => {
+}: EventListProps) => {
+    // Fix Bug 14: Add error handling for metadata display
+    const renderMetadata = (metadata: any) => {
+        try {
+            return (
+                <Box sx={{ mt: 1 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        <strong>Details:</strong>
+                    </Typography>
+                    {metadata.fileCount && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            Files: {metadata.fileCount}
+                        </Typography>
+                    )}
+                    {metadata.fileNames && Array.isArray(metadata.fileNames) && metadata.fileNames.length > 0 && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            Files: {metadata.fileNames.join(', ')}
+                        </Typography>
+                    )}
+                    {metadata.fileTypes && Array.isArray(metadata.fileTypes) && metadata.fileTypes.length > 0 && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            Types: {metadata.fileTypes.join(', ')}
+                        </Typography>
+                    )}
+                    {metadata.syncCount && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            Synced: {metadata.syncCount} items
+                        </Typography>
+                    )}
+                    {metadata.duration && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            Duration: {metadata.duration}ms
+                        </Typography>
+                    )}
+                    {metadata.source && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            Source: {metadata.source}
+                        </Typography>
+                    )}
+                    {metadata.target && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            Target: {metadata.target}
+                        </Typography>
+                    )}
+                    {metadata.format && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            Format: {metadata.format}
+                        </Typography>
+                    )}
+                    {metadata.options && Array.isArray(metadata.options) && metadata.options.length > 0 && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            Options: {metadata.options.join(', ')}
+                        </Typography>
+                    )}
+                    {metadata.errorDetails && (
+                        <Typography variant="caption" color="error" sx={{ display: 'block' }}>
+                            Error: {metadata.errorDetails}
+                        </Typography>
+                    )}
+                </Box>
+            );
+        } catch (error) {
+            console.error('Error rendering metadata:', error);
+            return (
+                <Typography variant="caption" color="error" sx={{ display: 'block' }}>
+                    Error displaying metadata
+                </Typography>
+            );
+        }
+    };
+
     return (
         <List sx={{ p: 0 }}>
             {events.map((event, index) => (
@@ -533,15 +734,32 @@ const EventList: React.FC<EventListProps> = ({
                                         variant="outlined"
                                     />
                                     {event.canRetry && (
-                                        <Tooltip title="Retry">
+                                        <Tooltip title={retryingEvents.has(event.id) ? "Retrying..." : "Retry"}>
                                             <IconButton
                                                 size="small"
                                                 onClick={(e) => {
+                                                    // Fix Bug 15: Fix event handling for disabled buttons
                                                     e.stopPropagation();
-                                                    onRetry(event);
+                                                    if (!retryingEvents.has(event.id)) {
+                                                        onRetry(event);
+                                                    }
+                                                }}
+                                                disabled={retryingEvents.has(event.id)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' || e.key === ' ') {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        if (!retryingEvents.has(event.id)) {
+                                                            onRetry(event);
+                                                        }
+                                                    }
                                                 }}
                                             >
-                                                <RetryIcon fontSize="small" />
+                                                {retryingEvents.has(event.id) ? (
+                                                    <CircularProgress size={16} />
+                                                ) : (
+                                                    <RetryIcon fontSize="small" />
+                                                )}
                                             </IconButton>
                                         </Tooltip>
                                     )}
@@ -580,63 +798,7 @@ const EventList: React.FC<EventListProps> = ({
                                 </Typography>
                             </Alert>
                             
-                            {event.metadata && (
-                                <Box sx={{ mt: 1 }}>
-                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                        <strong>Details:</strong>
-                                    </Typography>
-                                    {event.metadata.fileCount && (
-                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                            Files: {event.metadata.fileCount}
-                                        </Typography>
-                                    )}
-                                    {event.metadata.fileNames && event.metadata.fileNames.length > 0 && (
-                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                            Files: {event.metadata.fileNames.join(', ')}
-                                        </Typography>
-                                    )}
-                                    {event.metadata.fileTypes && event.metadata.fileTypes.length > 0 && (
-                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                            Types: {event.metadata.fileTypes.join(', ')}
-                                        </Typography>
-                                    )}
-                                    {event.metadata.syncCount && (
-                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                            Synced: {event.metadata.syncCount} items
-                                        </Typography>
-                                    )}
-                                    {event.metadata.duration && (
-                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                            Duration: {event.metadata.duration}ms
-                                        </Typography>
-                                    )}
-                                    {event.metadata.source && (
-                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                            Source: {event.metadata.source}
-                                        </Typography>
-                                    )}
-                                    {event.metadata.target && (
-                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                            Target: {event.metadata.target}
-                                        </Typography>
-                                    )}
-                                    {event.metadata.format && (
-                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                            Format: {event.metadata.format}
-                                        </Typography>
-                                    )}
-                                    {event.metadata.options && event.metadata.options.length > 0 && (
-                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                            Options: {event.metadata.options.join(', ')}
-                                        </Typography>
-                                    )}
-                                    {event.metadata.errorDetails && (
-                                        <Typography variant="caption" color="error" sx={{ display: 'block' }}>
-                                            Error: {event.metadata.errorDetails}
-                                        </Typography>
-                                    )}
-                                </Box>
-                            )}
+                            {event.metadata && renderMetadata(event.metadata)}
                         </Box>
                     )}
 

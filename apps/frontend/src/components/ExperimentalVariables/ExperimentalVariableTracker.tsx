@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     Box,
     Typography,
@@ -164,13 +164,25 @@ const ExperimentalVariableTracker: React.FC = () => {
     const [editingVariable, setEditingVariable] = useState<ExperimentVariable | null>(null);
     const [selectedVariable, setSelectedVariable] = useState<ExperimentVariable | null>(null);
 
-    const [categoryForm, setCategoryForm] = useState({
+    const [categoryForm, setCategoryForm] = useState<{
+        name: string;
+        description: string;
+        color: string;
+        icon: string;
+        unit: string;
+        dataType: 'number' | 'text' | 'boolean' | 'date' | 'select';
+        options: string;
+        minValue: string;
+        maxValue: string;
+        isRequired: boolean;
+        isGlobal: boolean;
+    }>({
         name: '',
         description: '',
         color: '#0088FE',
         icon: 'Science',
         unit: '',
-        dataType: 'text' as const,
+        dataType: 'text',
         options: '',
         minValue: '',
         maxValue: '',
@@ -178,12 +190,20 @@ const ExperimentalVariableTracker: React.FC = () => {
         isGlobal: false
     });
 
-    const [variableForm, setVariableForm] = useState({
+    const [variableForm, setVariableForm] = useState<{
+        categoryId: string;
+        name: string;
+        description: string;
+        unit: string;
+        dataType: 'number' | 'text' | 'boolean' | 'date' | 'select';
+        isRequired: boolean;
+        order: number;
+    }>({
         categoryId: '',
         name: '',
         description: '',
         unit: '',
-        dataType: 'text' as const,
+        dataType: 'text',
         isRequired: false,
         order: 0
     });
@@ -193,108 +213,199 @@ const ExperimentalVariableTracker: React.FC = () => {
         notes: ''
     });
 
+    // Fix Bug 20: Add cleanup for API calls when component unmounts
+    const abortControllerRef = useRef<AbortController | null>(null);
+
+    // Memoize API functions to prevent unnecessary re-renders
+    const fetchCategories = useCallback(async () => {
+        if (!token) return;
+        
+        try {
+            const controller = new AbortController();
+            abortControllerRef.current = controller;
+            
+            const response = await api.get('/experimental-variables/categories', {
+                headers: { Authorization: `Bearer ${token}` },
+                signal: controller.signal
+            });
+            setCategories(response.data);
+            setError(null);
+        } catch (error: any) {
+            if (error.name === 'AbortError') return; // Ignore aborted requests
+            console.error('Failed to fetch categories:', error);
+            setError('Failed to fetch categories. Please try again.');
+        }
+    }, [token]);
+
+    const fetchExperiments = useCallback(async () => {
+        if (!token) return;
+        
+        try {
+            const controller = new AbortController();
+            abortControllerRef.current = controller;
+            
+            const response = await api.get('/projects/experiments/all', {
+                headers: { Authorization: `Bearer ${token}` },
+                signal: controller.signal
+            });
+            setExperiments(response.data);
+            setError(null);
+        } catch (error: any) {
+            if (error.name === 'AbortError') return; // Ignore aborted requests
+            console.error('Failed to fetch experiments:', error);
+            setError('Failed to fetch experiments. Please try again.');
+        }
+    }, [token]);
+
+    const fetchExperimentVariables = useCallback(async (experimentId: string) => {
+        if (!token || !experimentId) return;
+        
+        setLoading(true);
+        try {
+            const controller = new AbortController();
+            abortControllerRef.current = controller;
+            
+            const response = await api.get(`/experimental-variables/experiments/${experimentId}/variables`, {
+                headers: { Authorization: `Bearer ${token}` },
+                signal: controller.signal
+            });
+            setExperimentVariables(response.data);
+            setError(null);
+        } catch (error: any) {
+            if (error.name === 'AbortError') return; // Ignore aborted requests
+            console.error('Failed to fetch experiment variables:', error);
+            setError('Failed to fetch experiment variables. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    }, [token]);
+
+    const fetchAnalytics = useCallback(async () => {
+        if (!token || !selectedExperiment) return;
+        
+        try {
+            const controller = new AbortController();
+            abortControllerRef.current = controller;
+            
+            const response = await api.get('/experimental-variables/analytics', {
+                headers: { Authorization: `Bearer ${token}` },
+                params: { experimentId: selectedExperiment },
+                signal: controller.signal
+            });
+            setAnalytics(response.data);
+            setError(null);
+        } catch (error: any) {
+            if (error.name === 'AbortError') return; // Ignore aborted requests
+            console.error('Failed to fetch analytics:', error);
+            setError('Failed to fetch analytics. Please try again.');
+        }
+    }, [token, selectedExperiment]);
+
+    // Initialize data on component mount
     useEffect(() => {
         fetchCategories();
         fetchExperiments();
-    }, []);
 
+        // Cleanup function
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+        };
+    }, [fetchCategories, fetchExperiments]);
+
+    // Handle experiment selection changes
     useEffect(() => {
         if (selectedExperiment) {
             fetchExperimentVariables(selectedExperiment);
             fetchAnalytics();
+        } else {
+            // Clear state when no experiment is selected
+            setExperimentVariables([]);
+            setAnalytics(null);
         }
-    }, [selectedExperiment]);
-
-    const fetchCategories = async () => {
-        try {
-            const response = await api.get('/experimental-variables/categories', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setCategories(response.data);
-        } catch (error) {
-            console.error('Failed to fetch categories:', error);
-            setError('Failed to fetch categories');
-        }
-    };
-
-    const fetchExperiments = async () => {
-        try {
-            // Fix: Use the correct endpoint for experiments
-            const response = await api.get('/projects/experiments/all', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setExperiments(response.data);
-        } catch (error) {
-            console.error('Failed to fetch experiments:', error);
-            setError('Failed to fetch experiments');
-        }
-    };
-
-    const fetchExperimentVariables = async (experimentId: string) => {
-        setLoading(true);
-        try {
-            const response = await api.get(`/experimental-variables/experiments/${experimentId}/variables`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setExperimentVariables(response.data);
-        } catch (error) {
-            console.error('Failed to fetch experiment variables:', error);
-            setError('Failed to fetch experiment variables');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const fetchAnalytics = async () => {
-        if (!selectedExperiment) return; // Fix: Don't fetch analytics if no experiment selected
-        
-        try {
-            const response = await api.get('/experimental-variables/analytics', {
-                headers: { Authorization: `Bearer ${token}` },
-                params: {
-                    experimentId: selectedExperiment
-                }
-            });
-            setAnalytics(response.data);
-        } catch (error) {
-            console.error('Failed to fetch analytics:', error);
-            setError('Failed to fetch analytics');
-        }
-    };
+    }, [selectedExperiment, fetchExperimentVariables, fetchAnalytics]);
 
     const validateCategoryForm = (): string | null => {
-        if (!categoryForm.name.trim()) {
-            return 'Category name is required';
-        }
-        const dataType = categoryForm.dataType;
-        if (dataType === 'select' && !categoryForm.options.trim()) {
-            return 'Options are required for select type';
-        }
-        if (dataType === 'number' && categoryForm.minValue && categoryForm.maxValue) {
-            const min = parseFloat(categoryForm.minValue);
-            const max = parseFloat(categoryForm.maxValue);
-            if (min >= max) {
-                return 'Min value must be less than max value';
+        // Fix Bug 17: Add proper error handling for form validation
+        try {
+            if (!categoryForm.name.trim()) {
+                return 'Category name is required';
             }
+            const dataType = categoryForm.dataType;
+            if (dataType === 'select' && !categoryForm.options.trim()) {
+                return 'Options are required for select type';
+            }
+            if (dataType === 'select' && categoryForm.options.trim()) {
+                // Fix Bug 18: Add error handling for JSON parsing
+                try {
+                    const options = JSON.parse(categoryForm.options);
+                    if (!Array.isArray(options) || options.length === 0) {
+                        return 'Options must be a non-empty JSON array';
+                    }
+                } catch (parseError) {
+                    return 'Options must be a valid JSON array';
+                }
+            }
+            if (dataType === 'number' && categoryForm.minValue && categoryForm.maxValue) {
+                const min = parseFloat(categoryForm.minValue);
+                const max = parseFloat(categoryForm.maxValue);
+                if (isNaN(min) || isNaN(max)) {
+                    return 'Min and max values must be valid numbers';
+                }
+                if (min >= max) {
+                    return 'Min value must be less than max value';
+                }
+            }
+            return null;
+        } catch (error) {
+            console.error('Validation error:', error);
+            return 'An error occurred during validation';
         }
-        return null;
     };
 
     const validateVariableForm = (): string | null => {
-        if (!variableForm.name.trim()) {
-            return 'Variable name is required';
+        try {
+            if (!variableForm.name.trim()) {
+                return 'Variable name is required';
+            }
+            if (!variableForm.categoryId) {
+                return 'Category is required';
+            }
+            if (variableForm.order < 0) {
+                return 'Order must be a non-negative number';
+            }
+            return null;
+        } catch (error) {
+            console.error('Validation error:', error);
+            return 'An error occurred during validation';
         }
-        if (!variableForm.categoryId) {
-            return 'Category is required';
-        }
-        return null;
     };
 
     const validateValueForm = (): string | null => {
-        if (!valueForm.value.trim()) {
-            return 'Value is required';
+        try {
+            if (!valueForm.value.trim()) {
+                return 'Value is required';
+            }
+            if (selectedVariable?.dataType === 'number') {
+                const numValue = parseFloat(valueForm.value);
+                if (isNaN(numValue)) {
+                    return 'Value must be a valid number';
+                }
+                // Check min/max constraints if they exist
+                const category = selectedVariable.category;
+                if (category.minValue !== undefined && numValue < category.minValue) {
+                    return `Value must be at least ${category.minValue}`;
+                }
+                if (category.maxValue !== undefined && numValue > category.maxValue) {
+                    return `Value must be at most ${category.maxValue}`;
+                }
+            }
+            return null;
+        } catch (error) {
+            console.error('Validation error:', error);
+            return 'An error occurred during validation';
         }
-        return null;
     };
 
     const handleCategorySubmit = async () => {
@@ -311,13 +422,18 @@ const ExperimentalVariableTracker: React.FC = () => {
                 maxValue: categoryForm.maxValue ? parseFloat(categoryForm.maxValue) : undefined
             };
 
+            const controller = new AbortController();
+            abortControllerRef.current = controller;
+
             if (editingCategory) {
                 await api.put(`/experimental-variables/categories/${editingCategory.id}`, data, {
-                    headers: { Authorization: `Bearer ${token}` }
+                    headers: { Authorization: `Bearer ${token}` },
+                    signal: controller.signal
                 });
             } else {
                 await api.post('/experimental-variables/categories', data, {
-                    headers: { Authorization: `Bearer ${token}` }
+                    headers: { Authorization: `Bearer ${token}` },
+                    signal: controller.signal
                 });
             }
 
@@ -337,10 +453,11 @@ const ExperimentalVariableTracker: React.FC = () => {
                 isGlobal: false
             });
             setError(null);
-            fetchCategories();
+            await fetchCategories();
         } catch (error: any) {
+            if (error.name === 'AbortError') return; // Ignore aborted requests
             console.error('Failed to save category:', error);
-            setError(error.response?.data?.error || 'Failed to save category');
+            setError(error.response?.data?.error || 'Failed to save category. Please try again.');
         }
     };
 
@@ -357,13 +474,18 @@ const ExperimentalVariableTracker: React.FC = () => {
                 order: parseInt(variableForm.order.toString())
             };
 
+            const controller = new AbortController();
+            abortControllerRef.current = controller;
+
             if (editingVariable) {
                 await api.put(`/experimental-variables/variables/${editingVariable.id}`, data, {
-                    headers: { Authorization: `Bearer ${token}` }
+                    headers: { Authorization: `Bearer ${token}` },
+                    signal: controller.signal
                 });
             } else {
                 await api.post(`/experimental-variables/experiments/${selectedExperiment}/variables`, data, {
-                    headers: { Authorization: `Bearer ${token}` }
+                    headers: { Authorization: `Bearer ${token}` },
+                    signal: controller.signal
                 });
             }
 
@@ -379,10 +501,11 @@ const ExperimentalVariableTracker: React.FC = () => {
                 order: 0
             });
             setError(null);
-            fetchExperimentVariables(selectedExperiment);
+            await fetchExperimentVariables(selectedExperiment);
         } catch (error: any) {
+            if (error.name === 'AbortError') return; // Ignore aborted requests
             console.error('Failed to save variable:', error);
-            setError(error.response?.data?.error || 'Failed to save variable');
+            setError(error.response?.data?.error || 'Failed to save variable. Please try again.');
         }
     };
 
@@ -396,18 +519,23 @@ const ExperimentalVariableTracker: React.FC = () => {
         }
 
         try {
+            const controller = new AbortController();
+            abortControllerRef.current = controller;
+
             await api.post(`/experimental-variables/variables/${selectedVariable.id}/values`, valueForm, {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${token}` },
+                signal: controller.signal
             });
 
             setValueDialogOpen(false);
             setSelectedVariable(null);
             setValueForm({ value: '', notes: '' });
             setError(null);
-            fetchExperimentVariables(selectedExperiment);
+            await fetchExperimentVariables(selectedExperiment);
         } catch (error: any) {
+            if (error.name === 'AbortError') return; // Ignore aborted requests
             console.error('Failed to save value:', error);
-            setError(error.response?.data?.error || 'Failed to save value');
+            setError(error.response?.data?.error || 'Failed to save value. Please try again.');
         }
     };
 
@@ -415,14 +543,19 @@ const ExperimentalVariableTracker: React.FC = () => {
         if (!window.confirm('Are you sure you want to delete this category?')) return;
 
         try {
+            const controller = new AbortController();
+            abortControllerRef.current = controller;
+
             await api.delete(`/experimental-variables/categories/${categoryId}`, {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${token}` },
+                signal: controller.signal
             });
             setError(null);
-            fetchCategories();
+            await fetchCategories();
         } catch (error: any) {
+            if (error.name === 'AbortError') return; // Ignore aborted requests
             console.error('Failed to delete category:', error);
-            setError(error.response?.data?.error || 'Failed to delete category');
+            setError(error.response?.data?.error || 'Failed to delete category. Please try again.');
         }
     };
 
@@ -430,14 +563,19 @@ const ExperimentalVariableTracker: React.FC = () => {
         if (!window.confirm('Are you sure you want to delete this variable?')) return;
 
         try {
+            const controller = new AbortController();
+            abortControllerRef.current = controller;
+
             await api.delete(`/experimental-variables/variables/${variableId}`, {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${token}` },
+                signal: controller.signal
             });
             setError(null);
-            fetchExperimentVariables(selectedExperiment);
+            await fetchExperimentVariables(selectedExperiment);
         } catch (error: any) {
+            if (error.name === 'AbortError') return; // Ignore aborted requests
             console.error('Failed to delete variable:', error);
-            setError(error.response?.data?.error || 'Failed to delete variable');
+            setError(error.response?.data?.error || 'Failed to delete variable. Please try again.');
         }
     };
 
@@ -489,6 +627,9 @@ const ExperimentalVariableTracker: React.FC = () => {
                 let selectOptions: string[] = [];
                 try {
                     selectOptions = options ? JSON.parse(options) : [];
+                    if (!Array.isArray(selectOptions)) {
+                        selectOptions = [];
+                    }
                 } catch (parseError) {
                     console.error('Failed to parse select options:', parseError);
                     selectOptions = [];
