@@ -2,6 +2,46 @@
 
 All notable changes to the Research Notebook v4 project will be documented in this file.
 
+## [4.0.2] - 2025-01-27
+
+### 🐛 ObsidianLayout Component Bug Fixes
+
+#### Critical Bug Fixes
+- **Tab Key Collision Prevention**: Standardized tab key generation pattern to prevent collisions when multiple tabs are created simultaneously
+- **Memory Leak Prevention**: Fixed tab duplication to prevent memory leaks by filtering out large metadata objects
+- **Race Condition Resolution**: Implemented proper split panel logic to ensure layout state matches actual tab group structure
+- **Stale Closure Fix**: Added missing dependency in useEffect to prevent keyboard shortcut issues
+- **Error Handling Cleanup**: Removed unnecessary try-catch blocks that were masking underlying issues
+
+#### Technical Improvements
+- **Consistent Tab Key Generation**: All tab creation now uses pattern `{type}-{timestamp}-{randomString}` for uniqueness
+- **Clean Tab Duplication**: Duplicated tabs start with clean state without inheriting potentially problematic metadata
+- **Proper Split Panel Implementation**: Split panel now creates actual tab groups instead of just updating layout state
+- **Enhanced Keyboard Shortcuts**: Fixed dependency array in useEffect to prevent stale closure issues
+- **Simplified Error Handling**: Removed redundant error handling that was masking context behavior
+
+#### Code Quality Enhancements
+- **Standardized Patterns**: Consistent tab key generation across all tab creation functions
+- **Memory Management**: Proper cleanup and filtering in tab operations
+- **State Synchronization**: Ensured UI state matches actual data structure
+- **Dependency Management**: Fixed React hook dependencies for proper cleanup
+
+#### Impact
+- **Reliability**: Eliminated potential tab key collisions and race conditions
+- **Performance**: Reduced memory usage through proper data filtering
+- **User Experience**: More consistent and predictable tab behavior
+- **Maintainability**: Cleaner, more maintainable code structure
+
+### 🔄 Breaking Changes
+- None - All fixes maintain backward compatibility
+
+### 🚀 Migration Notes
+- No migration required - all improvements are backward compatible
+- Existing tabs and workspaces remain unaffected
+- Enhanced reliability and performance with no user-facing changes
+
+---
+
 ## [4.0.1] - 2025-01-27
 
 ### 🚨 Critical Bug Fixes & Performance Improvements
@@ -192,6 +232,6 @@ Each release includes:
 
 ---
 
-**Last Updated:** January 27, 2025  
-**Current Version:** 4.0.1  
+**Last Updated:** January 27, 2025
+**Current Version:** 4.0.1
 **Status:** ✅ Production Ready with Critical Improvements 

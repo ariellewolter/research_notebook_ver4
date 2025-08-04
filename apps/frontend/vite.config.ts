@@ -15,7 +15,7 @@ export default defineConfig({
         host: true,
         proxy: {
             '/api': {
-                target: 'http://localhost:3000',
+                target: 'http://localhost:3001',
                 changeOrigin: true,
                 secure: false,
             },
@@ -36,7 +36,14 @@ export default defineConfig({
         },
     },
     define: {
-        // Ensure proper environment detection
-        'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
+        // Define global constants for the client-side code
+        __DEV__: JSON.stringify(process.env.NODE_ENV !== 'production'),
+        __PROD__: JSON.stringify(process.env.NODE_ENV === 'production'),
+        // Define API URL as a global constant
+        'globalThis.API_BASE_URL': JSON.stringify(
+            process.env.NODE_ENV === 'production' 
+                ? 'http://localhost:3001/api' 
+                : 'http://localhost:3001/api'
+        ),
     },
 }); 

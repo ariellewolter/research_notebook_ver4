@@ -9,6 +9,7 @@ This directory contains comprehensive guides for development, debugging, and mai
 - **[Dashboard Bug Fixes](./DASHBOARD_BUG_FIXES_SUMMARY.md)** - Dashboard component improvements
 - **[Automation Notifications Panel Bug Fixes](./AUTOMATION_NOTIFICATIONS_PANEL_BUG_FIXES_SUMMARY.md)** - Notification system optimizations
 - **[Experimental Variables Bug Fixes](./EXPERIMENTAL_VARIABLES_BUG_FIXES_SUMMARY.md)** - Variable tracking improvements
+- **[ObsidianLayout Bug Fixes Quick Reference](./OBSIDIAN_LAYOUT_QUICK_REFERENCE.md)** - Critical fixes for ObsidianLayout component
 
 ### 🔧 Implementation Guides
 - **[Implementation Summary](./implementation/IMPLEMENTATION_SUMMARY.md)** - Overview of all implementations
