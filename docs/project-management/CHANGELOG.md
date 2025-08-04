@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Fixed
+- **ExperimentalVariableTracker Component Bugs**: Fixed 5 critical bugs in the ExperimentalVariableTracker.tsx component
+  - Fixed missing analytics API endpoint handling by adding proper experiment selection validation
+  - Enhanced boolean value handling to support multiple formats (true/false, 1/0, yes/no) for backend compatibility
+  - Added comprehensive error handling for JSON parsing in select options to prevent component crashes
+  - Fixed incorrect experiment data structure by using the correct API endpoint `/projects/experiments/all`
+  - Implemented comprehensive form validation with user-friendly error messages and required field indicators
 - **AutomationNotificationsPanel Component Bugs**: Fixed 5 critical bugs in the AutomationNotificationsPanel.tsx component
   - Fixed type mismatch in `clearEventsByCategory` function by replacing `any` type with proper TypeScript typing
   - Added proper error handling and user feedback for retry operations instead of console-only logging
@@ -24,6 +30,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Improved JSX compilation settings for better React component support
 
 ### Improved
+- **Experimental Variable Tracker**: Enhanced error handling, validation, and user experience
+  - Added comprehensive error state management with dismissible alerts
+  - Implemented form validation for categories, variables, and values with clear error messages
+  - Added required field indicators and helper text for better user guidance
+  - Enhanced boolean value input with multiple format support for better backend compatibility
+  - Improved JSON parsing error handling for select options to prevent application crashes
 - **Code Quality**: Enhanced error handling and performance optimization in Dashboard and AutomationNotificationsPanel components
 - **Developer Experience**: Improved TypeScript configuration for better development workflow
 - **Application Stability**: Fixed potential memory leaks and React rendering issues

@@ -65,7 +65,6 @@ import {
     ToggleOn,
     List as ListIcon,
     BarChart,
-    LineChart,
     PieChart
 } from '@mui/icons-material';
 import {
@@ -152,6 +151,7 @@ const ExperimentalVariableTracker: React.FC = () => {
     const [selectedExperiment, setSelectedExperiment] = useState<string>('');
     const [experimentVariables, setExperimentVariables] = useState<ExperimentVariable[]>([]);
     const [analytics, setAnalytics] = useState<any>(null);
+    const [error, setError] = useState<string | null>(null);
 
     // Dialog states
     const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
@@ -213,24 +213,20 @@ const ExperimentalVariableTracker: React.FC = () => {
             setCategories(response.data);
         } catch (error) {
             console.error('Failed to fetch categories:', error);
+            setError('Failed to fetch categories');
         }
     };
 
     const fetchExperiments = async () => {
         try {
-            const response = await api.get('/projects', {
+            // Fix: Use the correct endpoint for experiments
+            const response = await api.get('/projects/experiments/all', {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            // Flatten experiments from all projects
-            const allExperiments = response.data.flatMap((project: any) =>
-                project.experiments?.map((exp: any) => ({
-                    ...exp,
-                    project: { id: project.id, name: project.name }
-                })) || []
-            );
-            setExperiments(allExperiments);
+            setExperiments(response.data);
         } catch (error) {
             console.error('Failed to fetch experiments:', error);
+            setError('Failed to fetch experiments');
         }
     };
 
@@ -243,12 +239,15 @@ const ExperimentalVariableTracker: React.FC = () => {
             setExperimentVariables(response.data);
         } catch (error) {
             console.error('Failed to fetch experiment variables:', error);
+            setError('Failed to fetch experiment variables');
         } finally {
             setLoading(false);
         }
     };
 
     const fetchAnalytics = async () => {
+        if (!selectedExperiment) return; // Fix: Don't fetch analytics if no experiment selected
+        
         try {
             const response = await api.get('/experimental-variables/analytics', {
                 headers: { Authorization: `Bearer ${token}` },
@@ -259,10 +258,52 @@ const ExperimentalVariableTracker: React.FC = () => {
             setAnalytics(response.data);
         } catch (error) {
             console.error('Failed to fetch analytics:', error);
+            setError('Failed to fetch analytics');
         }
     };
 
+    const validateCategoryForm = (): string | null => {
+        if (!categoryForm.name.trim()) {
+            return 'Category name is required';
+        }
+        const dataType = categoryForm.dataType;
+        if (dataType === 'select' && !categoryForm.options.trim()) {
+            return 'Options are required for select type';
+        }
+        if (dataType === 'number' && categoryForm.minValue && categoryForm.maxValue) {
+            const min = parseFloat(categoryForm.minValue);
+            const max = parseFloat(categoryForm.maxValue);
+            if (min >= max) {
+                return 'Min value must be less than max value';
+            }
+        }
+        return null;
+    };
+
+    const validateVariableForm = (): string | null => {
+        if (!variableForm.name.trim()) {
+            return 'Variable name is required';
+        }
+        if (!variableForm.categoryId) {
+            return 'Category is required';
+        }
+        return null;
+    };
+
+    const validateValueForm = (): string | null => {
+        if (!valueForm.value.trim()) {
+            return 'Value is required';
+        }
+        return null;
+    };
+
     const handleCategorySubmit = async () => {
+        const validationError = validateCategoryForm();
+        if (validationError) {
+            setError(validationError);
+            return;
+        }
+
         try {
             const data = {
                 ...categoryForm,
@@ -295,13 +336,21 @@ const ExperimentalVariableTracker: React.FC = () => {
                 isRequired: false,
                 isGlobal: false
             });
+            setError(null);
             fetchCategories();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to save category:', error);
+            setError(error.response?.data?.error || 'Failed to save category');
         }
     };
 
     const handleVariableSubmit = async () => {
+        const validationError = validateVariableForm();
+        if (validationError) {
+            setError(validationError);
+            return;
+        }
+
         try {
             const data = {
                 ...variableForm,
@@ -329,14 +378,22 @@ const ExperimentalVariableTracker: React.FC = () => {
                 isRequired: false,
                 order: 0
             });
+            setError(null);
             fetchExperimentVariables(selectedExperiment);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to save variable:', error);
+            setError(error.response?.data?.error || 'Failed to save variable');
         }
     };
 
     const handleValueSubmit = async () => {
         if (!selectedVariable) return;
+
+        const validationError = validateValueForm();
+        if (validationError) {
+            setError(validationError);
+            return;
+        }
 
         try {
             await api.post(`/experimental-variables/variables/${selectedVariable.id}/values`, valueForm, {
@@ -346,9 +403,11 @@ const ExperimentalVariableTracker: React.FC = () => {
             setValueDialogOpen(false);
             setSelectedVariable(null);
             setValueForm({ value: '', notes: '' });
+            setError(null);
             fetchExperimentVariables(selectedExperiment);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to save value:', error);
+            setError(error.response?.data?.error || 'Failed to save value');
         }
     };
 
@@ -359,9 +418,11 @@ const ExperimentalVariableTracker: React.FC = () => {
             await api.delete(`/experimental-variables/categories/${categoryId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
+            setError(null);
             fetchCategories();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to delete category:', error);
+            setError(error.response?.data?.error || 'Failed to delete category');
         }
     };
 
@@ -372,9 +433,11 @@ const ExperimentalVariableTracker: React.FC = () => {
             await api.delete(`/experimental-variables/variables/${variableId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
+            setError(null);
             fetchExperimentVariables(selectedExperiment);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to delete variable:', error);
+            setError(error.response?.data?.error || 'Failed to delete variable');
         }
     };
 
@@ -406,6 +469,8 @@ const ExperimentalVariableTracker: React.FC = () => {
                         >
                             <MenuItem value="true">True</MenuItem>
                             <MenuItem value="false">False</MenuItem>
+                            <MenuItem value="1">Yes (1)</MenuItem>
+                            <MenuItem value="0">No (0)</MenuItem>
                         </Select>
                     </FormControl>
                 );
@@ -421,7 +486,13 @@ const ExperimentalVariableTracker: React.FC = () => {
                     />
                 );
             case 'select':
-                const selectOptions = options ? JSON.parse(options) : [];
+                let selectOptions: string[] = [];
+                try {
+                    selectOptions = options ? JSON.parse(options) : [];
+                } catch (parseError) {
+                    console.error('Failed to parse select options:', parseError);
+                    selectOptions = [];
+                }
                 return (
                     <FormControl fullWidth>
                         <InputLabel>Value</InputLabel>
@@ -532,6 +603,12 @@ const ExperimentalVariableTracker: React.FC = () => {
 
     return (
         <Box sx={{ p: 3 }}>
+            {error && (
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+                    {error}
+                </Alert>
+            )}
+
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
                 <Typography variant="h4">Experimental Variable Tracker</Typography>
                 <Box display="flex" gap={2}>
@@ -835,6 +912,7 @@ const ExperimentalVariableTracker: React.FC = () => {
                                 label="Name"
                                 value={categoryForm.name}
                                 onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
+                                required
                             />
                         </Grid>
                         <Grid item xs={12} md={6}>
@@ -888,6 +966,8 @@ const ExperimentalVariableTracker: React.FC = () => {
                                     placeholder='["Option 1", "Option 2", "Option 3"]'
                                     value={categoryForm.options}
                                     onChange={(e) => setCategoryForm({ ...categoryForm, options: e.target.value })}
+                                    required
+                                    helperText="Enter options as a JSON array"
                                 />
                             </Grid>
                         )}
@@ -959,6 +1039,7 @@ const ExperimentalVariableTracker: React.FC = () => {
                                     value={variableForm.categoryId}
                                     onChange={(e) => setVariableForm({ ...variableForm, categoryId: e.target.value })}
                                     label="Category"
+                                    required
                                 >
                                     {categories.map((category) => (
                                         <MenuItem key={category.id} value={category.id}>
@@ -974,6 +1055,7 @@ const ExperimentalVariableTracker: React.FC = () => {
                                 label="Name"
                                 value={variableForm.name}
                                 onChange={(e) => setVariableForm({ ...variableForm, name: e.target.value })}
+                                required
                             />
                         </Grid>
                         <Grid item xs={12}>
