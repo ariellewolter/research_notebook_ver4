@@ -3,7 +3,10 @@ const path = require('path');
 const fs = require('fs');
 const BackendSpawner = require('./utils/spawnBackend');
 const fileUtils = require('./utils/fileUtils');
-const isDev = process.env.NODE_ENV === 'development';
+
+// Environment detection
+const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+const isProduction = !isDev;
 
 let mainWindow;
 let backendSpawner;
@@ -19,7 +22,7 @@ let watchedFolderPath = null;
 let isFileWatcherEnabled = false;
 
 // Backend server configuration
-const BACKEND_PORT = 3000;
+const BACKEND_PORT = 3001;
 const FRONTEND_PORT = 5173;
 
 // File watcher settings storage
@@ -187,12 +190,43 @@ function notifyWindowsOfFileChange(eventType, filePath) {
     });
 }
 
-// Initialize backend spawner
-function initializeBackend() {
+// Backend readiness check function
+async function waitForBackendReady(maxRetries = 50, retryDelay = 100) {
+    const backendUrl = `http://localhost:${BACKEND_PORT}/health`;
+    console.log(`Checking backend readiness at: ${backendUrl}`);
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const response = await fetch(backendUrl);
+            if (response.ok) {
+                console.log(`✅ Backend is ready (attempt ${attempt}/${maxRetries})`);
+                return true;
+            }
+        } catch (error) {
+            console.log(`⏳ Backend not ready yet (attempt ${attempt}/${maxRetries}): ${error.message}`);
+        }
+        
+        if (attempt < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+        }
+    }
+    
+    console.error(`❌ Backend failed to become ready after ${maxRetries} attempts`);
+    return false;
+}
+
+async function initializeBackend() {
     backendSpawner = new BackendSpawner();
 
-    // Spawn backend server process
-    backendSpawner.spawnBackend(isDev, BACKEND_PORT)
+    // In development mode, skip spawning backend since it's already running via pnpm start
+    if (isDev) {
+        console.log('Development mode: Skipping backend spawn (backend already running via pnpm start)');
+        return;
+    }
+
+    // In production mode, spawn the backend server
+    console.log('Production mode: Spawning backend server');
+    backendSpawner.spawnBackend(false, BACKEND_PORT)
         .then(() => {
             console.log('Backend server started successfully');
         })
@@ -298,7 +332,12 @@ function createNewWindow(windowConfig) {
             nodeIntegration: false,
             contextIsolation: true,
             preload: path.join(__dirname, 'preload.js'),
-            webSecurity: true
+            webSecurity: true,
+            // Add Content Security Policy
+            additionalArguments: [
+                `--disable-web-security=${isDev}`,
+                '--disable-features=VizDisplayCompositor'
+            ]
         },
         icon: iconPath,
         titleBarStyle: 'default',
@@ -328,17 +367,38 @@ function createNewWindow(windowConfig) {
     openWindows.set(id, newWindow);
 
     // Load the frontend with route and params
-    const startUrl = isDev
-        ? `http://localhost:${FRONTEND_PORT}${route}`
-        : `file://${path.join(__dirname, '..', 'apps', 'frontend', 'dist', 'index.html')}`;
+    if (isDev) {
+        // Development mode: Load from Vite dev server
+        const devUrl = `http://localhost:${FRONTEND_PORT}${route}`;
+        console.log(`Loading development URL: ${devUrl}`);
+        newWindow.loadURL(devUrl);
+    } else {
+        // Production mode: Load from static build
+        const indexPath = path.join(__dirname, '..', 'apps', 'frontend', 'dist', 'index.html');
+        console.log(`Loading production file: ${indexPath}`);
+        
+        // Check if the file exists
+        if (!fs.existsSync(indexPath)) {
+            console.error(`Production build not found at: ${indexPath}`);
+            console.error('Please run "pnpm build" in the frontend directory first');
+            newWindow.loadURL('data:text/html,<h1>Production build not found</h1><p>Please run "pnpm build" in the frontend directory first</p>');
+        } else {
+            newWindow.loadFile(indexPath, { hash: route });
+        }
+    }
 
-    // Add route and params as query parameters for production
-    const finalUrl = isDev ? startUrl : `${startUrl}#${route}`;
+    // Set a timeout for window load
+    const loadTimeout = setTimeout(() => {
+        console.error(`Window ${id} load timeout after 30 seconds`);
+        if (!newWindow.isDestroyed()) {
+            newWindow.webContents.stop();
+            newWindow.loadURL('data:text/html,<h1>Load Timeout</h1><p>The application took too long to load. Please check if the development server is running.</p>');
+        }
+    }, 30000); // 30 second timeout
 
-    newWindow.loadURL(finalUrl);
-
-    // Pass context data to the window
+    // Clear timeout when load completes
     newWindow.webContents.on('did-finish-load', () => {
+        clearTimeout(loadTimeout);
         newWindow.webContents.send('window-context', {
             id,
             route,
@@ -363,6 +423,102 @@ function createNewWindow(windowConfig) {
     newWindow.on('closed', () => {
         openWindows.delete(id);
         console.log(`Window ${id} closed`);
+    });
+
+    // Error handling for window load failures
+    newWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+        console.error(`Window ${id} failed to load:`, {
+            errorCode,
+            errorDescription,
+            validatedURL
+        });
+        
+        // Show error page with reload button
+        const errorHtml = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Load Error - Research Notebook</title>
+                <style>
+                    body { 
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        height: 100vh;
+                        margin: 0;
+                        background: #f5f5f5;
+                        color: #333;
+                    }
+                    .error-container {
+                        text-align: center;
+                        max-width: 500px;
+                        padding: 2rem;
+                        background: white;
+                        border-radius: 8px;
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    }
+                    .error-icon { font-size: 4rem; margin-bottom: 1rem; }
+                    .error-title { font-size: 1.5rem; margin-bottom: 1rem; color: #d32f2f; }
+                    .error-message { margin-bottom: 2rem; color: #666; }
+                    .reload-btn {
+                        background: #1976d2;
+                        color: white;
+                        border: none;
+                        padding: 12px 24px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 1rem;
+                    }
+                    .reload-btn:hover { background: #1565c0; }
+                    .details { margin-top: 1rem; font-size: 0.9rem; color: #999; }
+                </style>
+            </head>
+            <body>
+                <div class="error-container">
+                    <div class="error-icon">⚠️</div>
+                    <div class="error-title">Failed to Load Application</div>
+                    <div class="error-message">
+                        The application failed to load. This might be due to a network issue or the development server not running.
+                    </div>
+                    <button class="reload-btn" onclick="window.location.reload()">Reload Page</button>
+                    <div class="details">
+                        Error: ${errorDescription}<br>
+                        Code: ${errorCode}<br>
+                        URL: ${validatedURL}
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+        
+        newWindow.loadURL(`data:text/html,${encodeURIComponent(errorHtml)}`);
+    });
+
+    // Handle unresponsive window
+    newWindow.on('unresponsive', () => {
+        console.error(`Window ${id} became unresponsive`);
+        
+        // Show dialog to user
+        dialog.showMessageBox(newWindow, {
+            type: 'warning',
+            title: 'Application Unresponsive',
+            message: 'The application has become unresponsive.',
+            detail: 'You can wait for it to respond or force quit the application.',
+            buttons: ['Wait', 'Force Quit'],
+            defaultId: 0
+        }).then((result) => {
+            if (result.response === 1) {
+                // Force quit
+                app.quit();
+            }
+        });
+    });
+
+    // Handle responsive window
+    newWindow.on('responsive', () => {
+        console.log(`Window ${id} became responsive again`);
     });
 
     // Handle window close (for non-main windows)
@@ -978,7 +1134,7 @@ function openMainWindowWithEntity(entityType, entityId, params = {}) {
 }
 
 // App event handlers
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
     // Register file protocol handler for PDF files
     if (process.defaultApp) {
         if (process.argv.length >= 2) {
@@ -1047,22 +1203,126 @@ app.whenReady().then(() => {
         });
     }
 
-    // Initialize backend server first
-    initializeBackend();
+    // Initialize backend server only in production mode
+    if (isProduction) {
+        console.log('Production mode: Initializing backend...');
+        await initializeBackend().catch(error => {
+            console.error('Failed to initialize backend:', error);
+        });
+    } else {
+        console.log('Development mode: Backend initialization skipped');
+    }
+
+    // Wait for backend to be ready before creating window
+    console.log('Waiting for backend to be ready...');
+    const backendReady = await waitForBackendReady();
+    
+    if (!backendReady) {
+        console.error('Backend failed to become ready. Creating window with error fallback.');
+        // Create a fallback window that shows backend connection error
+        const fallbackWindow = createNewWindow({
+            id: 'main',
+            title: 'Research Notebook - Backend Error',
+            width: 800,
+            height: 600,
+            route: '/error',
+            skipTaskbar: false
+        });
+        
+        // Load error page
+        const errorHtml = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Backend Connection Error - Research Notebook</title>
+                <style>
+                    body { 
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        height: 100vh;
+                        margin: 0;
+                        background: #f5f5f5;
+                        color: #333;
+                    }
+                    .error-container {
+                        text-align: center;
+                        max-width: 600px;
+                        padding: 2rem;
+                        background: white;
+                        border-radius: 8px;
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    }
+                    .error-icon { font-size: 4rem; margin-bottom: 1rem; }
+                    .error-title { font-size: 1.5rem; margin-bottom: 1rem; color: #d32f2f; }
+                    .error-message { margin-bottom: 2rem; color: #666; line-height: 1.6; }
+                    .retry-btn {
+                        background: #1976d2;
+                        color: white;
+                        border: none;
+                        padding: 12px 24px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 1rem;
+                        margin: 0 10px;
+                    }
+                    .retry-btn:hover { background: #1565c0; }
+                    .quit-btn {
+                        background: #f44336;
+                        color: white;
+                        border: none;
+                        padding: 12px 24px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 1rem;
+                        margin: 0 10px;
+                    }
+                    .quit-btn:hover { background: #d32f2f; }
+                    .details { margin-top: 1rem; font-size: 0.9rem; color: #999; }
+                </style>
+            </head>
+            <body>
+                <div class="error-container">
+                    <div class="error-icon">🔌</div>
+                    <div class="error-title">Backend Connection Failed</div>
+                    <div class="error-message">
+                        The application cannot connect to the backend server. This might be because:<br><br>
+                        • The backend server is not running<br>
+                        • The backend server is running on a different port<br>
+                        • There's a network connectivity issue<br><br>
+                        Please check that the backend server is running on port 3001.
+                    </div>
+                    <div>
+                        <button class="retry-btn" onclick="window.location.reload()">Retry Connection</button>
+                        <button class="quit-btn" onclick="window.close()">Quit Application</button>
+                    </div>
+                    <div class="details">
+                        Expected backend URL: http://localhost:3001/api/health<br>
+                        Time: ${new Date().toLocaleString()}
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+        
+        fallbackWindow.loadURL(`data:text/html,${encodeURIComponent(errorHtml)}`);
+        return;
+    }
 
     // Initialize file watcher
     initializeFileWatcher();
 
-    // Wait a moment for backend to start, then create window and tray
-    setTimeout(() => {
-        createWindow();
-        createTray();
-        
-        // Mark app as ready and process any pending files and URLs
-        isAppReady = true;
-        processPendingFiles();
-        processPendingUrls();
-    }, 3000);
+    // Create window and tray
+    console.log('Creating main window...');
+    createWindow();
+    createTray();
+    
+    // Mark app as ready and process any pending files and URLs
+    isAppReady = true;
+    processPendingFiles();
+    processPendingUrls();
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {

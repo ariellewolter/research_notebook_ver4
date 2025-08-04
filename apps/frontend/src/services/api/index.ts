@@ -1,33 +1,24 @@
-// Base API client
-export { default as api } from './apiClient';
-
-// Core API modules
-export { notesApi } from './notesApi';
+export { apiClient } from './apiClient';
 export { projectsApi } from './projectsApi';
+export { notesApi } from './notesApi';
+export { linksApi } from './linksApi';
 export { pdfsApi } from './pdfsApi';
 export { databaseApi } from './databaseApi';
-export { linksApi } from './linksApi';
-export { tablesApi } from './tablesApi';
-export { protocolsApi } from './protocolsApi';
 export { zoteroApi } from './zoteroApi';
-export { recipesApi } from './recipesApi';
-export { literatureNotesApi } from './literatureNotesApi';
 export { tasksApi } from './tasksApi';
-export { taskTemplatesApi } from './taskTemplatesApi';
-export { taskDependenciesApi } from './taskDependenciesApi';
-export { searchApi } from './searchApi';
+export { recipesApi } from './recipesApi';
+export { authApi } from './authApi';
 export { notificationsApi } from './notificationsApi';
-
-// Calendar APIs
-export { googleCalendarApi, outlookCalendarApi, appleCalendarApi } from './calendarApi';
-
-// Advanced APIs
-export { experimentalVariablesApi } from './experimentalVariablesApi';
+export { protocolsApi } from './protocolsApi';
+export { literatureNotesApi } from './literatureNotesApi';
+export { taskDependenciesApi } from './taskDependenciesApi';
+export { taskTemplatesApi } from './taskTemplatesApi';
+export { tablesApi } from './tablesApi';
+export { googleCalendarApi } from './googleCalendarApi';
+export { outlookCalendarApi } from './outlookCalendarApi';
+export { appleCalendarApi } from './appleCalendarApi';
 export { advancedReportingApi } from './advancedReportingApi';
+export { searchApi } from './searchApi';
 
-// Legacy function for backward compatibility
-export const getNotes = async () => {
-    const { notesApi } = await import('./notesApi');
-    const response = await notesApi.getAll();
-    return response.data;
-}; 
+// Re-export types
+export * from '../../types/api.types'; 
