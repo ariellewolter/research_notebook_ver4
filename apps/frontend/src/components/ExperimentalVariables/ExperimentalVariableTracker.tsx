@@ -64,7 +64,7 @@ import {
     TextFields,
     ToggleOn,
     List as ListIcon,
-    BarChart,
+    BarChart as BarChartIcon,
     PieChart
 } from '@mui/icons-material';
 import {

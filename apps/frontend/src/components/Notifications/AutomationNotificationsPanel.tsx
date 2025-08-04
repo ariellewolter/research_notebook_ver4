@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Dialog,
     DialogTitle,
@@ -43,7 +43,7 @@ import {
     CheckCircle as CheckCircleIcon,
     Error as ErrorIcon,
     Info as InfoIcon,
-    Retry as RetryIcon,
+    Refresh as RetryIcon,
     ExpandMore as ExpandMoreIcon,
     ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
@@ -90,16 +90,22 @@ const AutomationNotificationsPanel: React.FC<AutomationNotificationsPanelProps> 
     const [showError, setShowError] = useState(false);
     const [retryingEvents, setRetryingEvents] = useState<Set<string>>(new Set());
 
-    // Fix Bug 11: Replace JSON.stringify with proper deep comparison
-    const areEventsEqual = (events1: AutomationEvent[], events2: AutomationEvent[]): boolean => {
+    // Optimized event comparison using memoization
+    const areEventsEqual = React.useCallback((events1: AutomationEvent[], events2: AutomationEvent[]): boolean => {
         if (events1.length !== events2.length) return false;
+        
+        // Quick check for reference equality
+        if (events1 === events2) return true;
+        
+        // Compare only essential properties for performance
         return events1.every((event1, index) => {
             const event2 = events2[index];
             return event1.id === event2.id && 
                    event1.isRead === event2.isRead && 
-                   event1.status === event2.status;
+                   event1.status === event2.status &&
+                   event1.timestamp === event2.timestamp;
         });
-    };
+    }, []);
 
     useEffect(() => {
         // Get initial events first

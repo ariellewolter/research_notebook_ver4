@@ -1,468 +1,302 @@
 # Developer Guide
 
-## Recent Bug Fixes and Improvements
+Comprehensive guide for developers working on the Research Notebook v4 application.
 
-This guide covers the recent bug fixes and improvements made to the Research Notebook application, providing developers with context and best practices for working with the improved codebase.
+## 🚨 Critical Bug Fixes & Best Practices
 
-## 🔧 Bug Fixes Overview
+### Recent Performance Improvements (January 2025)
 
-### 1. Dashboard Component Bugs
+Our recent critical bug fixes have established new best practices for the codebase:
 
-**Problem:** The Dashboard.tsx component had 5 critical bugs affecting performance, error handling, and code quality.
-
-**Solution:** Comprehensive fixes addressing import issues, unused dependencies, error handling, performance optimization, and React key generation.
-
-**Files Modified:**
-- `apps/frontend/src/pages/Dashboard.tsx`
-- `apps/frontend/tsconfig.json`
-
-**Key Changes:**
-
-#### Bug 1: Import Path Mismatch
+#### Memory Management
 ```typescript
-// Before
-import { Button, Card, Input, PanelLayout } from '../components/UI/index.js';
-
-// After
-import { Button, Card, Input, PanelLayout } from '../components/UI/index';
-```
-
-#### Bug 2: Unused Import
-```typescript
-// Before
-import { notesApi, projectsApi, pdfsApi, databaseApi } from '../services/api';
-
-// After
-import { notesApi, projectsApi, pdfsApi } from '../services/api';
-```
-
-#### Bug 3: Missing Error Handling
-```typescript
-// Before
-const handleActivityClick = () => {
-  const tabData = getTabData();
-  openTab(tabData);
-  navigate(tabData.path);
-};
-
-// After
-const handleActivityClick = () => {
-  try {
-    const tabData = getTabData();
-    openTab(tabData);
-    navigate(tabData.path);
-  } catch (error) {
-    console.error('Error handling activity click:', error);
-    navigate('/dashboard');
-  }
-};
-```
-
-#### Bug 4: Performance Optimization
-```typescript
-// Before
-const loadDashboardData = async () => {
-  // ... implementation
-};
+// ✅ GOOD: Proper cleanup with AbortController
+const abortControllerRef = useRef<AbortController | null>(null);
 
 useEffect(() => {
-  loadDashboardData();
-}, []);
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    
+    fetchData({ signal: controller.signal });
+    
+    return () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+    };
+}, [fetchData]);
 
-// After
-const loadDashboardData = useCallback(async () => {
-  // ... implementation
-}, []);
-
+// ❌ BAD: No cleanup, potential memory leaks
 useEffect(() => {
-  loadDashboardData();
-}, [loadDashboardData]);
+    fetchData();
+}, []);
 ```
 
-#### Bug 5: Unique Key Generation
+#### API Error Handling
 ```typescript
-// Before
-key: `notes-${Date.now()}`
+// ✅ GOOD: Comprehensive error handling with retry
+try {
+    const response = await api.get('/endpoint', { signal: controller.signal });
+    setData(response.data);
+    setError(null);
+} catch (error: any) {
+    if (error.name === 'AbortError') return;
+    console.error('API Error:', error);
+    setError('User-friendly error message');
+}
 
-// After
-const keyCounter = React.useRef(0);
-const generateUniqueKey = (prefix: string) => `${prefix}-${Date.now()}-${++keyCounter.current}`;
-key: generateUniqueKey('notes')
-```
-
-**Best Practices:**
-- Use proper TypeScript import paths without unnecessary extensions
-- Remove unused imports to reduce bundle size and improve maintainability
-- Always implement error handling for async operations and user interactions
-- Memoize functions that are used in useEffect dependencies to prevent unnecessary re-renders
-- Use unique key generation systems to prevent React rendering issues
-- Implement fallback navigation for failed tab operations
-
-### 2. TypeScript Configuration Enhancement
-
-**Problem:** TypeScript configuration was missing essential flags for proper module resolution and JSX compilation.
-
-**Solution:** Enhanced TypeScript configuration with proper module interop and JSX settings.
-
-**Files Modified:**
-- `apps/frontend/tsconfig.json`
-
-**Key Changes:**
-```json
-{
-  "compilerOptions": {
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "jsx": "react-jsx"
-  }
+// ❌ BAD: Basic error handling
+try {
+    const response = await api.get('/endpoint');
+    setData(response.data);
+} catch (error) {
+    console.error(error);
 }
 ```
 
-**Best Practices:**
-- Always configure TypeScript with proper module interop for React projects
-- Use `react-jsx` transform for modern React development
-- Enable synthetic default imports for better compatibility with CommonJS modules
-
-### 3. PDF Download Feature
-
-**Problem:** The PDF download functionality in the Zotero integration was marked as TODO and showed a placeholder message.
-
-**Solution:** Implemented a complete PDF download feature with proper error handling.
-
-**Files Modified:**
-- `apps/frontend/src/pages/Zotero.tsx`
-
-**Key Changes:**
+#### Component Optimization
 ```typescript
-// Added handleDownloadPDF function
-const handleDownloadPDF = async (item: ZoteroItem) => {
-    try {
-        const pdfUrl = item.pdfUrl || item.data?.url;
-        if (!pdfUrl) {
-            setError('No PDF URL available for this item');
-            return;
-        }
+// ✅ GOOD: Memoized functions with useCallback
+const fetchData = useCallback(async () => {
+    // Implementation
+}, [dependencies]);
 
-        // Create a temporary link element to trigger download
-        const link = document.createElement('a');
-        link.href = pdfUrl;
-        link.download = `${item.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`;
-        link.target = '_blank';
-        
-        // Add to DOM, click, and remove
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        setSuccess('PDF download started');
-    } catch (err) {
-        setError('Failed to download PDF');
-        console.error('Error downloading PDF:', err);
-    }
+// ✅ GOOD: Memoized values with useMemo
+const expensiveValue = useMemo(() => {
+    return computeExpensiveValue(data);
+}, [data]);
+
+// ❌ BAD: Functions recreated on every render
+const fetchData = async () => {
+    // Implementation
 };
 ```
 
-**Best Practices:**
-- Always validate URLs before attempting downloads
-- Use proper error handling with try-catch blocks
-- Provide clear user feedback for success and error states
-- Clean up DOM elements after use
+## 🏗️ Architecture Overview
 
-### 4. Debug Logging Cleanup
+### Frontend Architecture
+```
+apps/frontend/
+├── src/
+│   ├── components/          # Reusable UI components
+│   ├── pages/              # Page-level components
+│   ├── hooks/              # Custom React hooks
+│   ├── contexts/           # React contexts
+│   ├── services/           # API and external services
+│   ├── types/              # TypeScript type definitions
+│   ├── utils/              # Utility functions
+│   └── styles/             # Global styles
+```
 
-**Problem:** Excessive debug logging was left in production code, impacting performance and potentially exposing sensitive information.
+### Backend Architecture
+```
+apps/backend/
+├── src/
+│   ├── routes/             # API route handlers
+│   ├── services/           # Business logic services
+│   ├── middleware/         # Express middleware
+│   ├── utils/              # Utility functions
+│   └── types/              # TypeScript types
+├── prisma/                 # Database schema and migrations
+└── tests/                  # Backend tests
+```
 
-**Solution:** Wrapped debug logging in development environment checks.
+## 🎯 Development Best Practices
 
-**Files Modified:**
-- `apps/frontend/src/contexts/AuthContext.tsx`
+### 1. Component Design
 
-**Key Changes:**
+#### Functional Components with Hooks
 ```typescript
-// Before
-console.log('AuthContext state:', {
-    user,
-    token: token ? 'present' : 'null',
-    isAuthenticated: !!token && !!user,
-    hasUser: !!user,
-    hasToken: !!token
+// ✅ GOOD: Functional component with proper typing
+interface ComponentProps {
+    title: string;
+    onAction: (id: string) => void;
+}
+
+const MyComponent: React.FC<ComponentProps> = ({ title, onAction }) => {
+    const [state, setState] = useState<string>('');
+    
+    const handleClick = useCallback(() => {
+        onAction('some-id');
+    }, [onAction]);
+    
+    return (
+        <div>
+            <h1>{title}</h1>
+            <button onClick={handleClick}>Action</button>
+        </div>
+    );
+};
+```
+
+#### Custom Hooks for Business Logic
+```typescript
+// ✅ GOOD: Extract business logic into custom hooks
+export const useDataManagement = () => {
+    const [data, setData] = useState<Data[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const response = await api.get('/data');
+            setData(response.data);
+            setError(null);
+        } catch (error: any) {
+            setError('Failed to fetch data');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+    
+    return { data, loading, error, fetchData };
+};
+```
+
+### 2. State Management
+
+#### Local State with useState
+```typescript
+// ✅ GOOD: Proper state initialization
+const [items, setItems] = useState<Item[]>([]);
+const [loading, setLoading] = useState<boolean>(false);
+const [error, setError] = useState<string | null>(null);
+
+// ✅ GOOD: State updates with proper typing
+const addItem = useCallback((item: Item) => {
+    setItems(prev => [...prev, item]);
+}, []);
+```
+
+#### Context for Global State
+```typescript
+// ✅ GOOD: Context with proper typing and error handling
+interface AuthContextType {
+    user: User | null;
+    token: string | null;
+    login: (token: string, user: User) => void;
+    logout: () => void;
+    isAuthenticated: boolean;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const useAuth = () => {
+    const context = useContext(AuthContext);
+    if (context === undefined) {
+        throw new Error('useAuth must be used within an AuthProvider');
+    }
+    return context;
+};
+```
+
+### 3. API Integration
+
+#### Axios Configuration
+```typescript
+// ✅ GOOD: Centralized API configuration
+const api = axios.create({
+    baseURL: process.env.REACT_APP_API_URL || 'http://localhost:4000/api',
+    timeout: 30000,
+    headers: {
+        'Content-Type': 'application/json',
+    },
 });
 
-// After
-if (process.env.NODE_ENV === 'development') {
-    console.log('AuthContext state:', {
-        user,
-        token: token ? 'present' : 'null',
-        isAuthenticated: !!token && !!user,
-        hasUser: !!user,
-        hasToken: !!token
-    });
-}
-```
-
-**Best Practices:**
-- Always check environment before logging debug information
-- Use environment variables for feature flags
-- Consider using a logging library for production applications
-- Remove or comment out debug logs before production deployment
-
-### 5. API Response Handling
-
-**Problem:** Inconsistent API response structures were causing runtime errors and complex helper functions.
-
-**Solution:** Simplified helper functions and made response handling more robust.
-
-**Files Modified:**
-- `apps/frontend/src/pages/ResearchDashboard.tsx`
-
-**Key Changes:**
-```typescript
-// Before - Complex helper with multiple paths
-const getCount = (response: any, possiblePaths: string[]): number => {
-    if (response.status !== 'fulfilled') return 0;
-    const data = response.value.data;
-    for (const path of possiblePaths) {
-        const value = path.split('.').reduce((obj, key) => obj?.[key], data);
-        if (Array.isArray(value)) return value.length;
+// Request interceptor for authentication
+api.interceptors.request.use((config) => {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
     }
-    return 0;
-};
+    return config;
+});
 
-// After - Simplified helper
-const getCount = (response: any): number => {
-    if (response.status !== 'fulfilled') return 0;
-    const data = response.value.data;
-    // Handle different response structures consistently
-    if (Array.isArray(data)) return data.length;
-    if (data && typeof data === 'object') {
-        // Check for common array properties
-        const possibleArrays = ['notes', 'pdfs', 'entries', 'tables', 'protocols', 'recipes', 'data'];
-        for (const key of possibleArrays) {
-            if (Array.isArray(data[key])) return data[key].length;
+// Response interceptor for error handling
+api.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+        if (error.response?.status === 401) {
+            // Handle authentication errors
+            localStorage.removeItem('authToken');
+            window.location.href = '/login';
         }
+        return Promise.reject(error);
     }
-    return 0;
+);
+```
+
+#### API Service Functions
+```typescript
+// ✅ GOOD: Typed API functions with error handling
+export const dataApi = {
+    getAll: async (params?: ApiParams): Promise<ApiResponse<Data[]>> => {
+        const response = await api.get('/data', { params });
+        return response.data;
+    },
+    
+    create: async (data: CreateDataRequest): Promise<ApiResponse<Data>> => {
+        const response = await api.post('/data', data);
+        return response.data;
+    },
+    
+    update: async (id: string, data: UpdateDataRequest): Promise<ApiResponse<Data>> => {
+        const response = await api.put(`/data/${id}`, data);
+        return response.data;
+    },
+    
+    delete: async (id: string): Promise<void> => {
+        await api.delete(`/data/${id}`);
+    },
 };
 ```
 
-**Best Practices:**
-- Standardize API response structures across endpoints
-- Use consistent helper functions for data extraction
-- Handle edge cases gracefully
-- Document expected response formats
+### 4. Error Handling
 
-### 6. Navigation Error Handling
-
-**Problem:** Entity navigation lacked proper error handling and route validation.
-
-**Solution:** Added route validation and improved error handling.
-
-**Files Modified:**
-- `apps/frontend/src/pages/LiteratureNotes.tsx`
-
-**Key Changes:**
+#### Component Error Boundaries
 ```typescript
-// Before
-if (route) {
-    try {
-        navigate(route);
-    } catch (error) {
-        console.error('Navigation error:', error);
-        setSnackbar({
-            open: true,
-            message: `Failed to navigate to ${entry.type}. Please try again.`,
-            severity: 'error'
-        });
+// ✅ GOOD: Error boundary for component error handling
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+    constructor(props: ErrorBoundaryProps) {
+        super(props);
+        this.state = { hasError: false, error: null };
     }
-}
-
-// After
-if (route) {
-    try {
-        // Validate that the route is safe before navigation
-        if (typeof route === 'string' && route.startsWith('/')) {
-            navigate(route);
-        } else {
-            throw new Error('Invalid route format');
+    
+    static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+        return { hasError: true, error };
+    }
+    
+    componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+        console.error('Error caught by boundary:', error, errorInfo);
+    }
+    
+    render() {
+        if (this.state.hasError) {
+            return <ErrorFallback error={this.state.error} />;
         }
-    } catch (error) {
-        console.error('Navigation error:', error);
-        setSnackbar({
-            open: true,
-            message: `Failed to navigate to ${entry.type}. Please try again.`,
-            severity: 'error'
-        });
+        
+        return this.props.children;
     }
 }
 ```
 
-**Best Practices:**
-- Always validate routes before navigation
-- Use proper error boundaries for navigation failures
-- Provide clear error messages to users
-- Log navigation errors for debugging
-
-### 7. Type Safety Improvements
-
-**Problem:** Extensive use of 'any' types reduced type safety and code maintainability.
-
-**Solution:** Created comprehensive TypeScript interfaces for all API entities.
-
-**Files Created/Modified:**
-- `apps/frontend/src/types/api.ts` (new)
-- `apps/frontend/src/services/api.ts`
-
-**Key Changes:**
+#### Form Validation
 ```typescript
-// Before
-export const projectsApi = {
-    getAll: (params?: any) => api.get('/projects', { params }),
-    create: (data: any) => api.post('/projects', data),
-    update: (id: string, data: any) => api.put(`/projects/${id}`, data),
-};
-
-// After
-export const projectsApi = {
-    getAll: (params?: ProjectParams) => api.get<Project[]>('/projects', { params }),
-    create: (data: ProjectCreateData) => api.post<Project>('/projects', data),
-    update: (id: string, data: ProjectUpdateData) => api.put<Project>(`/projects/${id}`, data),
-};
-```
-
-**Best Practices:**
-- Always define interfaces for API entities
-- Use generic types for API responses
-- Separate create/update data interfaces from entity interfaces
-- Use union types for status and priority fields
-
-## Development Workflow
-
-### Setting Up the Development Environment
-
-1. **Install Dependencies:**
-   ```bash
-   pnpm install
-   ```
-
-2. **Set Up Database:**
-   ```bash
-   cd apps/backend
-   pnpm exec prisma migrate dev --name init
-   ```
-
-3. **Start Development Servers:**
-   ```bash
-   # Backend
-   cd apps/backend
-   pnpm dev
-   
-   # Frontend (in new terminal)
-   cd apps/frontend
-   pnpm dev
-   ```
-
-### Code Quality Standards
-
-1. **TypeScript:**
-   - Use strict TypeScript configuration
-   - Avoid 'any' types
-   - Define interfaces for all data structures
-   - Use proper error handling
-
-2. **Error Handling:**
-   - Always use try-catch blocks for async operations
-   - Provide meaningful error messages
-   - Log errors for debugging
-   - Handle edge cases gracefully
-
-3. **Performance:**
-   - Avoid excessive logging in production
-   - Use environment checks for debug code
-   - Optimize API calls and data processing
-   - Implement proper loading states
-
-4. **User Experience:**
-   - Provide clear feedback for all user actions
-   - Handle loading and error states
-   - Validate user input
-   - Use consistent UI patterns
-
-### Testing Guidelines
-
-1. **Unit Tests:**
-   - Test helper functions thoroughly
-   - Mock API calls for testing
-   - Test error handling scenarios
-   - Use TypeScript for test files
-
-2. **Integration Tests:**
-   - Test API endpoints
-   - Test user workflows
-   - Test error scenarios
-   - Test data validation
-
-3. **Manual Testing:**
-   - Test all user interactions
-   - Test error scenarios
-   - Test performance with large datasets
-   - Test cross-browser compatibility
-
-### Debugging Tips
-
-1. **Console Logging:**
-   ```typescript
-   // Use environment checks
-   if (process.env.NODE_ENV === 'development') {
-       console.log('Debug info:', data);
-   }
-   ```
-
-2. **Error Boundaries:**
-   ```typescript
-   // Implement error boundaries for React components
-   class ErrorBoundary extends React.Component {
-       // Error boundary implementation
-   }
-   ```
-
-3. **Type Checking:**
-   ```typescript
-   // Use TypeScript for compile-time error detection
-   const project: Project = await projectsApi.getById(id);
-   ```
-
-## Common Patterns
-
-### API Response Handling
-
-```typescript
-const handleApiCall = async () => {
-    try {
-        setLoading(true);
-        const data = await apiCall();
-        setData(data);
-        setError(null);
-    } catch (err) {
-        console.error('API call failed:', err);
-        setError('Failed to load data. Please try again.');
-    } finally {
-        setLoading(false);
-    }
-};
-```
-
-### Form Validation
-
-```typescript
+// ✅ GOOD: Comprehensive form validation
 const validateForm = (data: FormData): ValidationResult => {
     const errors: string[] = [];
     
-    if (!data.title?.trim()) {
-        errors.push('Title is required');
+    if (!data.name?.trim()) {
+        errors.push('Name is required');
     }
     
     if (data.email && !isValidEmail(data.email)) {
         errors.push('Invalid email format');
+    }
+    
+    if (data.age && (data.age < 0 || data.age > 120)) {
+        errors.push('Age must be between 0 and 120');
     }
     
     return {
@@ -472,59 +306,182 @@ const validateForm = (data: FormData): ValidationResult => {
 };
 ```
 
-### Navigation with Error Handling
+### 5. Performance Optimization
 
+#### Memoization
 ```typescript
-const navigateSafely = (route: string) => {
-    try {
-        if (typeof route === 'string' && route.startsWith('/')) {
-            navigate(route);
-        } else {
-            throw new Error('Invalid route format');
-        }
-    } catch (error) {
-        console.error('Navigation failed:', error);
-        // Handle navigation error
-    }
-};
+// ✅ GOOD: Memoize expensive calculations
+const expensiveValue = useMemo(() => {
+    return computeExpensiveValue(data, filters);
+}, [data, filters]);
+
+// ✅ GOOD: Memoize callback functions
+const handleAction = useCallback((id: string) => {
+    performAction(id);
+}, [performAction]);
+
+// ✅ GOOD: Memoize components
+const ExpensiveComponent = React.memo<ComponentProps>(({ data, onAction }) => {
+    return <div>{/* Component content */}</div>;
+});
 ```
 
-## Future Improvements
+#### Lazy Loading
+```typescript
+// ✅ GOOD: Lazy load components
+const LazyComponent = React.lazy(() => import('./LazyComponent'));
 
-1. **Add Validation Libraries:**
-   - Integrate Zod for runtime validation
-   - Add form validation libraries
-   - Implement API response validation
+const App = () => (
+    <Suspense fallback={<LoadingSpinner />}>
+        <LazyComponent />
+    </Suspense>
+);
+```
 
-2. **Enhanced Error Handling:**
-   - Implement global error boundaries
-   - Add error reporting services
-   - Create error recovery mechanisms
+## 🧪 Testing Guidelines
 
-3. **Performance Optimizations:**
-   - Implement code splitting
-   - Add caching strategies
-   - Optimize bundle sizes
+### Unit Testing
+```typescript
+// ✅ GOOD: Comprehensive unit tests
+describe('useDataManagement', () => {
+    it('should fetch data successfully', async () => {
+        const mockData = [{ id: '1', name: 'Test' }];
+        jest.spyOn(api, 'get').mockResolvedValue({ data: mockData });
+        
+        const { result } = renderHook(() => useDataManagement());
+        
+        await act(async () => {
+            await result.current.fetchData();
+        });
+        
+        expect(result.current.data).toEqual(mockData);
+        expect(result.current.loading).toBe(false);
+        expect(result.current.error).toBe(null);
+    });
+    
+    it('should handle errors gracefully', async () => {
+        jest.spyOn(api, 'get').mockRejectedValue(new Error('API Error'));
+        
+        const { result } = renderHook(() => useDataManagement());
+        
+        await act(async () => {
+            await result.current.fetchData();
+        });
+        
+        expect(result.current.error).toBe('Failed to fetch data');
+        expect(result.current.loading).toBe(false);
+    });
+});
+```
 
-4. **Testing Improvements:**
-   - Add comprehensive test coverage
-   - Implement E2E testing
-   - Add performance testing
+### Integration Testing
+```typescript
+// ✅ GOOD: Integration tests for API endpoints
+describe('Data API', () => {
+    it('should create and retrieve data', async () => {
+        const testData = { name: 'Test Item', description: 'Test Description' };
+        
+        // Create data
+        const createResponse = await request(app)
+            .post('/api/data')
+            .send(testData)
+            .expect(201);
+        
+        const createdId = createResponse.body.data.id;
+        
+        // Retrieve data
+        const getResponse = await request(app)
+            .get(`/api/data/${createdId}`)
+            .expect(200);
+        
+        expect(getResponse.body.data.name).toBe(testData.name);
+    });
+});
+```
 
-## Contributing
+## 🔧 Development Workflow
 
-When contributing to the project:
+### 1. Code Review Checklist
+- [ ] **Memory Management**: Proper cleanup in useEffect hooks
+- [ ] **Error Handling**: Comprehensive error handling and user feedback
+- [ ] **Performance**: Memoization where appropriate
+- [ ] **Type Safety**: Proper TypeScript usage
+- [ ] **Testing**: Adequate test coverage
+- [ ] **Documentation**: Updated documentation
 
-1. **Follow the established patterns** for error handling and type safety
-2. **Add proper TypeScript interfaces** for new features
-3. **Include error handling** for all user interactions
-4. **Test thoroughly** before submitting changes
-5. **Update documentation** for new features
-6. **Follow the code style** established in the project
+### 2. Performance Checklist
+- [ ] **Component Optimization**: Memoized expensive operations
+- [ ] **API Optimization**: Request cancellation and retry logic
+- [ ] **Memory Usage**: No memory leaks detected
+- [ ] **Bundle Size**: Reasonable bundle size
+- [ ] **Loading States**: Proper loading indicators
 
-## Resources
+### 3. Security Checklist
+- [ ] **Input Validation**: All inputs properly validated
+- [ ] **Authentication**: Proper token handling
+- [ ] **Authorization**: Role-based access control
+- [ ] **Data Sanitization**: XSS prevention
+- [ ] **Error Messages**: No sensitive information in errors
 
+## 📊 Performance Monitoring
+
+### Key Metrics
+- **Component Render Time**: < 16ms for smooth 60fps
+- **Memory Usage**: < 100MB for typical usage
+- **API Response Time**: < 2 seconds for most requests
+- **Bundle Size**: < 2MB for initial load
+
+### Monitoring Tools
+- **React DevTools**: Component profiling
+- **Chrome DevTools**: Memory and performance analysis
+- **Lighthouse**: Performance audits
+- **Custom Metrics**: Application-specific monitoring
+
+## 🚀 Deployment Guidelines
+
+### Environment Configuration
+```bash
+# Production environment variables
+NODE_ENV=production
+REACT_APP_API_URL=https://api.example.com
+REACT_APP_ENVIRONMENT=production
+```
+
+### Build Process
+```bash
+# Build all applications
+pnpm build
+
+# Build desktop app
+cd electron && pnpm build
+
+# Run tests before deployment
+pnpm test:all
+```
+
+### Deployment Checklist
+- [ ] **Environment Variables**: All required variables set
+- [ ] **Database Migrations**: Applied to production
+- [ ] **SSL Certificate**: Valid and configured
+- [ ] **Backup Strategy**: Database backups configured
+- [ ] **Monitoring**: Performance monitoring enabled
+- [ ] **Error Tracking**: Error reporting configured
+
+## 📚 Additional Resources
+
+### Documentation
+- **[Critical Bug Fixes Summary](guides/CRITICAL_BUG_FIXES_SUMMARY.md)**
+- **[Implementation Guides](implementation/README.md)**
+- **[TypeScript Interfaces](TYPESCRIPT_INTERFACES.md)**
+
+### External Resources
+- [React Documentation](https://react.dev/)
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/)
-- [React Error Boundaries](https://reactjs.org/docs/error-boundaries.html)
 - [Material-UI Documentation](https://mui.com/)
-- [Prisma Documentation](https://www.prisma.io/docs/) 
+- [Electron Documentation](https://www.electronjs.org/docs)
+
+---
+
+**Last Updated:** January 27, 2025  
+**Version:** 4.0.0  
+**Status:** ✅ Updated with Critical Improvements 
