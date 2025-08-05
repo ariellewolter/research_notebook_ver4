@@ -22,6 +22,7 @@ Welcome to the comprehensive documentation for the Research Notebook application
 
 ### 🧪 Testing & Quality
 - **[Testing Guide](testing/README.md)** - Testing procedures and tools
+- **[iPad Testing Quick Reference](guides/IPAD_TESTING_QUICK_REFERENCE.md)** - Quick reference for iPad testing system
 - **[Bug Fixes Summary](guides/COMPREHENSIVE_BUG_FIXES_SUMMARY.md)** - Bug fixes and resolutions
 - **[Critical Fixes](guides/CRITICAL_BUG_FIXES_SUMMARY.md)** - Critical issue resolutions
 
