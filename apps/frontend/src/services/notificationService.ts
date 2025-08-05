@@ -20,6 +20,20 @@ export interface AutomationEvent {
         target?: string;
         format?: string;
         options?: string[];
+        // Cloud sync specific properties
+        syncType?: string;
+        cloudService?: string;
+        entityType?: string;
+        entityCount?: number;
+        action?: string;
+        quotaType?: string;
+        currentUsage?: number;
+        limit?: number;
+        percentage?: number;
+        entityId?: string;
+        conflictType?: string;
+        resolution?: string;
+        note?: string;
     };
     isRead: boolean;
     canRetry?: boolean;
@@ -217,6 +231,102 @@ class NotificationService {
             },
             canRetry: status === 'error',
             retryAction: status === 'error' ? () => this.retryBackgroundSync(syncType) : undefined
+        };
+
+        return this.addEvent(event);
+    }
+
+    /**
+     * Log cloud sync events
+     */
+    logCloudSync(
+        status: 'pending' | 'success' | 'error' | 'warning' | 'info',
+        syncType: 'upload' | 'download' | 'sync' | 'background',
+        cloudService: string,
+        entityType: string,
+        entityCount: number,
+        errorDetails?: string,
+        duration?: number,
+        metadata?: any
+    ): string {
+        const event: Omit<AutomationEvent, 'id' | 'timestamp' | 'isRead'> = {
+            type: 'background_sync',
+            category: 'background_sync',
+            title: this.getCloudSyncTitle(status, syncType, cloudService),
+            message: this.getCloudSyncMessage(status, syncType, cloudService, entityType, entityCount, errorDetails),
+            status,
+            priority: this.getCloudSyncPriority(status, syncType),
+            metadata: {
+                syncType,
+                cloudService,
+                entityType,
+                entityCount,
+                errorDetails,
+                duration,
+                ...metadata
+            },
+            canRetry: status === 'error',
+            retryAction: status === 'error' ? () => this.retryCloudSync(syncType, cloudService, entityType) : undefined
+        };
+
+        return this.addEvent(event);
+    }
+
+    /**
+     * Log cloud sync connection events
+     */
+    logCloudSyncConnection(
+        status: 'pending' | 'success' | 'error' | 'warning' | 'info',
+        cloudService: string,
+        action: 'connect' | 'disconnect' | 'reconnect',
+        errorDetails?: string
+    ): string {
+        const event: Omit<AutomationEvent, 'id' | 'timestamp' | 'isRead'> = {
+            type: 'background_sync',
+            category: 'background_sync',
+            title: this.getCloudSyncConnectionTitle(status, action, cloudService),
+            message: this.getCloudSyncConnectionMessage(status, action, cloudService, errorDetails),
+            status,
+            priority: this.getCloudSyncConnectionPriority(status, action),
+            metadata: {
+                syncType: 'connection',
+                cloudService,
+                action,
+                errorDetails
+            },
+            canRetry: status === 'error' && action === 'connect',
+            retryAction: status === 'error' && action === 'connect' ? () => this.retryCloudSyncConnection(cloudService) : undefined
+        };
+
+        return this.addEvent(event);
+    }
+
+    /**
+     * Log cloud sync quota/limit events
+     */
+    logCloudSyncQuota(
+        status: 'warning' | 'error',
+        cloudService: string,
+        quotaType: 'storage' | 'api_calls' | 'bandwidth',
+        currentUsage: number,
+        limit: number,
+        percentage: number
+    ): string {
+        const event: Omit<AutomationEvent, 'id' | 'timestamp' | 'isRead'> = {
+            type: 'background_sync',
+            category: 'background_sync',
+            title: this.getCloudSyncQuotaTitle(status, quotaType, cloudService),
+            message: this.getCloudSyncQuotaMessage(status, quotaType, cloudService, currentUsage, limit, percentage),
+            status,
+            priority: percentage > 90 ? 'urgent' : 'high',
+            metadata: {
+                syncType: 'quota',
+                cloudService,
+                quotaType,
+                currentUsage,
+                limit,
+                percentage
+            }
         };
 
         return this.addEvent(event);
@@ -628,6 +738,170 @@ class NotificationService {
     private async retryBackgroundSync(syncType: string): Promise<void> {
         console.log('Retry background sync:', syncType);
         // Implementation would be provided by the component using this service
+    }
+
+    private getCloudSyncTitle(status: string, syncType: string, cloudService: string): string {
+        const serviceName = this.getServiceDisplayName(cloudService);
+        const actionName = this.getSyncTypeDisplayName(syncType);
+        
+        switch (status) {
+            case 'pending':
+                return `${actionName} to ${serviceName} - In Progress`;
+            case 'success':
+                return `${actionName} to ${serviceName} - Completed`;
+            case 'error':
+                return `${actionName} to ${serviceName} - Failed`;
+            case 'warning':
+                return `${actionName} to ${serviceName} - Warning`;
+            default:
+                return `${actionName} to ${serviceName}`;
+        }
+    }
+
+    private getCloudSyncMessage(
+        status: string, 
+        syncType: string, 
+        cloudService: string, 
+        entityType: string, 
+        entityCount: number, 
+        errorDetails?: string
+    ): string {
+        const serviceName = this.getServiceDisplayName(cloudService);
+        const actionName = this.getSyncTypeDisplayName(syncType);
+        const entityName = this.getEntityTypeDisplayName(entityType);
+        
+        switch (status) {
+            case 'pending':
+                return `Starting ${actionName.toLowerCase()} of ${entityCount} ${entityName} to ${serviceName}`;
+            case 'success':
+                return `Successfully ${actionName.toLowerCase()}ed ${entityCount} ${entityName} to ${serviceName}`;
+            case 'error':
+                return `Failed to ${actionName.toLowerCase()} ${entityCount} ${entityName} to ${serviceName}: ${errorDetails}`;
+            case 'warning':
+                return `Warning during ${actionName.toLowerCase()} to ${serviceName}: ${errorDetails}`;
+            default:
+                return `${actionName} operation to ${serviceName}`;
+        }
+    }
+
+    private getCloudSyncPriority(status: string, syncType: string): 'low' | 'normal' | 'high' | 'urgent' {
+        if (status === 'error') return 'high';
+        if (status === 'warning') return 'normal';
+        if (syncType === 'background') return 'low';
+        return 'normal';
+    }
+
+    private getCloudSyncConnectionTitle(status: string, action: string, cloudService: string): string {
+        const serviceName = this.getServiceDisplayName(cloudService);
+        const actionName = action.charAt(0).toUpperCase() + action.slice(1);
+        
+        switch (status) {
+            case 'pending':
+                return `${actionName}ing to ${serviceName} - In Progress`;
+            case 'success':
+                return `${actionName}ed to ${serviceName} - Success`;
+            case 'error':
+                return `${actionName} to ${serviceName} - Failed`;
+            default:
+                return `${actionName} to ${serviceName}`;
+        }
+    }
+
+    private getCloudSyncConnectionMessage(
+        status: string, 
+        action: string, 
+        cloudService: string, 
+        errorDetails?: string
+    ): string {
+        const serviceName = this.getServiceDisplayName(cloudService);
+        const actionName = action.charAt(0).toUpperCase() + action.slice(1);
+        
+        switch (status) {
+            case 'pending':
+                return `${actionName}ing to ${serviceName}...`;
+            case 'success':
+                return `Successfully ${actionName.toLowerCase()}ed to ${serviceName}`;
+            case 'error':
+                return `Failed to ${actionName.toLowerCase()} to ${serviceName}: ${errorDetails}`;
+            default:
+                return `${actionName} operation to ${serviceName}`;
+        }
+    }
+
+    private getCloudSyncConnectionPriority(status: string, action: string): 'low' | 'normal' | 'high' | 'urgent' {
+        if (status === 'error') return 'high';
+        if (action === 'connect') return 'normal';
+        return 'low';
+    }
+
+    private getCloudSyncQuotaTitle(status: string, quotaType: string, cloudService: string): string {
+        const serviceName = this.getServiceDisplayName(cloudService);
+        const quotaName = this.getQuotaTypeDisplayName(quotaType);
+        
+        return `${quotaName} Limit - ${serviceName}`;
+    }
+
+    private getCloudSyncQuotaMessage(
+        status: string, 
+        quotaType: string, 
+        cloudService: string, 
+        currentUsage: number, 
+        limit: number, 
+        percentage: number
+    ): string {
+        const serviceName = this.getServiceDisplayName(cloudService);
+        const quotaName = this.getQuotaTypeDisplayName(quotaType);
+        
+        return `${quotaName} usage for ${serviceName}: ${percentage}% (${currentUsage}/${limit})`;
+    }
+
+    private getServiceDisplayName(service: string): string {
+        const serviceNames: Record<string, string> = {
+            'dropbox': 'Dropbox',
+            'google': 'Google Drive',
+            'onedrive': 'OneDrive',
+            'icloud': 'iCloud'
+        };
+        return serviceNames[service] || service;
+    }
+
+    private getSyncTypeDisplayName(syncType: string): string {
+        const syncTypeNames: Record<string, string> = {
+            'upload': 'Upload',
+            'download': 'Download',
+            'sync': 'Sync',
+            'background': 'Background Sync'
+        };
+        return syncTypeNames[syncType] || syncType;
+    }
+
+    private getEntityTypeDisplayName(entityType: string): string {
+        const entityTypeNames: Record<string, string> = {
+            'note': 'notes',
+            'project': 'projects',
+            'pdf': 'PDFs',
+            'file': 'files'
+        };
+        return entityTypeNames[entityType] || entityType;
+    }
+
+    private getQuotaTypeDisplayName(quotaType: string): string {
+        const quotaTypeNames: Record<string, string> = {
+            'storage': 'Storage',
+            'api_calls': 'API Calls',
+            'bandwidth': 'Bandwidth'
+        };
+        return quotaTypeNames[quotaType] || quotaType;
+    }
+
+    private async retryCloudSync(syncType: string, cloudService: string, entityType: string): Promise<void> {
+        // TODO: Implement retry logic for cloud sync operations
+        console.log(`Retrying ${syncType} for ${cloudService} - ${entityType}`);
+    }
+
+    private async retryCloudSyncConnection(cloudService: string): Promise<void> {
+        // TODO: Implement retry logic for cloud sync connections
+        console.log(`Retrying connection to ${cloudService}`);
     }
 }
 

@@ -46,6 +46,8 @@ import {
     Refresh as RetryIcon,
     ExpandMore as ExpandMoreIcon,
     ExpandLess as ExpandLessIcon,
+    Cloud as CloudIcon,
+    Storage as StorageIcon,
 } from '@mui/icons-material';
 import { notificationService, AutomationEvent } from '../../services/notificationService';
 
@@ -240,6 +242,26 @@ const AutomationNotificationsPanel: React.FC<AutomationNotificationsPanelProps> 
 
     const getEventIcon = (event: AutomationEvent) => {
         const baseIcon = (() => {
+            // Handle sync conflict events
+            if (event.type === 'sync-conflict') {
+                return <WarningIcon />;
+            }
+            if (event.type === 'sync-conflict-resolved') {
+                return <CheckCircleIcon />;
+            }
+
+            // Handle cloud sync events with specific icons
+            if (event.type === 'background_sync') {
+                const metadata = event.metadata;
+                if (metadata?.syncType === 'connection') {
+                    return <CloudIcon />;
+                }
+                if (metadata?.syncType === 'quota') {
+                    return <StorageIcon />;
+                }
+                return <SyncIcon />;
+            }
+
             switch (event.type) {
                 case 'import':
                     return <ImportIcon />;
@@ -249,8 +271,6 @@ const AutomationNotificationsPanel: React.FC<AutomationNotificationsPanelProps> 
                     return <SyncIcon />;
                 case 'file_watcher':
                     return <FolderIcon />;
-                case 'background_sync':
-                    return <ScheduleIcon />;
                 case 'system':
                     return <InfoIcon />;
                 default:
@@ -476,6 +496,28 @@ const AutomationNotificationsPanel: React.FC<AutomationNotificationsPanelProps> 
                             />
                         </Box>
 
+                        {/* Critical Alerts */}
+                        {(() => {
+                            const criticalEvents = events.filter(event => 
+                                event.status === 'error' || 
+                                (event.status === 'warning' && event.priority === 'urgent')
+                            );
+                            
+                            if (criticalEvents.length > 0) {
+                                return (
+                                    <Alert severity="error" sx={{ mt: 2 }}>
+                                        <Typography variant="subtitle2" gutterBottom>
+                                            Critical Issues ({criticalEvents.length})
+                                        </Typography>
+                                        <Typography variant="body2">
+                                            {criticalEvents.length} critical issue{criticalEvents.length > 1 ? 's' : ''} require{criticalEvents.length > 1 ? '' : 's'} immediate attention.
+                                        </Typography>
+                                    </Alert>
+                                );
+                            }
+                            return null;
+                        })()}
+
                         {/* Summary Stats */}
                         <Box sx={{ display: 'flex', gap: 2 }}>
                             <Chip
@@ -521,7 +563,8 @@ const AutomationNotificationsPanel: React.FC<AutomationNotificationsPanelProps> 
                             <Tab label="All Events" id="automation-tab-0" aria-controls="automation-tabpanel-0" />
                             <Tab label="Errors" id="automation-tab-1" aria-controls="automation-tabpanel-1" />
                             <Tab label="Pending" id="automation-tab-2" aria-controls="automation-tabpanel-2" />
-                            <Tab label="Recent" id="automation-tab-3" aria-controls="automation-tabpanel-3" />
+                            <Tab label="Cloud Sync" id="automation-tab-3" aria-controls="automation-tabpanel-3" />
+                            <Tab label="Recent" id="automation-tab-4" aria-controls="automation-tabpanel-4" />
                         </Tabs>
                     </Box>
 
@@ -569,6 +612,24 @@ const AutomationNotificationsPanel: React.FC<AutomationNotificationsPanelProps> 
                     </TabPanel>
 
                     <TabPanel value={tabValue} index={3}>
+                        <EventList
+                            events={filteredEvents.filter(e => 
+                                e.type === 'background_sync' || 
+                                e.type === 'sync-conflict' || 
+                                e.type === 'sync-conflict-resolved'
+                            )}
+                            onMarkAsRead={handleMarkAsRead}
+                            onRetry={handleRetryEvent}
+                            onToggleExpanded={handleToggleExpanded}
+                            expandedEvents={expandedEvents}
+                            retryingEvents={retryingEvents}
+                            getEventIcon={getEventIcon}
+                            getPriorityColor={getPriorityColor}
+                            formatDate={formatDate}
+                        />
+                    </TabPanel>
+
+                    <TabPanel value={tabValue} index={4}>
                         <EventList
                             events={filteredEvents.slice(0, 20)} // Show only recent 20 events
                             onMarkAsRead={handleMarkAsRead}
@@ -691,6 +752,37 @@ const EventList = ({
                     {metadata.errorDetails && (
                         <Typography variant="caption" color="error" sx={{ display: 'block' }}>
                             Error: {metadata.errorDetails}
+                        </Typography>
+                    )}
+                    {/* Cloud Sync specific metadata */}
+                    {metadata.cloudService && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            Service: {metadata.cloudService}
+                        </Typography>
+                    )}
+                    {metadata.syncType && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            Sync Type: {metadata.syncType}
+                        </Typography>
+                    )}
+                    {metadata.entityType && metadata.entityCount && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            {metadata.entityCount} {metadata.entityType}
+                        </Typography>
+                    )}
+                    {metadata.quotaType && metadata.percentage && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            {metadata.quotaType} Usage: {metadata.percentage}%
+                        </Typography>
+                    )}
+                    {metadata.conflictType && (
+                        <Typography variant="caption" color="warning.main" sx={{ display: 'block' }}>
+                            Conflict Type: {metadata.conflictType}
+                        </Typography>
+                    )}
+                    {metadata.resolution && (
+                        <Typography variant="caption" color="success.main" sx={{ display: 'block' }}>
+                            Resolution: {metadata.resolution}
                         </Typography>
                     )}
                 </Box>
