@@ -1,12 +1,11 @@
 export interface DatabaseEntry {
     id: string;
     name: string;
-    description?: string;
+    description: string | null;
     type: string;
-    properties?: string;
-    metadata?: Record<string, any>;
+    properties: string | null;
+    metadata: string | null;
     createdAt: Date;
-    updatedAt: Date;
 }
 
 export interface DatabaseEntryWithLinks extends DatabaseEntry {
@@ -19,11 +18,18 @@ export interface DatabaseEntryWithLinks extends DatabaseEntry {
     }>;
 }
 
-export type CreateDatabaseEntryData = Omit<DatabaseEntry, 'id' | 'createdAt' | 'updatedAt'>;
+export interface DatabaseEntrySummary {
+    id: string;
+    name: string;
+    type: string;
+    createdAt: Date;
+}
+
+export type CreateDatabaseEntryData = Omit<DatabaseEntry, 'id' | 'createdAt'>;
 export type UpdateDatabaseEntryData = Partial<CreateDatabaseEntryData>;
 
 export interface DatabaseStats {
     total: number;
     byType: Record<string, number>;
-    recent: DatabaseEntry[];
+    recent: DatabaseEntrySummary[];
 } 

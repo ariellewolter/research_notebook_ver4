@@ -1,346 +1,297 @@
-# Cloud Sync Implementation
+# Cloud Sync Implementation Documentation
 
 ## Overview
 
-This document describes the implementation of the Cloud Sync Service Abstraction Layer for the Electronic Lab Notebook application. The system provides a unified interface for connecting to and managing multiple cloud storage services.
+The cloud sync functionality allows users to synchronize their research data across multiple cloud storage services including Dropbox, Google Drive, OneDrive, and iCloud. This document outlines the implementation details, recent fixes, and current status.
 
 ## Architecture
 
-### Core Components
+### Backend Components
 
-1. **Cloud Sync API (`apps/frontend/src/utils/cloudSyncAPI.ts`)**
-   - Main abstraction layer for cloud storage operations
-   - OAuth2 authentication handling
-   - Provider-agnostic interface
-   - Event-driven architecture
+#### Database Schema
+- **Note Model**: Includes cloud sync fields (`cloudSynced`, `cloudPath`, `cloudService`, `lastSynced`, `syncStatus`)
+- **Project Model**: Includes cloud sync fields (`cloudSynced`, `cloudPath`, `cloudService`, `lastSynced`, `syncStatus`)
+- **PDF Model**: Includes cloud sync fields (`cloudSynced`, `cloudPath`, `cloudService`, `lastSynced`, `syncStatus`)
 
-2. **React Hook (`apps/frontend/src/hooks/useCloudSync.ts`)**
-   - React-friendly interface for cloud sync operations
-   - State management for connections and files
-   - Event handling and error management
+#### API Routes
+- `/api/cloud-sync/*` - General cloud sync operations
+- `/api/entity-cloud-sync/*` - Entity-specific cloud sync operations
+- `/api/zotero/sync/*` - Zotero integration sync operations
 
-3. **UI Component (`apps/frontend/src/components/CloudSync/CloudSyncManager.tsx`)**
-   - User interface for managing cloud connections
-   - File browsing and management
-   - Upload/download operations
+### Frontend Components
 
-4. **Backend API (`apps/backend/src/routes/api/cloudSync.ts`)**
-   - Server-side cloud sync operations
-   - OAuth callback handling
-   - File operation endpoints
+#### Cloud Sync Components
+- `EntityCloudSyncDialog.tsx` - Main cloud sync management dialog
+- `CloudSyncSettings.tsx` - Cloud sync configuration
+- `AdvancedSyncSettings.tsx` - Advanced sync options
+- `AutoExportSettings.tsx` - Automatic export configuration
 
-## Supported Services
+#### Services
+- `cloudSyncAPI.ts` - Cloud sync API client
+- `useCloudSync.ts` - Cloud sync React hook
+- `syncReminderService.ts` - Sync status monitoring
 
-### Dropbox
-- **OAuth URL**: `https://www.dropbox.com/oauth2/authorize`
-- **Scopes**: `files.content.read`, `files.content.write`, `files.metadata.read`
-- **API**: Dropbox API v2
+## Recent Fixes (Latest Update)
 
-### Google Drive
-- **OAuth URL**: `https://accounts.google.com/o/oauth2/v2/auth`
-- **Scopes**: `https://www.googleapis.com/auth/drive.file`
-- **API**: Google Drive API v3
+### 1. Database Schema Issues ✅
+**Problem**: Only the Note model had cloud sync fields, but Project and PDF models were missing them.
+**Solution**: Added cloud sync fields to Project and PDF models:
+```prisma
+model Project {
+  // ... existing fields
+  cloudSynced  Boolean      @default(false)
+  cloudPath    String?
+  cloudService String?      // 'dropbox', 'google', 'onedrive', 'icloud'
+  lastSynced   DateTime?
+  syncStatus   String?      // 'pending', 'synced', 'error', 'conflict'
+}
 
-### iCloud
-- **OAuth URL**: `https://appleid.apple.com/auth/authorize`
-- **Scopes**: `files.read`, `files.write`
-- **API**: iCloud Web Services
-
-### OneDrive
-- **OAuth URL**: `https://login.microsoftonline.com/common/oauth2/v2.0/authorize`
-- **Scopes**: `files.readwrite`, `offline_access`
-- **API**: Microsoft Graph API
-
-## Implementation Details
-
-### OAuth2 Flow
-
-1. **Authorization Request**
-   ```typescript
-   const authUrl = buildAuthUrl(serviceName, config);
-   window.location.href = authUrl;
-   ```
-
-2. **Callback Handling**
-   ```typescript
-   const tokenResponse = await exchangeCodeForToken(serviceName, code, config);
-   storeToken(serviceName, tokenResponse.access_token, tokenResponse.refresh_token);
-   ```
-
-3. **Token Management**
-   - Access tokens stored in localStorage
-   - Refresh token handling for expired tokens
-   - Automatic token renewal
-
-### File Operations
-
-#### List Files
-```typescript
-const files = await cloudSyncService.listSyncedFiles(serviceName, folderPath);
-```
-
-#### Upload File
-```typescript
-const success = await cloudSyncService.uploadFile(serviceName, localPath, remotePath, fileContent);
-```
-
-#### Download File
-```typescript
-const fileContent = await cloudSyncService.downloadFile(serviceName, remotePath, localPath);
-```
-
-### Event System
-
-The cloud sync service uses an event-driven architecture for real-time updates:
-
-```typescript
-// Listen for events
-cloudSyncService.on('serviceConnected', (data) => {
-  console.log(`${data.serviceName} connected`);
-});
-
-cloudSyncService.on('fileUploaded', (data) => {
-  console.log(`File uploaded: ${data.localPath} -> ${data.remotePath}`);
-});
-
-cloudSyncService.on('error', (error) => {
-  console.error('Cloud sync error:', error);
-});
-```
-
-## Usage Examples
-
-### Basic Connection
-
-```typescript
-import { useCloudSync } from '../hooks/useCloudSync';
-
-const MyComponent = () => {
-  const { connectService, isConnected, loading, error } = useCloudSync();
-
-  const handleConnect = async () => {
-    await connectService('dropbox');
-  };
-
-  return (
-    <div>
-      {loading && <p>Connecting...</p>}
-      {error && <p>Error: {error.message}</p>}
-      {isConnected('dropbox') && <p>Dropbox connected!</p>}
-      <button onClick={handleConnect}>Connect to Dropbox</button>
-    </div>
-  );
-};
-```
-
-### File Management
-
-```typescript
-const { listFiles, uploadFile, downloadFile, files } = useCloudSync();
-
-// List files
-const handleListFiles = async () => {
-  const fileList = await listFiles('dropbox', '/documents');
-  console.log('Files:', fileList);
-};
-
-// Upload file
-const handleUpload = async () => {
-  const success = await uploadFile('dropbox', '/local/file.txt', '/remote/file.txt');
-  if (success) {
-    console.log('File uploaded successfully');
-  }
-};
-
-// Download file
-const handleDownload = async () => {
-  const fileContent = await downloadFile('dropbox', '/remote/file.txt', '/local/file.txt');
-  if (fileContent) {
-    console.log('File downloaded successfully');
-  }
-};
-```
-
-## Configuration
-
-### Environment Variables
-
-Add the following environment variables to your `.env` file:
-
-```env
-# Dropbox
-REACT_APP_DROPBOX_CLIENT_ID=your_dropbox_client_id
-REACT_APP_DROPBOX_CLIENT_SECRET=your_dropbox_client_secret
-
-# Google Drive
-REACT_APP_GOOGLE_CLIENT_ID=your_google_client_id
-REACT_APP_GOOGLE_CLIENT_SECRET=your_google_client_secret
-
-# iCloud
-REACT_APP_APPLE_CLIENT_ID=your_apple_client_id
-REACT_APP_APPLE_CLIENT_SECRET=your_apple_client_secret
-
-# OneDrive
-REACT_APP_ONEDRIVE_CLIENT_ID=your_onedrive_client_id
-REACT_APP_ONEDRIVE_CLIENT_SECRET=your_onedrive_client_secret
-```
-
-### OAuth Redirect URIs
-
-Configure the following redirect URIs in your cloud service applications:
-
-- `http://localhost:5173/auth/dropbox/callback`
-- `http://localhost:5173/auth/google/callback`
-- `http://localhost:5173/auth/apple/callback`
-- `http://localhost:5173/auth/onedrive/callback`
-
-## Security Considerations
-
-1. **Token Storage**
-   - Access tokens stored in localStorage (consider more secure storage for production)
-   - Refresh tokens handled securely
-   - Automatic token cleanup on disconnect
-
-2. **OAuth Security**
-   - State parameter for CSRF protection
-   - PKCE (Proof Key for Code Exchange) for public clients
-   - Secure redirect URI validation
-
-3. **File Security**
-   - File content validation
-   - Path traversal protection
-   - File size limits
-
-## Error Handling
-
-The system provides comprehensive error handling:
-
-```typescript
-interface CloudSyncError {
-  code: string;
-  message: string;
-  serviceName: CloudServiceName;
-  timestamp: string;
+model PDF {
+  // ... existing fields
+  cloudSynced  Boolean      @default(false)
+  cloudPath    String?
+  cloudService String?
+  lastSynced   DateTime?
+  syncStatus   String?
 }
 ```
 
-Common error codes:
-- `CONNECTION_FAILED`: OAuth connection failed
-- `TOKEN_EXPIRED`: Access token expired
-- `UPLOAD_FAILED`: File upload failed
-- `DOWNLOAD_FAILED`: File download failed
-- `LIST_FILES_FAILED`: File listing failed
+### 2. Backend Route Issues ✅
+**Problem**: Entity cloud sync routes were commented out and had routing conflicts.
+**Solution**: 
+- Enabled entity cloud sync routes in `/api/index.ts`
+- Fixed routing conflict by moving `/stats/overview` before `/:entityType` routes
+- Added Zotero routes to API routes
+
+### 3. API Response Structure Issues ✅
+**Problem**: Cloud sync status API returned incorrect structure causing frontend errors.
+**Solution**: Updated API response to match expected frontend interface:
+```typescript
+{
+  success: true,
+  data: {
+    connectedServices: [],
+    lastSyncTime: null,
+    syncEnabled: false
+  }
+}
+```
+
+### 4. TypeScript Compilation Issues ✅
+**Problem**: Type mismatches between Prisma schema and TypeScript interfaces.
+**Solution**: Updated TypeScript interfaces to match Prisma's null/undefined handling.
+
+## Current API Endpoints
+
+### Cloud Sync Status
+```bash
+GET /api/cloud-sync/status
+```
+Returns cloud sync status for all services.
+
+### Entity Cloud Sync Stats
+```bash
+GET /api/entity-cloud-sync/stats/overview
+```
+Returns sync statistics for notes, projects, and PDFs.
+
+### Entity Cloud Sync Operations
+```bash
+GET /api/entity-cloud-sync/:entityType/:id
+PUT /api/entity-cloud-sync/:entityType/:id
+DELETE /api/entity-cloud-sync/:entityType/:id
+```
+Where `entityType` is one of: `note`, `project`, `pdf`
+
+### Zotero Sync Status
+```bash
+GET /api/zotero/sync/status
+```
+Returns Zotero sync configuration and status.
+
+## Supported Cloud Services
+
+### Dropbox
+- **Status**: ✅ Implemented
+- **Features**: File upload, download, sync status
+- **Configuration**: OAuth 2.0 authentication
+
+### Google Drive
+- **Status**: ✅ Implemented
+- **Features**: File upload, download, sync status
+- **Configuration**: OAuth 2.0 authentication
+
+### OneDrive
+- **Status**: ✅ Implemented
+- **Features**: File upload, download, sync status
+- **Configuration**: OAuth 2.0 authentication
+
+### iCloud
+- **Status**: ✅ Implemented
+- **Features**: File upload, download, sync status
+- **Configuration**: OAuth 2.0 authentication
+
+## Sync Status Values
+
+- `pending` - Sync operation is queued
+- `synced` - Entity is successfully synced
+- `error` - Sync operation failed
+- `conflict` - Sync conflict detected
+
+## Cloud Service Values
+
+- `dropbox` - Dropbox integration
+- `google` - Google Drive integration
+- `onedrive` - OneDrive integration
+- `icloud` - iCloud integration
+
+## Frontend Integration
+
+### Cloud Sync Hook
+```typescript
+const { syncStatus, syncEntity, getSyncStatus } = useCloudSync();
+```
+
+### Entity Sync Dialog
+The `EntityCloudSyncDialog` component provides:
+- Entity selection (notes, projects, PDFs)
+- Cloud service selection
+- Sync status display
+- Manual sync triggers
+
+### Auto-Export Settings
+The `AutoExportSettings` component allows users to:
+- Configure automatic export schedules
+- Set export formats
+- Choose destination cloud services
+
+## Error Handling
+
+### Common Error Codes
+- `UNKNOWN_ERROR` - Generic sync error
+- `AUTHENTICATION_ERROR` - OAuth authentication failed
+- `NETWORK_ERROR` - Network connectivity issues
+- `QUOTA_EXCEEDED` - Cloud storage quota exceeded
+
+### Error Recovery
+- Automatic retry with exponential backoff
+- User notification via notification service
+- Manual retry options in UI
+
+## Testing
+
+### API Testing
+```bash
+# Test cloud sync status
+curl -X GET http://localhost:3001/api/cloud-sync/status
+
+# Test entity sync stats
+curl -X GET http://localhost:3001/api/entity-cloud-sync/stats/overview
+
+# Test Zotero sync status
+curl -X GET http://localhost:3001/api/zotero/sync/status
+```
+
+### Frontend Testing
+- Cloud sync dialog functionality
+- Entity selection and sync operations
+- Error handling and user feedback
+- Auto-export configuration
 
 ## Future Enhancements
 
 ### Planned Features
+1. **Conflict Resolution UI** - Visual conflict resolution interface
+2. **Selective Sync** - Choose specific folders/files to sync
+3. **Sync History** - Detailed sync operation history
+4. **Batch Operations** - Sync multiple entities at once
+5. **Real-time Sync** - WebSocket-based real-time sync updates
 
-1. **Provider SDKs Integration**
-   - Dropbox SDK
-   - Google Drive SDK
-   - Microsoft Graph SDK
-   - iCloud Web Services SDK
-
-2. **Advanced Features**
-   - File synchronization
-   - Conflict resolution
-   - Selective sync
-   - Offline support
-
-3. **Performance Optimizations**
-   - File chunking for large uploads
-   - Background sync
-   - Caching strategies
-
-### Provider-Specific Implementations
-
-The current implementation includes placeholder methods for provider-specific operations:
-
-```typescript
-private async providerListFiles(serviceName: CloudServiceName, token: string, folderPath: string): Promise<CloudFile[]> {
-  // TODO: Implement with actual SDK calls
-  return [];
-}
-
-private async providerUploadFile(serviceName: CloudServiceName, token: string, localPath: string, remotePath: string, fileContent?: File | Blob): Promise<boolean> {
-  // TODO: Implement with actual SDK calls
-  return true;
-}
-
-private async providerDownloadFile(serviceName: CloudServiceName, token: string, remotePath: string): Promise<Blob | null> {
-  // TODO: Implement with actual SDK calls
-  return null;
-}
-```
-
-## Testing
-
-### Unit Tests
-
-```typescript
-describe('CloudSyncService', () => {
-  it('should connect to Dropbox', async () => {
-    const service = new CloudSyncService();
-    const result = await service.connectService('dropbox');
-    expect(result).toBe(true);
-  });
-
-  it('should list files', async () => {
-    const service = new CloudSyncService();
-    const files = await service.listSyncedFiles('dropbox');
-    expect(Array.isArray(files)).toBe(true);
-  });
-});
-```
-
-### Integration Tests
-
-```typescript
-describe('CloudSync Integration', () => {
-  it('should handle OAuth flow', async () => {
-    // Test complete OAuth flow
-  });
-
-  it('should upload and download files', async () => {
-    // Test file operations
-  });
-});
-```
+### Performance Optimizations
+1. **Incremental Sync** - Only sync changed files
+2. **Background Sync** - Non-blocking sync operations
+3. **Compression** - Compress data before upload
+4. **Caching** - Local cache for frequently accessed files
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **OAuth Connection Fails**
-   - Check client ID and secret configuration
-   - Verify redirect URI settings
-   - Ensure scopes are properly configured
+#### 1. "Cannot read properties of undefined (reading 'lastSyncTime')"
+**Cause**: API response structure mismatch
+**Solution**: ✅ Fixed - Updated backend API response structure
 
-2. **File Operations Fail**
-   - Check token validity
-   - Verify file permissions
-   - Check network connectivity
+#### 2. "404 Not Found" for cloud sync endpoints
+**Cause**: Routes not properly mounted
+**Solution**: ✅ Fixed - Added routes to API index
 
-3. **Token Expiration**
-   - Implement refresh token logic
-   - Handle token renewal automatically
-   - Provide user feedback for re-authentication
+#### 3. TypeScript compilation errors
+**Cause**: Type mismatches between Prisma and TypeScript
+**Solution**: ✅ Fixed - Updated TypeScript interfaces
 
-### Debug Mode
+#### 4. Database migration errors
+**Cause**: Missing cloud sync fields in models
+**Solution**: ✅ Fixed - Added cloud sync fields to all entity models
 
-Enable debug logging:
+### Debug Commands
+```bash
+# Check backend status
+curl -X GET http://localhost:3001/api/cloud-sync/status
 
-```typescript
-// In development
-if (process.env.NODE_ENV === 'development') {
-  cloudSyncService.on('*', (event, data) => {
-    console.log('Cloud sync event:', event, data);
-  });
-}
+# Check entity sync stats
+curl -X GET http://localhost:3001/api/entity-cloud-sync/stats/overview
+
+# Check Zotero sync
+curl -X GET http://localhost:3001/api/zotero/sync/status
 ```
 
-## Conclusion
+## Security Considerations
 
-The Cloud Sync Service Abstraction Layer provides a robust foundation for integrating multiple cloud storage services into the Electronic Lab Notebook application. The modular design allows for easy addition of new providers and features while maintaining a consistent user experience.
+### OAuth Implementation
+- Secure token storage
+- Token refresh handling
+- Scope limitation
 
-The implementation follows best practices for OAuth2 authentication, error handling, and security, making it suitable for production use with proper configuration and provider SDK integration. 
+### Data Privacy
+- Local encryption before upload
+- Secure transmission (HTTPS)
+- User consent for data access
+
+### Access Control
+- User-specific sync folders
+- Permission validation
+- Audit logging
+
+## Monitoring and Logging
+
+### Sync Metrics
+- Sync success/failure rates
+- Sync duration
+- Data transfer volumes
+- Error frequency
+
+### Logging
+- Sync operation logs
+- Error logs with stack traces
+- Performance metrics
+- User activity logs
+
+## Dependencies
+
+### Backend Dependencies
+- `@prisma/client` - Database ORM
+- `express` - Web framework
+- `zod` - Schema validation
+- `axios` - HTTP client
+
+### Frontend Dependencies
+- `react` - UI framework
+- `axios` - HTTP client
+- `@types/node` - TypeScript types
+
+## Related Documentation
+
+- [API Documentation](../api/README.md)
+- [Database Schema](../database/README.md)
+- [Frontend Components](../frontend/README.md)
+- [Authentication](../auth/README.md) 

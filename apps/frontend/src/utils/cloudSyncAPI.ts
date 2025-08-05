@@ -297,8 +297,10 @@ export class CloudSyncService {
     
     return {
       isConnected,
-      serviceName,
-      lastSyncTime: token ? new Date().toISOString() : undefined
+      lastSync: token ? new Date().toISOString() : undefined,
+      syncFolder: '/',
+      syncFolderId: 'root',
+      error: undefined
     };
   }
 
@@ -529,8 +531,7 @@ export class CloudSyncService {
     const cloudError: CloudSyncError = {
       code: 'UNKNOWN_ERROR',
       message: error.message,
-      serviceName,
-      timestamp: new Date().toISOString()
+      details: { serviceName }
     };
     
     this.emit('error', cloudError);
@@ -1083,5 +1084,4 @@ export class CloudSyncService {
 export const cloudSyncService = new CloudSyncService();
 
 // Export types for external use
-export type { CloudSyncService };
 export default cloudSyncService; 

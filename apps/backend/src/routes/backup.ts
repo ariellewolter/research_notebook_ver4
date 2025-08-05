@@ -87,7 +87,7 @@ router.get('/export', authenticateToken, async (req: any, res) => {
       prisma.recipe.findMany({
         include: {
           ingredients: true,
-          executions: true
+          recipeExecutions: true
         }
       })
     ]);

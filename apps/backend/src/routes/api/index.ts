@@ -3,9 +3,10 @@ import { projectsRoutes } from './projects';
 import { notesRoutes } from './notes';
 import { linksRoutes } from './links';
 import cloudSyncRoutes from './cloudSync';
-import entityCloudSyncRoutes from '../../entityCloudSync';
+import entityCloudSyncRoutes from '../entityCloudSync';
 import syncNotificationsRoutes from '../syncNotifications';
 import backupRoutes from '../backup';
+import entitiesRoutes from './entities';
 
 const router = Router();
 
@@ -17,6 +18,7 @@ router.use('/cloud-sync', cloudSyncRoutes);
 router.use('/entity-cloud-sync', entityCloudSyncRoutes);
 router.use('/sync-notifications', syncNotificationsRoutes);
 router.use('/backup', backupRoutes);
+router.use('/entities', entitiesRoutes);
 
 // Add other API routes here as they are refactored
 // router.use('/database', databaseRoutes);

@@ -14,6 +14,49 @@ const updateCloudSyncSchema = z.object({
 
 const entityTypeSchema = z.enum(['note', 'project', 'pdf']);
 
+// Get sync statistics - This must come before the entity type routes
+router.get('/stats/overview', async (req, res) => {
+  try {
+    const [notes, projects, pdfs] = await Promise.all([
+      prisma.note.groupBy({
+        by: ['cloudSynced', 'syncStatus'],
+        _count: true,
+      }),
+      prisma.project.groupBy({
+        by: ['cloudSynced', 'syncStatus'],
+        _count: true,
+      }),
+      prisma.pDF.groupBy({
+        by: ['cloudSynced', 'syncStatus'],
+        _count: true,
+      }),
+    ]);
+
+    const stats = {
+      notes: {
+        total: notes.reduce((sum, item) => sum + item._count, 0),
+        synced: notes.filter(item => item.cloudSynced).reduce((sum, item) => sum + item._count, 0),
+        byStatus: notes,
+      },
+      projects: {
+        total: projects.reduce((sum, item) => sum + item._count, 0),
+        synced: projects.filter(item => item.cloudSynced).reduce((sum, item) => sum + item._count, 0),
+        byStatus: projects,
+      },
+      pdfs: {
+        total: pdfs.reduce((sum, item) => sum + item._count, 0),
+        synced: pdfs.filter(item => item.cloudSynced).reduce((sum, item) => sum + item._count, 0),
+        byStatus: pdfs,
+      },
+    };
+
+    res.json(stats);
+  } catch (error) {
+    console.error('Error fetching sync statistics:', error);
+    res.status(500).json({ error: 'Failed to fetch sync statistics' });
+  }
+});
+
 // Update cloud sync settings for an entity
 router.put('/:entityType/:entityId', async (req, res) => {
   try {
@@ -258,49 +301,6 @@ router.patch('/:entityType/:entityId/status', async (req, res) => {
   } catch (error) {
     console.error('Error updating sync status:', error);
     res.status(500).json({ error: 'Failed to update sync status' });
-  }
-});
-
-// Get sync statistics
-router.get('/stats/overview', async (req, res) => {
-  try {
-    const [notes, projects, pdfs] = await Promise.all([
-      prisma.note.groupBy({
-        by: ['cloudSynced', 'syncStatus'],
-        _count: true,
-      }),
-      prisma.project.groupBy({
-        by: ['cloudSynced', 'syncStatus'],
-        _count: true,
-      }),
-      prisma.pDF.groupBy({
-        by: ['cloudSynced', 'syncStatus'],
-        _count: true,
-      }),
-    ]);
-
-    const stats = {
-      notes: {
-        total: notes.reduce((sum, item) => sum + item._count, 0),
-        synced: notes.filter(item => item.cloudSynced).reduce((sum, item) => sum + item._count, 0),
-        byStatus: notes,
-      },
-      projects: {
-        total: projects.reduce((sum, item) => sum + item._count, 0),
-        synced: projects.filter(item => item.cloudSynced).reduce((sum, item) => sum + item._count, 0),
-        byStatus: projects,
-      },
-      pdfs: {
-        total: pdfs.reduce((sum, item) => sum + item._count, 0),
-        synced: pdfs.filter(item => item.cloudSynced).reduce((sum, item) => sum + item._count, 0),
-        byStatus: pdfs,
-      },
-    };
-
-    res.json(stats);
-  } catch (error) {
-    console.error('Error fetching sync statistics:', error);
-    res.status(500).json({ error: 'Failed to fetch sync statistics' });
   }
 });
 

@@ -56,9 +56,20 @@ model Project {
   lastActivity DateTime?
   createdAt    DateTime     @default(now())
   userId       String
+  // Cloud sync fields
+  cloudSynced  Boolean      @default(false)
+  cloudPath    String?
+  cloudService String?      // 'dropbox', 'google', 'onedrive', 'icloud'
+  lastSynced   DateTime?
+  syncStatus   String?      // 'pending', 'synced', 'error', 'conflict'
   experiments  Experiment[]
   user         User         @relation(fields: [userId], references: [id])
   tasks        Task[]
+  // Freeform drawing blocks
+  freeformDrawingBlocks FreeformDrawingBlock[]
+
+  @@index([cloudSynced])
+  @@index([cloudService])
 }
 
 model Experiment {
@@ -74,6 +85,7 @@ model Experiment {
   recipeExecutions   RecipeExecution[]
   tables             Table[]
   tasks              Task[]
+  usageLogs          UsageLog[]
 }
 
 model Note {
@@ -93,6 +105,13 @@ model Note {
   links        Link[]      @relation("NoteLinks")
   experiment   Experiment? @relation(fields: [experimentId], references: [id])
   tasks        Task[]
+  // Entity relationships
+  chemicals    Chemical[]  @relation("ChemicalNotes")
+  genes        Gene[]      @relation("GeneNotes")
+  reagents     Reagent[]   @relation("ReagentNotes")
+  equipment    Equipment[] @relation("EquipmentNotes")
+  // Freeform drawing blocks
+  freeformDrawingBlocks FreeformDrawingBlock[]
 
   @@index([type])
   @@index([date])
@@ -114,7 +133,16 @@ model PDF {
   filePath   String
   title      String
   uploadedAt DateTime    @default(now())
+  // Cloud sync fields
+  cloudSynced Boolean    @default(false)
+  cloudPath   String?
+  cloudService String?   // 'dropbox', 'google', 'onedrive', 'icloud'
+  lastSynced  DateTime?
+  syncStatus  String?    // 'pending', 'synced', 'error', 'conflict'
   highlights Highlight[]
+
+  @@index([cloudSynced])
+  @@index([cloudService])
 }
 
 model Highlight {
@@ -170,6 +198,8 @@ model DatabaseEntry {
   relatedResearch String?
   links           Link[]           @relation("NoteLinks")
   relatedLitNotes LiteratureNote[] @relation("EntryLitNotes")
+  // Freeform drawing blocks
+  freeformDrawingBlocks FreeformDrawingBlock[]
 }
 
 model Table {
@@ -202,8 +232,6 @@ model Protocol {
   category         String
   version          String              @default("1.0")
   steps            String
-  equipment        String?
-  reagents         String?
   safetyNotes      String?
   expectedDuration String?
   difficulty       String?
@@ -213,6 +241,14 @@ model Protocol {
   links            Link[]              @relation("NoteLinks")
   executions       ProtocolExecution[]
   tasks            Task[]
+  // Entity relationships
+  chemicals        Chemical[]          @relation("ChemicalProtocols")
+  genes            Gene[]              @relation("GeneProtocols")
+  reagents         Reagent[]           @relation("ReagentProtocols")
+  equipment        Equipment[]         @relation("EquipmentProtocols")
+  usageLogs        UsageLog[]
+  // Freeform drawing blocks
+  freeformDrawingBlocks FreeformDrawingBlock[]
 
   @@index([category])
   @@index([updatedAt])
@@ -348,6 +384,14 @@ model Task {
   dependencies     TaskDependency[]   @relation("TaskDependenciesFrom")
   notifications    TaskNotification[]
   timeEntries      TaskTimeEntry[]
+  // Entity relationships
+  chemicals        Chemical[]         @relation("ChemicalTasks")
+  genes            Gene[]             @relation("GeneTasks")
+  reagents         Reagent[]          @relation("ReagentTasks")
+  equipment        Equipment[]        @relation("EquipmentTasks")
+  usageLogs        UsageLog[]
+  // Freeform drawing blocks
+  freeformDrawingBlocks FreeformDrawingBlock[]
 
   @@index([status])
   @@index([priority])
@@ -618,4 +662,220 @@ model ScheduledReport {
   userId    String
   user      User         @relation(fields: [userId], references: [id])
   report    CustomReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+}
+
+// Entity Types & Inventory Management
+
+model Chemical {
+  id              String      @id @default(uuid())
+  name            String
+  type            String      // e.g., "solvent", "buffer", "acid", "base", "salt"
+  description     String?
+  stockLevel      Float       @default(0)
+  unit            String      // e.g., "mL", "g", "mg", "L"
+  location        String?     // storage location
+  vendorInfo      String?     // JSON string with vendor details
+  tags            String?     // comma-separated tags
+  metadata        String?     // JSON field for flexible additional data
+  catalogNumber   String?
+  molecularWeight Float?
+  purity          String?
+  concentration   String?
+  storage         String?     // storage conditions
+  expiryDate      DateTime?
+  minStockLevel   Float?      // reorder threshold
+  cost            Float?
+  supplier        String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  usageLogs       UsageLog[]
+  notes           Note[]      @relation("ChemicalNotes")
+  protocols       Protocol[]  @relation("ChemicalProtocols")
+  tasks           Task[]      @relation("ChemicalTasks")
+
+  @@index([name])
+  @@index([type])
+  @@index([location])
+  @@index([stockLevel])
+  @@index([expiryDate])
+}
+
+model Gene {
+  id              String      @id @default(uuid())
+  name            String
+  type            String      // e.g., "plasmid", "oligonucleotide", "cDNA", "genomic"
+  description     String?
+  stockLevel      Float       @default(0)
+  unit            String      // e.g., "ng", "μg", "μL", "copies"
+  location        String?     // storage location
+  vendorInfo      String?     // JSON string with vendor details
+  tags            String?     // comma-separated tags
+  metadata        String?     // JSON field for flexible additional data
+  sequence        String?     // DNA/RNA sequence
+  organism        String?     // source organism
+  accessionNumber String?     // GenBank/NCBI accession
+  vector          String?     // vector information
+  resistance      String?     // antibiotic resistance
+  promoter        String?
+  terminator      String?
+  insertSize      Int?        // in base pairs
+  concentration   String?
+  storage         String?     // storage conditions
+  expiryDate      DateTime?
+  minStockLevel   Float?      // reorder threshold
+  cost            Float?
+  supplier        String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  usageLogs       UsageLog[]
+  notes           Note[]      @relation("GeneNotes")
+  protocols       Protocol[]  @relation("GeneProtocols")
+  tasks           Task[]      @relation("GeneTasks")
+
+  @@index([name])
+  @@index([type])
+  @@index([organism])
+  @@index([location])
+  @@index([stockLevel])
+  @@index([expiryDate])
+}
+
+model Reagent {
+  id              String      @id @default(uuid())
+  name            String
+  type            String      // e.g., "antibody", "enzyme", "kit", "media", "stain"
+  description     String?
+  stockLevel      Float       @default(0)
+  unit            String      // e.g., "μL", "mg", "tests", "mL"
+  location        String?     // storage location
+  vendorInfo      String?     // JSON string with vendor details
+  tags            String?     // comma-separated tags
+  metadata        String?     // JSON field for flexible additional data
+  catalogNumber   String?
+  lotNumber       String?
+  concentration   String?
+  specificity     String?     // for antibodies
+  hostSpecies     String?     // for antibodies
+  isotype         String?     // for antibodies
+  conjugate       String?     // e.g., "FITC", "HRP", "Biotin"
+  storage         String?     // storage conditions
+  expiryDate      DateTime?
+  minStockLevel   Float?      // reorder threshold
+  cost            Float?
+  supplier        String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  usageLogs       UsageLog[]
+  notes           Note[]      @relation("ReagentNotes")
+  protocols       Protocol[]  @relation("ReagentProtocols")
+  tasks           Task[]      @relation("ReagentTasks")
+
+  @@index([name])
+  @@index([type])
+  @@index([location])
+  @@index([stockLevel])
+  @@index([expiryDate])
+}
+
+model Equipment {
+  id              String      @id @default(uuid())
+  name            String
+  type            String      // e.g., "microscope", "centrifuge", "incubator", "pcr_machine"
+  description     String?
+  stockLevel      Int         @default(1)  // usually 1 for equipment
+  unit            String      @default("piece")
+  location        String?     // equipment location
+  vendorInfo      String?     // JSON string with vendor details
+  tags            String?     // comma-separated tags
+  metadata        String?     // JSON field for flexible additional data
+  modelNumber     String?
+  serialNumber    String?
+  manufacturer    String?
+  purchaseDate    DateTime?
+  warrantyExpiry  DateTime?
+  maintenanceDate DateTime?
+  status          String      @default("available") // available, in_use, maintenance, retired
+  specifications  String?     // technical specifications
+  calibrationDate DateTime?
+  nextCalibration DateTime?
+  cost            Float?
+  supplier        String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  usageLogs       UsageLog[]
+  notes           Note[]      @relation("EquipmentNotes")
+  protocols       Protocol[]  @relation("EquipmentProtocols")
+  tasks           Task[]      @relation("EquipmentTasks")
+
+  @@index([name])
+  @@index([type])
+  @@index([location])
+  @@index([status])
+  @@index([maintenanceDate])
+}
+
+model UsageLog {
+  id              String    @id @default(uuid())
+  entityType      String    // "chemical", "gene", "reagent", "equipment"
+  entityId        String
+  quantity        Float
+  unit            String
+  date            DateTime  @default(now())
+  experimentId    String?
+  taskId          String?
+  protocolId      String?
+  notes           String?
+  usedBy          String?
+  purpose         String?
+  batchNumber     String?
+  lotNumber       String?
+  cost            Float?
+  wasteGenerated  Float?
+  wasteUnit       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations to entity types
+  chemical        Chemical? @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  gene            Gene?     @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  reagent         Reagent?  @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  equipment       Equipment? @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  
+  // Relations to existing models
+  experiment      Experiment? @relation(fields: [experimentId], references: [id])
+  task            Task?       @relation(fields: [taskId], references: [id])
+  protocol        Protocol?   @relation(fields: [protocolId], references: [id])
+
+  @@index([entityType])
+  @@index([entityId])
+  @@index([date])
+  @@index([experimentId])
+  @@index([taskId])
+  @@index([protocolId])
+}
+
+// Freeform Drawing Block Models
+model FreeformDrawingBlock {
+  id          String   @id @default(uuid())
+  blockId     String   @unique
+  entityId    String
+  entityType  String   // 'note', 'project', 'protocol', 'task', 'database'
+  strokes     String   // JSON string of DrawingStroke[]
+  svgPath     String   // SVG data
+  pngThumbnail String  // Base64 PNG thumbnail
+  width       Int      @default(600)
+  height      Int      @default(400)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Polymorphic relationship fields
+  note        Note?    @relation(fields: [entityId], references: [id])
+  project     Project? @relation(fields: [entityId], references: [id])
+  protocol    Protocol? @relation(fields: [entityId], references: [id])
+  task        Task?    @relation(fields: [entityId], references: [id])
+  databaseEntry DatabaseEntry? @relation(fields: [entityId], references: [id])
+
+  @@index([entityId, entityType])
+  @@index([entityType])
+  @@index([createdAt])
 }
