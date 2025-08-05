@@ -2,46 +2,33 @@
 
 Welcome to the comprehensive documentation for the Research Notebook application. This directory contains all documentation organized by category for easy navigation.
 
-## 📁 Documentation Structure
+## 📚 Documentation Index
 
-### 🚀 [Implementation Guides](./implementation/)
-Detailed implementation documentation for all features and components.
-- Core features implementation
-- System integration guides
-- User interface components
-- External integrations
+### 🚀 Getting Started
+- **[Main README](../README.md)** - Project overview and quick start
+- **[Developer Guide](DEVELOPER_GUIDE.md)** - Development setup and guidelines
+- **[Implementation Guide](implementation/README.md)** - Comprehensive implementation documentation
 
-### ⚡ [Electron Documentation](./electron/)
-Electron-specific documentation and configuration guides.
-- Setup and configuration
-- Testing guides
-- API documentation
-- Integration summaries
+### 🛠️ Implementation Details
+- **[iPad Testing & UX Enhancements](implementation/IPAD_TESTING_AND_UX_ENHANCEMENTS.md)** - Complete iPad testing system documentation
+- **[Frontend Deep Linking](implementation/FRONTEND_DEEP_LINKING_IMPLEMENTATION.md)** - Deep linking implementation
+- **[Drag & Drop Overlay](implementation/DRAG_DROP_OVERLAY_IMPLEMENTATION.md)** - File import system
+- **[Implementation Summary](implementation/IMPLEMENTATION_SUMMARY.md)** - Feature implementation overview
 
-### 🧪 [Testing Documentation](./testing/)
-Test files and testing documentation.
-- Feature test suites
-- Integration tests
-- Test execution guides
-- Test results and reports
+### 🔧 Development Guides
+- **[Electron Integration](electron/ELECTRON_INTEGRATION_SUMMARY.md)** - Desktop app integration
+- **[API Extensions](electron/ELECTRON_API_EXTENSION_SUMMARY.md)** - Electron API extensions
+- **[Builder Configuration](electron/ELECTRON_BUILDER_ICON_CONFIG.md)** - Build configuration
 
-### 📊 [Project Management](./project-management/)
-Project status, maintenance, and management documentation.
-- Changelog and version history
-- TODO lists and progress tracking
-- Troubleshooting guides
-- Dependency management
+### 🧪 Testing & Quality
+- **[Testing Guide](testing/README.md)** - Testing procedures and tools
+- **[Bug Fixes Summary](guides/COMPREHENSIVE_BUG_FIXES_SUMMARY.md)** - Bug fixes and resolutions
+- **[Critical Fixes](guides/CRITICAL_BUG_FIXES_SUMMARY.md)** - Critical issue resolutions
 
-### 📖 [Guides](./guides/)
-User guides and reference documentation.
-- Bug fix summaries (Dashboard, AutomationNotificationsPanel)
-- General documentation
-- Quick reference guides
-
-### 👨‍💻 [Developer Resources](./)
-Core developer documentation.
-- [Developer Guide](./DEVELOPER_GUIDE.md) - Comprehensive development guide
-- [TypeScript Interfaces](./TYPESCRIPT_INTERFACES.md) - TypeScript definitions
+### 📋 Project Management
+- **[Changelog](project-management/CHANGELOG.md)** - Version history and changes
+- **[Dependency Resolution](project-management/DEPENDENCY_CONFLICTS_RESOLUTION.md)** - Dependency management
+- **[Troubleshooting](TROUBLESHOOTING.md)** - Common issues and solutions
 
 ## 🎯 Quick Start
 
