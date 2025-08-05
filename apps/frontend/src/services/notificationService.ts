@@ -2,8 +2,8 @@ import { useNotification } from '../hooks/useNotification';
 
 export interface AutomationEvent {
     id: string;
-    type: 'import' | 'export' | 'zotero_sync' | 'file_watcher' | 'background_sync' | 'system';
-    category: 'file_import' | 'file_export' | 'zotero_sync' | 'file_watcher' | 'background_sync' | 'system';
+    type: 'import' | 'export' | 'zotero_sync' | 'file_watcher' | 'background_sync' | 'system' | 'sync-conflict' | 'sync-conflict-resolved';
+    category: 'file_import' | 'file_export' | 'zotero_sync' | 'file_watcher' | 'background_sync' | 'system' | 'sync_conflict';
     title: string;
     message: string;
     status: 'pending' | 'success' | 'error' | 'warning' | 'info';
@@ -240,6 +240,64 @@ class NotificationService {
             status,
             priority,
             metadata
+        };
+
+        return this.addEvent(event);
+    }
+
+    /**
+     * Log sync conflict events
+     */
+    logSyncConflict(
+        entityType: string,
+        entityTitle: string,
+        cloudService: string,
+        conflictType: string,
+        metadata?: any
+    ): string {
+        const event: Omit<AutomationEvent, 'id' | 'timestamp' | 'isRead'> = {
+            type: 'sync-conflict',
+            category: 'sync_conflict',
+            title: 'Sync Conflict Detected',
+            message: `Conflict detected for ${entityTitle} in ${cloudService}`,
+            status: 'warning',
+            priority: 'high',
+            metadata: {
+                entityType,
+                entityTitle,
+                cloudService,
+                conflictType,
+                ...metadata
+            }
+        };
+
+        return this.addEvent(event);
+    }
+
+    /**
+     * Log sync conflict resolution events
+     */
+    logSyncConflictResolved(
+        entityType: string,
+        entityTitle: string,
+        cloudService: string,
+        resolution: string,
+        metadata?: any
+    ): string {
+        const event: Omit<AutomationEvent, 'id' | 'timestamp' | 'isRead'> = {
+            type: 'sync-conflict-resolved',
+            category: 'sync_conflict',
+            title: 'Conflict Resolved',
+            message: `${resolution} for ${entityTitle}`,
+            status: 'success',
+            priority: 'normal',
+            metadata: {
+                entityType,
+                entityTitle,
+                cloudService,
+                resolution,
+                ...metadata
+            }
         };
 
         return this.addEvent(event);

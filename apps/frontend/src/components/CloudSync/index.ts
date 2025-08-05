@@ -3,4 +3,5 @@ export { default as GoogleDriveFolderSelector } from './GoogleDriveFolderSelecto
 export { default as OneDriveFolderSelector } from './OneDriveFolderSelector';
 export { default as ICloudFolderSelector } from './ICloudFolderSelector';
 export { default as CloudSyncStatusBadge } from './CloudSyncStatusBadge';
-export { default as EntityCloudSyncDialog } from './EntityCloudSyncDialog'; 
+export { default as EntityCloudSyncDialog } from './EntityCloudSyncDialog';
+export { default as SyncConflictResolver } from './SyncConflictResolver'; 
