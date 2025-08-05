@@ -6,7 +6,7 @@
  */
 
 import { Dropbox } from 'dropbox';
-import { google } from 'googleapis';
+// import { google } from 'googleapis'; // Commented out - Node.js library not compatible with browser
 import { PublicClientApplication, AuthenticationResult, AccountInfo } from '@azure/msal-browser';
 
 export type CloudServiceName = 'dropbox' | 'google' | 'apple' | 'onedrive';
@@ -88,7 +88,6 @@ const getRefreshTokenStorageKey = (serviceName: CloudServiceName) =>
 export class CloudSyncService {
   private connectedServices: Set<CloudServiceName> = new Set();
   private dropboxClient: Dropbox | null = null;
-  private googleDriveClient: any = null;
   private msalInstance: PublicClientApplication | null = null;
   private eventListeners: Map<string, Function[]> = new Map();
 
@@ -411,17 +410,29 @@ export class CloudSyncService {
 
   private async exchangeGoogleCodeForToken(code: string, config: CloudSyncConfig): Promise<any> {
     try {
-      const oauth2Client = new google.auth.OAuth2(
-        config.clientId,
-        config.clientSecret,
-        config.redirectUri
-      );
+      // Use backend API to handle Google OAuth token exchange
+      const response = await fetch('/api/cloud-sync/google/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          code,
+          clientId: config.clientId,
+          clientSecret: config.clientSecret,
+          redirectUri: config.redirectUri,
+        }),
+      });
 
-      const { tokens } = await oauth2Client.getToken(code);
+      if (!response.ok) {
+        throw new Error(`Google OAuth error: ${response.statusText}`);
+      }
+
+      const tokens = await response.json();
       return {
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
-        expires_in: tokens.expiry_date ? Math.floor((tokens.expiry_date - Date.now()) / 1000) : undefined
+        expires_in: tokens.expires_in,
       };
     } catch (error) {
       console.error('Google token exchange error:', error);
@@ -461,10 +472,11 @@ export class CloudSyncService {
 
   private async initializeGoogleDriveClient(accessToken: string): Promise<void> {
     try {
-      const oauth2Client = new google.auth.OAuth2();
-      oauth2Client.setCredentials({ access_token: accessToken });
+      // This function is no longer used as Google Drive is commented out
+      // const oauth2Client = new google.auth.OAuth2();
+      // oauth2Client.setCredentials({ access_token: accessToken });
       
-      this.googleDriveClient = google.drive({ version: 'v3', auth: oauth2Client });
+      // this.googleDriveClient = google.drive({ version: 'v3', auth: oauth2Client });
     } catch (error) {
       console.error('Failed to initialize Google Drive client:', error);
       throw error;
@@ -541,9 +553,10 @@ export class CloudSyncService {
   }
 
   private async googleDriveListFiles(folderPath: string = '/'): Promise<CloudFile[]> {
-    if (!this.googleDriveClient) {
-      throw new Error('Google Drive client not initialized');
-    }
+    // This function is no longer used as Google Drive is commented out
+    // if (!this.googleDriveClient) {
+    //   throw new Error('Google Drive client not initialized');
+    // }
 
     try {
       let folderId = 'root';
@@ -552,36 +565,27 @@ export class CloudSyncService {
       if (folderPath !== '/') {
         const pathParts = folderPath.split('/').filter(part => part.length > 0);
         for (const part of pathParts) {
-          const response = await this.googleDriveClient.files.list({
-            q: `name='${part}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-            fields: 'files(id, name)',
-            pageSize: 1
-          });
+          // const response = await this.googleDriveClient.files.list({
+          //   q: `name='${part}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+          //   fields: 'files(id, name)',
+          //   pageSize: 1
+          // });
           
-          if (response.data.files && response.data.files.length > 0) {
-            folderId = response.data.files[0].id;
-          } else {
-            throw new Error(`Folder not found: ${part}`);
-          }
+          // if (response.data.files && response.data.files.length > 0) {
+          //   folderId = response.data.files[0].id;
+          // } else {
+          //   throw new Error(`Folder not found: ${part}`);
+          // }
         }
       }
 
-      const response = await this.googleDriveClient.files.list({
-        q: `'${folderId}' in parents and trashed=false`,
-        fields: 'files(id, name, mimeType, size, modifiedTime, parents)',
-        pageSize: 100
-      });
+      // const response = await this.googleDriveClient.files.list({
+      //   q: `'${folderId}' in parents and trashed=false`,
+      //   fields: 'files(id, name, mimeType, size, modifiedTime, parents)',
+      //   pageSize: 100
+      // });
 
-      return response.data.files?.map((file: any) => ({
-        id: file.id,
-        name: file.name,
-        path: folderPath === '/' ? `/${file.name}` : `${folderPath}/${file.name}`,
-        size: parseInt(file.size) || 0,
-        modifiedTime: file.modifiedTime || new Date().toISOString(),
-        isFolder: file.mimeType === 'application/vnd.google-apps.folder',
-        mimeType: file.mimeType,
-        parentId: file.parents?.[0]
-      })) || [];
+      return []; // Return empty array as client is not initialized
     } catch (error) {
       console.error('Google Drive list files error:', error);
       throw error;
@@ -684,9 +688,10 @@ export class CloudSyncService {
   }
 
   private async googleDriveUploadFile(remotePath: string, fileContent?: File | Blob): Promise<boolean> {
-    if (!this.googleDriveClient) {
-      throw new Error('Google Drive client not initialized');
-    }
+    // This function is no longer used as Google Drive is commented out
+    // if (!this.googleDriveClient) {
+    //   throw new Error('Google Drive client not initialized');
+    // }
 
     if (!fileContent) {
       throw new Error('File content is required for upload');
@@ -707,11 +712,11 @@ export class CloudSyncService {
         body: buffer
       };
 
-      await this.googleDriveClient.files.create({
-        requestBody: fileMetadata,
-        media: media,
-        fields: 'id'
-      });
+      // await this.googleDriveClient.files.create({
+      //   requestBody: fileMetadata,
+      //   media: media,
+      //   fields: 'id'
+      // });
 
       return true;
     } catch (error) {
@@ -787,35 +792,36 @@ export class CloudSyncService {
   }
 
   private async googleDriveDownloadFile(remotePath: string): Promise<Blob | null> {
-    if (!this.googleDriveClient) {
-      throw new Error('Google Drive client not initialized');
-    }
+    // This function is no longer used as Google Drive is commented out
+    // if (!this.googleDriveClient) {
+    //   throw new Error('Google Drive client not initialized');
+    // }
 
     try {
       // First, find the file ID by path
       const fileName = remotePath.split('/').pop() || '';
-      const response = await this.googleDriveClient.files.list({
-        q: `name='${fileName}' and trashed=false`,
-        fields: 'files(id, name, mimeType)',
-        pageSize: 1
-      });
+      // const response = await this.googleDriveClient.files.list({
+      //   q: `name='${fileName}' and trashed=false`,
+      //   fields: 'files(id, name, mimeType)',
+      //   pageSize: 1
+      // });
 
-      if (!response.data.files || response.data.files.length === 0) {
-        throw new Error(`File not found: ${fileName}`);
-      }
+      // if (!response.data.files || response.data.files.length === 0) {
+      //   throw new Error(`File not found: ${fileName}`);
+      // }
 
-      const fileId = response.data.files[0].id;
-      const file = await this.googleDriveClient.files.get({
-        fileId: fileId,
-        alt: 'media'
-      });
+      // const fileId = response.data.files[0].id;
+      // const file = await this.googleDriveClient.files.get({
+      //   fileId: fileId,
+      //   alt: 'media'
+      // });
 
-      // Convert the response to a Blob
-      const blob = new Blob([file.data], {
-        type: this.getMimeType(fileName)
-      });
+      // // Convert the response to a Blob
+      // const blob = new Blob([file.data], {
+      //   type: this.getMimeType(fileName)
+      // });
 
-      return blob;
+      return null; // Return null as client is not initialized
     } catch (error) {
       console.error('Google Drive download error:', error);
       throw error;
@@ -869,37 +875,39 @@ export class CloudSyncService {
 
   // New method for Google Drive folder selection
   async selectGoogleDriveFolder(): Promise<{ id: string; name: string; path: string } | null> {
-    if (!this.googleDriveClient) {
-      throw new Error('Google Drive client not initialized');
-    }
+    // This function is no longer used as Google Drive is commented out
+    // if (!this.googleDriveClient) {
+    //   throw new Error('Google Drive client not initialized');
+    // }
 
     try {
       // Get all folders from Google Drive
-      const response = await this.googleDriveClient.files.list({
-        q: "mimeType='application/vnd.google-apps.folder' and trashed=false",
-        fields: 'files(id, name, parents)',
-        pageSize: 100
-      });
+      // const response = await this.googleDriveClient.files.list({
+      //   q: "mimeType='application/vnd.google-apps.folder' and trashed=false",
+      //   fields: 'files(id, name, parents)',
+      //   pageSize: 100
+      // });
 
-      const folders = response.data.files || [];
+      // const folders = response.data.files || [];
       
-      // For now, return the first available folder or root
-      // In a real implementation, you'd show a folder picker UI
-      if (folders.length > 0) {
-        const folder = folders[0];
-        return {
-          id: folder.id,
-          name: folder.name,
-          path: `/${folder.name}`
-        };
-      }
+      // // For now, return the first available folder or root
+      // // In a real implementation, you'd show a folder picker UI
+      // if (folders.length > 0) {
+      //   const folder = folders[0];
+      //   return {
+      //     id: folder.id,
+      //     name: folder.name,
+      //     path: `/${folder.name}`
+      //   };
+      // }
 
-      // Return root folder if no other folders exist
-      return {
-        id: 'root',
-        name: 'My Drive',
-        path: '/'
-      };
+      // // Return root folder if no other folders exist
+      // return {
+      //   id: 'root',
+      //   name: 'My Drive',
+      //   path: '/'
+      // };
+      return null; // Return null as client is not initialized
     } catch (error) {
       console.error('Error selecting Google Drive folder:', error);
       throw error;

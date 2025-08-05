@@ -463,6 +463,26 @@ model TaskNotification {
   task           Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
 }
 
+model SyncNotification {
+  id             String    @id @default(uuid())
+  service        String    // 'cloud', 'zotero', etc.
+  type           String    // 'warning', 'critical', 'error'
+  message        String
+  scheduledFor   DateTime
+  sentAt         DateTime?
+  isRead         Boolean   @default(false)
+  deliveryMethod String    @default("in_app")
+  priority       String    @default("normal")
+  metadata       String?   // JSON string with additional data
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([service])
+  @@index([type])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
 model RecipeExecution {
   id             String      @id @default(uuid())
   recipeId       String

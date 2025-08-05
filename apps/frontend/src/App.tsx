@@ -2,12 +2,14 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { TouchModeProvider } from './contexts/TouchModeContext';
 import { ThemePaletteProvider, useThemePalette } from './services/ThemePaletteContext';
 import { WorkspaceTabsProvider } from './pages/WorkspaceTabsContext';
 import { EnhancedCommandPaletteProvider } from './components/CommandPalette/EnhancedCommandPaletteProvider';
 import GlobalDragDropOverlay from './components/GlobalDragDropOverlay';
 import AutomationNotificationsPanel from './components/Notifications/AutomationNotificationsPanel';
 import { notificationService } from './services/notificationService';
+import './styles/touchMode.css';
 
 // Import the new Obsidian-style layout
 import ObsidianLayout from './components/Layout/ObsidianLayout';
@@ -17,6 +19,7 @@ import Dashboard from './pages/Dashboard';
 import Calendar from './pages/Calendar';
 import Tasks from './pages/Tasks';
 import Notes from './pages/Notes';
+import Canvas from './pages/Canvas';
 import Protocols from './pages/Protocols';
 import Recipes from './pages/Recipes';
 import PDFManagement from './pages/PDFManagement';
@@ -79,6 +82,8 @@ const ProtectedRoutes: React.FC = () => {
                 <Route path="notes" element={<Notes />} />
                 <Route path="notes/new" element={<Notes />} />
                 <Route path="notes/:id" element={<Notes />} />
+                <Route path="canvas" element={<Canvas />} />
+                <Route path="canvas/:noteId" element={<Canvas />} />
                 <Route path="protocols" element={<Protocols />} />
                 <Route path="protocols/new" element={<Protocols />} />
                 <Route path="protocols/:id" element={<Protocols />} />
@@ -176,7 +181,9 @@ const ThemedApp: React.FC = () => {
                     open={notificationsPanelOpen}
                     onClose={() => setNotificationsPanelOpen(false)}
                 />
-                <ProtectedRoutes />
+                <TouchModeProvider>
+                    <ProtectedRoutes />
+                </TouchModeProvider>
             </EnhancedCommandPaletteProvider>
         </ThemeProvider>
     );

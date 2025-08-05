@@ -98,6 +98,61 @@ contextBridge.exposeInMainWorld('electronAPI', {
         },
         modal: false,
         resizable: true,
+
+    // Smart Sync Scheduler API
+    syncScheduler: {
+        // Scheduler control
+        getStatus: () => ipcRenderer.invoke('sync-scheduler:get-status'),
+        start: () => ipcRenderer.invoke('sync-scheduler:start'),
+        stop: () => ipcRenderer.invoke('sync-scheduler:stop'),
+        pause: () => ipcRenderer.invoke('sync-scheduler:pause'),
+        resume: () => ipcRenderer.invoke('sync-scheduler:resume'),
+
+        // Queue management
+        addFile: (filePath, options) => ipcRenderer.invoke('sync-scheduler:add-file', filePath, options),
+        removeFile: (filePath) => ipcRenderer.invoke('sync-scheduler:remove-file', filePath),
+        clearQueue: () => ipcRenderer.invoke('sync-scheduler:clear-queue'),
+        getQueue: () => ipcRenderer.invoke('sync-scheduler:get-queue'),
+
+        // Settings management
+        getSettings: () => ipcRenderer.invoke('sync-scheduler:get-settings'),
+        updateSettings: (settings) => ipcRenderer.invoke('sync-scheduler:update-settings', settings),
+
+        // Statistics and monitoring
+        getStats: () => ipcRenderer.invoke('sync-scheduler:get-stats'),
+        getHistory: () => ipcRenderer.invoke('sync-scheduler:get-history'),
+
+        // Activity tracking
+        trackActivity: (activityType) => ipcRenderer.invoke('sync-scheduler:track-activity', activityType),
+        getActivityStatus: () => ipcRenderer.invoke('sync-scheduler:get-activity-status'),
+    },
+
+    // Smart Export Scheduler API
+    exportScheduler: {
+        // Scheduler control
+        getStatus: () => ipcRenderer.invoke('export-scheduler:get-status'),
+        start: () => ipcRenderer.invoke('export-scheduler:start'),
+        stop: () => ipcRenderer.invoke('export-scheduler:stop'),
+
+        // Scheduled exports management
+        addExport: (exportConfig) => ipcRenderer.invoke('export-scheduler:add-export', exportConfig),
+        updateExport: (id, updates) => ipcRenderer.invoke('export-scheduler:update-export', id, updates),
+        removeExport: (id) => ipcRenderer.invoke('export-scheduler:remove-export', id),
+        toggleExport: (id, enabled) => ipcRenderer.invoke('export-scheduler:toggle-export', id, enabled),
+        getExports: () => ipcRenderer.invoke('export-scheduler:get-exports'),
+
+        // Settings management
+        getSettings: () => ipcRenderer.invoke('export-scheduler:get-settings'),
+        updateSettings: (settings) => ipcRenderer.invoke('export-scheduler:update-settings', settings),
+
+        // Statistics and monitoring
+        getStats: () => ipcRenderer.invoke('export-scheduler:get-stats'),
+        getHistory: () => ipcRenderer.invoke('export-scheduler:get-history'),
+
+        // Manual export execution
+        executeExport: (id) => ipcRenderer.invoke('export-scheduler:execute-export', id),
+        cleanupExports: () => ipcRenderer.invoke('export-scheduler:cleanup-exports'),
+    },
         maximizable: true,
         minimizable: true,
         closable: true,

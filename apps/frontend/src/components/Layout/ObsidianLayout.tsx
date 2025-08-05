@@ -75,6 +75,7 @@ import { CommandButton } from '../CommandPalette';
 import { useNotionWorkspace } from '../../hooks/useNotionWorkspace';
 import { getWorkspaceCommands } from '../CommandPalette/WorkspaceCommands';
 import { WorkspaceIntegration } from '../NotionWorkspace/WorkspaceIntegration';
+import { TouchSidebarHandler } from './TouchSidebarHandler';
 
 // Enhanced Tab Interface
 interface TabData {
@@ -518,6 +519,12 @@ const ObsidianLayout: React.FC = () => {
             overflow: 'hidden',
             bgcolor: 'background.default'
         }}>
+            {/* Touch Sidebar Handler */}
+            <TouchSidebarHandler
+                onToggleSidebar={() => setSidebarOpen(prev => !prev)}
+                sidebarOpen={sidebarOpen}
+            />
+
             {/* Sidebar */}
             <Drawer
                 variant="temporary"

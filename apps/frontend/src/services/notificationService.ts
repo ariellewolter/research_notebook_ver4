@@ -2,8 +2,8 @@ import { useNotification } from '../hooks/useNotification';
 
 export interface AutomationEvent {
     id: string;
-    type: 'import' | 'export' | 'zotero_sync' | 'file_watcher' | 'background_sync' | 'system' | 'sync-conflict' | 'sync-conflict-resolved';
-    category: 'file_import' | 'file_export' | 'zotero_sync' | 'file_watcher' | 'background_sync' | 'system' | 'sync_conflict';
+    type: 'import' | 'export' | 'zotero_sync' | 'file_watcher' | 'background_sync' | 'system' | 'sync-conflict' | 'sync-conflict-resolved' | 'sync-reminder';
+    category: 'file_import' | 'file_export' | 'zotero_sync' | 'file_watcher' | 'background_sync' | 'system' | 'sync_conflict' | 'sync_reminder';
     title: string;
     message: string;
     status: 'pending' | 'success' | 'error' | 'warning' | 'info';
@@ -34,6 +34,11 @@ export interface AutomationEvent {
         conflictType?: string;
         resolution?: string;
         note?: string;
+        // Sync reminder specific properties
+        service?: string;
+        hoursSinceLastSync?: number;
+        reminderType?: 'warning' | 'critical' | 'error';
+        errorCount?: number;
     };
     isRead: boolean;
     canRetry?: boolean;
@@ -902,6 +907,20 @@ class NotificationService {
     private async retryCloudSyncConnection(cloudService: string): Promise<void> {
         // TODO: Implement retry logic for cloud sync connections
         console.log(`Retrying connection to ${cloudService}`);
+    }
+
+    /**
+     * Retry sync operation for sync reminder notifications
+     */
+    private async retrySyncReminder(service: string): Promise<void> {
+        try {
+            // Import the sync reminder service dynamically to avoid circular dependencies
+            const { syncReminderService } = await import('./syncReminderService');
+            await syncReminderService.triggerSync(service);
+        } catch (error) {
+            console.error(`Failed to retry sync for ${service}:`, error);
+            throw error;
+        }
     }
 }
 

@@ -8,6 +8,15 @@ export { AutoExportProvider } from './AutoExportProvider';
 export { AutoExportStatus } from './AutoExportStatus';
 export { AutoExportSettings } from './AutoExportSettings';
 
+// Advanced sync settings
+export { AdvancedSyncSettings } from './AdvancedSyncSettings';
+
+// Export scheduler settings
+export { ExportSchedulerSettings } from './ExportSchedulerSettings';
+
+// Workflow automations
+export { WorkflowAutomations } from './WorkflowAutomations';
+
 // Integration components
 export { CloudSyncIntegration } from './CloudSyncIntegration';
 export { CloudSyncManager } from './CloudSyncManager';
@@ -28,6 +37,9 @@ export { useAutoSyncContext } from './AutoSyncProvider';
 // Auto-export hooks
 export { useAutoExport, useProjectStatusEmitter, emitProjectStatusChange } from '../../hooks/useAutoExport';
 export { useAutoExportContext } from './AutoExportProvider';
+
+// Workflow automation hooks
+export { useWorkflowAutomations } from '../../hooks/useWorkflowAutomations';
 
 // Enhanced hooks with auto-sync
 export { useNotesWithAutoSync } from '../../hooks/api/useNotesWithAutoSync';
@@ -51,4 +63,11 @@ export type {
   AutoExportConfig, 
   AutoExportStatus as AutoExportStatusType, 
   ExportResult 
-} from '../../hooks/useAutoExport'; 
+} from '../../hooks/useAutoExport';
+
+export type {
+  AutomationConfig,
+  AutomationLog,
+  AutomationStats,
+  AutomationSettings
+} from '../../hooks/useWorkflowAutomations'; 

@@ -37,6 +37,7 @@ import { useThemePalette } from '../services/ThemePaletteContext';
 import { zoteroApi, googleCalendarApi, outlookCalendarApi, appleCalendarApi } from '../services/api';
 import FileWatcherSettings from '../components/FileWatcherSettings';
 import { CloudSyncSettings } from '../components/Settings';
+import { TouchModeSettings } from '../components/Settings/TouchModeSettings';
 
 const CUSTOM_PALETTE_KEY = 'Custom';
 const PALETTE_ROLES: PaletteRole[] = [
@@ -1280,6 +1281,9 @@ const Settings: React.FC = () => {
 
             {/* Cloud Sync Settings */}
             <CloudSyncSettings />
+
+            {/* Touch Mode Settings */}
+            <TouchModeSettings />
 
             <Snackbar
                 open={snackbar.open}

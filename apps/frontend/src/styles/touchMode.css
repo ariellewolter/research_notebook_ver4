@@ -1,0 +1,212 @@
+/* Touch Mode Styles */
+.touch-mode-enabled {
+  /* Increase touch targets */
+  --touch-hitbox-size: 48px;
+  --touch-padding: 16px;
+  --touch-border-radius: 8px;
+  
+  /* Improve scrolling */
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+.touch-mode-enabled * {
+  /* Prevent text selection during touch interactions */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.touch-mode-enabled .touch-target {
+  min-height: var(--touch-hitbox-size);
+  min-width: var(--touch-hitbox-size);
+  padding: var(--touch-padding);
+  border-radius: var(--touch-border-radius);
+}
+
+.touch-mode-enabled .touch-button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+  transition: background-color 0.2s ease;
+}
+
+.touch-mode-enabled .touch-button:active {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.touch-mode-enabled .touch-button:focus {
+  outline: 2px solid #1976d2;
+  outline-offset: 2px;
+}
+
+.touch-mode-enabled .touch-card {
+  padding: var(--touch-padding);
+  border-radius: var(--touch-border-radius);
+  border: 1px solid #e0e0e0;
+  background-color: #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s ease-in-out;
+}
+
+.touch-mode-enabled .touch-card:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.touch-mode-enabled .touch-scroll {
+  overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.touch-mode-enabled .touch-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.touch-mode-enabled .touch-draggable {
+  touch-action: pan-x pan-y;
+  cursor: grab;
+}
+
+.touch-mode-enabled .touch-draggable:active {
+  cursor: grabbing;
+}
+
+/* Swipe gesture indicators */
+.touch-mode-enabled .swipe-indicator {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  z-index: 10000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.touch-mode-enabled .swipe-indicator.show {
+  opacity: 1;
+}
+
+/* Long press feedback */
+.touch-mode-enabled .long-press-feedback {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: rgba(25, 118, 210, 0.1);
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.touch-mode-enabled .long-press-feedback.active {
+  opacity: 1;
+}
+
+/* Touch-optimized form elements */
+.touch-mode-enabled input,
+.touch-mode-enabled select,
+.touch-mode-enabled textarea {
+  min-height: 44px;
+  padding: 12px;
+  font-size: 16px; /* Prevents zoom on iOS */
+  border-radius: 8px;
+}
+
+.touch-mode-enabled .MuiButton-root {
+  min-height: 44px;
+  padding: 12px 24px;
+  font-size: 16px;
+}
+
+.touch-mode-enabled .MuiIconButton-root {
+  min-width: 48px;
+  min-height: 48px;
+  padding: 12px;
+}
+
+/* Touch-optimized navigation */
+.touch-mode-enabled .MuiDrawer-paper {
+  width: 320px; /* Wider for touch */
+}
+
+.touch-mode-enabled .MuiListItemButton-root {
+  min-height: 56px;
+  padding: 16px;
+}
+
+/* Touch-optimized tabs */
+.touch-mode-enabled .MuiTab-root {
+  min-height: 48px;
+  padding: 12px 24px;
+  font-size: 16px;
+}
+
+/* Touch-optimized dialogs */
+.touch-mode-enabled .MuiDialog-paper {
+  margin: 16px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+}
+
+/* Touch-optimized menus */
+.touch-mode-enabled .MuiMenu-paper {
+  min-width: 200px;
+}
+
+.touch-mode-enabled .MuiMenuItem-root {
+  min-height: 48px;
+  padding: 12px 16px;
+  font-size: 16px;
+}
+
+/* Touch-optimized tooltips */
+.touch-mode-enabled .MuiTooltip-tooltip {
+  font-size: 14px;
+  padding: 8px 12px;
+}
+
+/* Disable hover effects on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .touch-mode-enabled *:hover {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+}
+
+/* Touch gesture animations */
+@keyframes touchRipple {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+.touch-mode-enabled .touch-ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(0);
+  animation: touchRipple 0.6s linear;
+  pointer-events: none;
+} 

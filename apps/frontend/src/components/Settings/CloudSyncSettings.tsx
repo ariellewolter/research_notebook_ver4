@@ -29,7 +29,7 @@ import {
   Settings as SettingsIcon,
   Folder as FolderIcon,
   Refresh as RefreshIcon,
-  Disconnect as DisconnectIcon,
+  LinkOff as DisconnectIcon,
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
   Warning as WarningIcon

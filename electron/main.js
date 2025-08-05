@@ -3,6 +3,8 @@ const path = require('path');
 const fs = require('fs');
 const BackendSpawner = require('./utils/spawnBackend');
 const fileUtils = require('./utils/fileUtils');
+const syncSchedulerIPC = require('./utils/syncSchedulerIPC');
+const exportSchedulerIPC = require('./utils/exportSchedulerIPC');
 
 // Environment detection
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
