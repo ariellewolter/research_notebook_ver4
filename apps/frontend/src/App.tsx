@@ -10,6 +10,7 @@ import GlobalDragDropOverlay from './components/GlobalDragDropOverlay';
 import AutomationNotificationsPanel from './components/Notifications/AutomationNotificationsPanel';
 import { notificationService } from './services/notificationService';
 import './styles/touchMode.css';
+import './styles/ipadOptimizations.css';
 
 // Import the new Obsidian-style layout
 import ObsidianLayout from './components/Layout/ObsidianLayout';
@@ -40,6 +41,9 @@ import TimeBlocking from './pages/TimeBlocking';
 import Login from './components/Auth/Login';
 import ElectronFeatureTest from './components/ElectronFeatureTest';
 import DeepLinkDemo from './components/DeepLinkDemo';
+import FreeformDrawingBlockTest from './pages/FreeformDrawingBlockTest';
+import BlockRendererTest from './pages/BlockRendererTest';
+import IPadTestingSuite from './pages/IPadTestingSuite';
 
 // Protected route wrapper
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -116,6 +120,9 @@ const ProtectedRoutes: React.FC = () => {
                 <Route path="time-blocking" element={<TimeBlocking />} />
                 <Route path="electron-test" element={<ElectronFeatureTest />} />
                 <Route path="deep-link-demo" element={<DeepLinkDemo />} />
+                <Route path="drawing-block-test" element={<FreeformDrawingBlockTest />} />
+                <Route path="block-renderer-test" element={<BlockRendererTest />} />
+                <Route path="ipad-testing-suite" element={<IPadTestingSuite />} />
 
                 {/* Catch-all route */}
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />

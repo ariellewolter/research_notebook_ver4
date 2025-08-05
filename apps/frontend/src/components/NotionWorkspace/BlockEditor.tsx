@@ -27,6 +27,7 @@ import {
 } from '@mui/icons-material';
 import { useDrag, useDrop } from 'react-dnd';
 import { Block } from './types';
+import FreeformDrawingBlock, { DrawingData } from '../blocks/FreeformDrawingBlock';
 
 interface BlockEditorProps {
     block: Block;
@@ -254,6 +255,34 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                     </Box>
                 );
 
+            case 'freeform-drawing':
+                return (
+                    <Paper sx={{ p: 2, bgcolor: 'info.50', border: 1, borderColor: 'info.200' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                            <Chip label="Drawing" color="info" size="small" />
+                            <Typography variant="subtitle2" sx={{ ml: 1, fontWeight: 600 }}>
+                                Freeform Drawing Block
+                            </Typography>
+                        </Box>
+                        <FreeformDrawingBlock
+                            blockId={block.id}
+                            entityId={block.content?.entityId || 'unknown'}
+                            entityType={block.content?.entityType || 'note'}
+                            onSave={(drawingData: DrawingData) => {
+                                handleContentChange({
+                                    ...block.content,
+                                    drawingData,
+                                    entityId: block.content?.entityId || 'unknown',
+                                    entityType: block.content?.entityType || 'note'
+                                });
+                            }}
+                            initialData={block.content?.drawingData}
+                            width={block.content?.width || 600}
+                            height={block.content?.height || 400}
+                        />
+                    </Paper>
+                );
+
             default:
                 return (
                     <Typography color="text.secondary">
@@ -273,6 +302,7 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
         { value: 'divider', label: '➖ Divider', description: 'Section separator' },
         { value: 'code', label: '💻 Code', description: 'Code block' },
         { value: 'equation', label: '🔢 Equation', description: 'Math equation' },
+        { value: 'freeform-drawing', label: '🎨 Drawing', description: 'Freeform drawing canvas' },
     ];
 
     return (

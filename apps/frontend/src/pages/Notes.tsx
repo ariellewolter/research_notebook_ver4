@@ -8,13 +8,15 @@ import {
     Link as LinkIcon,
     Search as SearchIcon,
     Filter as FilterIcon,
-    Download as DownloadIcon
+    Download as DownloadIcon,
+    Book as BookIcon
 } from '@mui/icons-material';
 
 // Import our new UI components
 import { Button, Card, Input, PanelLayout, SidebarNav } from '../components/UI/index.js';
 import UniversalLinking from '../components/UniversalLinking/UniversalLinking';
 import LinkRenderer from '../components/UniversalLinking/LinkRenderer';
+import NotesPaginationMode from '../components/Notes/NotesPaginationMode';
 
 // Import existing services and utilities
 import { notesApi, linksApi, databaseApi, projectsApi } from '../services/api';
@@ -41,6 +43,7 @@ const NotesView = () => {
     const [loading, setLoading] = useState(true);
     const [isCreating, setIsCreating] = useState(false);
     const [editingNote, setEditingNote] = useState<Note | null>(null);
+    const [paginationMode, setPaginationMode] = useState(false);
 
     const navigate = useNavigate();
     const location = useLocation();
@@ -170,6 +173,15 @@ const NotesView = () => {
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-xl font-semibold text-gray-900">Notes</h2>
                     <div className="flex items-center gap-2">
+                        <Button
+                            size="sm"
+                            onClick={() => setPaginationMode(true)}
+                            className="flex items-center gap-2"
+                            disabled={filteredNotes.length === 0}
+                        >
+                            <BookIcon className="w-4 h-4" />
+                            Pagination Mode
+                        </Button>
                         <Button
                             size="sm"
                             onClick={handleExportNotes}
@@ -343,6 +355,19 @@ const NotesView = () => {
             )}
         </PanelLayout.Panel>
     );
+
+    // Show pagination mode if active
+    if (paginationMode) {
+        return (
+            <NotesPaginationMode
+                notes={filteredNotes}
+                selectedNote={selectedNote}
+                onNoteSelect={handleNoteSelect}
+                onEdit={handleEditNote}
+                onClose={() => setPaginationMode(false)}
+            />
+        );
+    }
 
     return (
         <div className="h-screen bg-gray-50">

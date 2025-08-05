@@ -3,13 +3,14 @@ import { MathData } from './MathBlock';
 
 export interface Block {
     id: string;
-    type: 'text' | 'heading' | 'protocol' | 'note' | 'pdf' | 'image' | 'table' | 'divider' | 'callout' | 'code' | 'equation';
+    type: 'text' | 'heading' | 'protocol' | 'note' | 'pdf' | 'image' | 'table' | 'divider' | 'callout' | 'code' | 'equation' | 'freeform-drawing';
     content: any;
     metadata?: {
         createdAt: Date;
         updatedAt: Date;
         author?: string;
         tags?: string[];
+        drawingData?: any; // For storing FreeformDrawingBlock data
     };
     style?: {
         backgroundColor?: string;

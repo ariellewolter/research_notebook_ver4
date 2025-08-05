@@ -3,6 +3,7 @@ import { Block } from '../types';
 import ImageBlock from '../ImageBlock';
 import MathBlock from '../MathBlock';
 import { DragIndicator as DragIndicatorIcon } from '@mui/icons-material';
+import FreeformDrawingBlock, { DrawingData } from '../../blocks/FreeformDrawingBlock';
 
 interface BlockRendererProps {
     block: Block;
@@ -245,6 +246,43 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                 } catch (error) {
                     return <div>Invalid table data</div>;
                 }
+
+            case 'freeform-drawing':
+                return (
+                    <div
+                        className={`group flex items-start gap-2 ${draggedBlockId === block.id ? 'opacity-50' : ''}`}
+                        draggable
+                        onDragStart={(e) => onDragStart(e, block.id)}
+                        onDragOver={onDragOver}
+                        onDrop={(e) => onDrop(e, block.id)}
+                        onDragEnd={onDragEnd}
+                    >
+                        {/* Drag Handle */}
+                        <div
+                            className="flex-shrink-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
+                            onClick={(e) => onContextMenuOpen(e, block.id)}
+                            onMouseDown={(e) => e.stopPropagation()}
+                        >
+                            <DragIndicatorIcon className="text-gray-400 hover:text-gray-600" fontSize="small" />
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1">
+                            <FreeformDrawingBlock
+                                blockId={block.id}
+                                entityId={block.entityId || 'unknown'}
+                                entityType={block.content as any || 'note'}
+                                onSave={(drawingData: DrawingData) => {
+                                    // Update the block content with the drawing data
+                                    onBlockContentChange(block.id, JSON.stringify(drawingData));
+                                }}
+                                initialData={block.metadata?.drawingData}
+                                width={block.metadata?.width || 600}
+                                height={block.metadata?.height || 400}
+                            />
+                        </div>
+                    </div>
+                );
 
             default:
                 return (

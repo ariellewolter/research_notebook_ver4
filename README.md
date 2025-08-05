@@ -22,6 +22,7 @@ A comprehensive desktop application for managing research notes, experiments, an
 - **Frontend**: React with Material-UI
 - **Error Handling**: Robust error recovery and user feedback
 - **Development**: Hot reload and debugging tools
+- **iPad Testing & UX**: Comprehensive iPad and Apple Pencil support with testing suite
 
 ### 🔄 **In Development**
 - File associations and deep linking

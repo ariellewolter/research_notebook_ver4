@@ -15,7 +15,7 @@ import { Draggable } from '@hello-pangea/dnd';
 
 export interface Block {
     id: string;
-    type: 'text' | 'heading' | 'note' | 'project' | 'protocol' | 'database' | 'pdf' | 'page' | 'experiment' | 'recipe' | 'literature' | 'task' | 'columns' | 'list' | 'code' | 'quote' | 'divider' | 'image' | 'table' | 'math' | 'horizontal';
+    type: 'text' | 'heading' | 'note' | 'project' | 'protocol' | 'database' | 'pdf' | 'page' | 'experiment' | 'recipe' | 'literature' | 'task' | 'columns' | 'list' | 'code' | 'quote' | 'divider' | 'image' | 'table' | 'math' | 'horizontal' | 'freeform-drawing';
     content: string;
     title?: string;
     entityId?: string;
@@ -36,6 +36,7 @@ export interface Block {
         cols?: number;
         width?: number;
         height?: number;
+        drawingData?: any; // For storing FreeformDrawingBlock data
     };
 }
 
