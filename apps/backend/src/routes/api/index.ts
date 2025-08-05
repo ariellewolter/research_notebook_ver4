@@ -3,7 +3,7 @@ import { projectsRoutes } from './projects';
 import { notesRoutes } from './notes';
 import { linksRoutes } from './links';
 import cloudSyncRoutes from './cloudSync';
-import entityCloudSyncRoutes from '../../entityCloudSync';
+import entityCloudSyncRoutes from '../entityCloudSync';
 import syncNotificationsRoutes from '../syncNotifications';
 import backupRoutes from '../backup';
 
