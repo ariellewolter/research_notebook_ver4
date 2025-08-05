@@ -84,7 +84,6 @@ export class LinkService {
             sourceId: data.targetId,
             targetType: data.sourceType,
             targetId: data.sourceId,
-            metadata: data.metadata,
         };
         
         const reverseLink = await this.linkRepository.create(reverseData) as LinkWithEntities;

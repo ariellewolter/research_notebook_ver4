@@ -1,4 +1,4 @@
-export type EntityType = 'note' | 'highlight' | 'databaseEntry' | 'project' | 'experiment';
+export type EntityType = 'note' | 'highlight' | 'databaseEntry' | 'protocol' | 'protocolExecution' | 'recipeExecution' | 'table';
 
 export interface Link {
     id: string;
@@ -6,9 +6,7 @@ export interface Link {
     sourceId: string;
     targetType: EntityType;
     targetId: string;
-    metadata?: string;
     createdAt: Date;
-    updatedAt: Date;
 }
 
 export interface LinkWithEntities extends Link {
@@ -31,16 +29,26 @@ export interface LinkWithEntities extends Link {
         name: string;
         type: string;
     };
-    project?: {
+    protocol?: {
         id: string;
-        title: string;
-        status: string;
+        name: string;
+        description: string;
     };
-    experiment?: {
+    protocolExecution?: {
         id: string;
-        title: string;
         status: string;
+        startDate: Date;
+    };
+    recipeExecution?: {
+        id: string;
+        status: string;
+        startDate: Date;
+    };
+    table?: {
+        id: string;
+        name: string;
+        description: string;
     };
 }
 
-export type CreateLinkData = Omit<Link, 'id' | 'createdAt' | 'updatedAt'>; 
+export type CreateLinkData = Omit<Link, 'id' | 'createdAt'>; 

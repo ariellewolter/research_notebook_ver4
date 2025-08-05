@@ -7,6 +7,7 @@ import entityCloudSyncRoutes from '../entityCloudSync';
 import syncNotificationsRoutes from '../syncNotifications';
 import backupRoutes from '../backup';
 import entitiesRoutes from './entities';
+import blocksRoutes from '../blocks';
 
 const router = Router();
 
@@ -19,6 +20,7 @@ router.use('/entity-cloud-sync', entityCloudSyncRoutes);
 router.use('/sync-notifications', syncNotificationsRoutes);
 router.use('/backup', backupRoutes);
 router.use('/entities', entitiesRoutes);
+router.use('/blocks', blocksRoutes);
 
 // Add other API routes here as they are refactored
 // router.use('/database', databaseRoutes);

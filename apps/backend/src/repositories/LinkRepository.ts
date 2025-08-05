@@ -38,9 +38,7 @@ export class LinkRepository {
                 sourceId: true,
                 targetType: true,
                 targetId: true,
-                metadata: true,
                 createdAt: true,
-                updatedAt: true,
                 note: {
                     select: { id: true, title: true, type: true },
                 },
@@ -57,11 +55,17 @@ export class LinkRepository {
                 databaseEntry: {
                     select: { id: true, name: true, type: true },
                 },
-                project: {
-                    select: { id: true, title: true, status: true },
+                protocol: {
+                    select: { id: true, name: true, description: true },
                 },
-                experiment: {
-                    select: { id: true, title: true, status: true },
+                protocolExecution: {
+                    select: { id: true, status: true, startDate: true },
+                },
+                recipeExecution: {
+                    select: { id: true, status: true, startDate: true },
+                },
+                table: {
+                    select: { id: true, name: true, description: true },
                 },
             },
             orderBy: { createdAt: 'desc' },
@@ -79,9 +83,7 @@ export class LinkRepository {
                 sourceId: true,
                 targetType: true,
                 targetId: true,
-                metadata: true,
                 createdAt: true,
-                updatedAt: true,
                 note: {
                     select: { id: true, title: true, type: true },
                 },
@@ -98,11 +100,17 @@ export class LinkRepository {
                 databaseEntry: {
                     select: { id: true, name: true, type: true },
                 },
-                project: {
-                    select: { id: true, title: true, status: true },
+                protocol: {
+                    select: { id: true, name: true, description: true },
                 },
-                experiment: {
-                    select: { id: true, title: true, status: true },
+                protocolExecution: {
+                    select: { id: true, status: true, startDate: true },
+                },
+                recipeExecution: {
+                    select: { id: true, status: true, startDate: true },
+                },
+                table: {
+                    select: { id: true, name: true, description: true },
                 },
             },
         });
@@ -130,9 +138,7 @@ export class LinkRepository {
                 sourceId: true,
                 targetType: true,
                 targetId: true,
-                metadata: true,
                 createdAt: true,
-                updatedAt: true,
                 note: {
                     select: { id: true, title: true, type: true },
                 },
@@ -149,11 +155,17 @@ export class LinkRepository {
                 databaseEntry: {
                     select: { id: true, name: true, type: true },
                 },
-                project: {
-                    select: { id: true, title: true, status: true },
+                protocol: {
+                    select: { id: true, name: true, description: true },
                 },
-                experiment: {
-                    select: { id: true, title: true, status: true },
+                protocolExecution: {
+                    select: { id: true, status: true, startDate: true },
+                },
+                recipeExecution: {
+                    select: { id: true, status: true, startDate: true },
+                },
+                table: {
+                    select: { id: true, name: true, description: true },
                 },
             },
             orderBy: { createdAt: 'desc' },
@@ -172,9 +184,7 @@ export class LinkRepository {
                 sourceId: true,
                 targetType: true,
                 targetId: true,
-                metadata: true,
                 createdAt: true,
-                updatedAt: true,
                 note: {
                     select: { id: true, title: true, type: true },
                 },
@@ -191,11 +201,17 @@ export class LinkRepository {
                 databaseEntry: {
                     select: { id: true, name: true, type: true },
                 },
-                project: {
-                    select: { id: true, title: true, status: true },
+                protocol: {
+                    select: { id: true, name: true, description: true },
                 },
-                experiment: {
-                    select: { id: true, title: true, status: true },
+                protocolExecution: {
+                    select: { id: true, status: true, startDate: true },
+                },
+                recipeExecution: {
+                    select: { id: true, status: true, startDate: true },
+                },
+                table: {
+                    select: { id: true, name: true, description: true },
                 },
             },
             orderBy: { createdAt: 'desc' },
@@ -206,7 +222,8 @@ export class LinkRepository {
         return prisma.link.findMany({
             where: {
                 OR: [
-                    { metadata: { contains: query } },
+                    { sourceType: { contains: query } },
+                    { targetType: { contains: query } },
                 ],
             },
             select: {
@@ -215,9 +232,7 @@ export class LinkRepository {
                 sourceId: true,
                 targetType: true,
                 targetId: true,
-                metadata: true,
                 createdAt: true,
-                updatedAt: true,
                 note: {
                     select: { id: true, title: true, type: true },
                 },
@@ -234,11 +249,17 @@ export class LinkRepository {
                 databaseEntry: {
                     select: { id: true, name: true, type: true },
                 },
-                project: {
-                    select: { id: true, title: true, status: true },
+                protocol: {
+                    select: { id: true, name: true, description: true },
                 },
-                experiment: {
-                    select: { id: true, title: true, status: true },
+                protocolExecution: {
+                    select: { id: true, status: true, startDate: true },
+                },
+                recipeExecution: {
+                    select: { id: true, status: true, startDate: true },
+                },
+                table: {
+                    select: { id: true, name: true, description: true },
                 },
             },
             orderBy: { createdAt: 'desc' },
@@ -256,7 +277,13 @@ export class LinkRepository {
                     { targetType: params.entityType },
                 ],
             } : {},
-            include: {
+            select: {
+                id: true,
+                sourceType: true,
+                sourceId: true,
+                targetType: true,
+                targetId: true,
+                createdAt: true,
                 note: {
                     select: { id: true, title: true, type: true },
                 },
@@ -273,11 +300,17 @@ export class LinkRepository {
                 databaseEntry: {
                     select: { id: true, name: true, type: true },
                 },
-                project: {
-                    select: { id: true, title: true, status: true },
+                protocol: {
+                    select: { id: true, name: true, description: true },
                 },
-                experiment: {
-                    select: { id: true, title: true, status: true },
+                protocolExecution: {
+                    select: { id: true, status: true, startDate: true },
+                },
+                recipeExecution: {
+                    select: { id: true, status: true, startDate: true },
+                },
+                table: {
+                    select: { id: true, name: true, description: true },
                 },
             },
             take: params?.maxDepth ? params.maxDepth * 10 : 100, // Limit results based on depth
@@ -324,7 +357,6 @@ export class LinkRepository {
             id: link.id,
             source: `${link.sourceType}:${link.sourceId}`,
             target: `${link.targetType}:${link.targetId}`,
-            metadata: link.metadata,
         }));
     }
 
@@ -347,15 +379,25 @@ export class LinkRepository {
                     title: link.databaseEntry?.name,
                     label: link.databaseEntry?.name,
                 };
-            case 'project':
+            case 'protocol':
                 return {
-                    title: link.project?.title,
-                    label: link.project?.title,
+                    title: link.protocol?.name,
+                    label: link.protocol?.name,
                 };
-            case 'experiment':
+            case 'protocolExecution':
                 return {
-                    title: link.experiment?.title,
-                    label: link.experiment?.title,
+                    title: `Protocol Execution ${link.protocolExecution?.id}`,
+                    label: `Protocol Execution ${link.protocolExecution?.id}`,
+                };
+            case 'recipeExecution':
+                return {
+                    title: `Recipe Execution ${link.recipeExecution?.id}`,
+                    label: `Recipe Execution ${link.recipeExecution?.id}`,
+                };
+            case 'table':
+                return {
+                    title: link.table?.name,
+                    label: link.table?.name,
                 };
             default:
                 return {
