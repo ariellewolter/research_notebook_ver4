@@ -1,5 +1,5 @@
 import { LinkRepository } from '../repositories/LinkRepository';
-import { CreateLinkData, LinkWithEntities, EntityType } from '../types/link.types';
+import { Link, LinkWithEntities, CreateLinkData, EntityType } from '../types/link.types';
 
 export class LinkService {
     constructor(
@@ -21,7 +21,7 @@ export class LinkService {
             ...filterParams,
             skip,
             take: limit,
-        });
+        }) as LinkWithEntities[];
 
         // For simplicity, we'll estimate total based on current results
         // In a real application, you might want to add a count method
@@ -41,12 +41,12 @@ export class LinkService {
     }
 
     async getLinkById(id: string): Promise<LinkWithEntities | null> {
-        return this.linkRepository.findById(id);
+        return this.linkRepository.findById(id) as Promise<LinkWithEntities | null>;
     }
 
     async createLink(data: CreateLinkData): Promise<LinkWithEntities> {
         // Validate that the entities exist (you might want to add this validation)
-        return this.linkRepository.create(data);
+        return this.linkRepository.create(data) as Promise<LinkWithEntities>;
     }
 
     async deleteLink(id: string): Promise<void> {
@@ -59,15 +59,15 @@ export class LinkService {
     }
 
     async getBacklinks(entityType: EntityType, entityId: string): Promise<LinkWithEntities[]> {
-        return this.linkRepository.getBacklinks(entityType, entityId);
+        return this.linkRepository.getBacklinks(entityType, entityId) as Promise<LinkWithEntities[]>;
     }
 
     async getOutgoingLinks(entityType: EntityType, entityId: string): Promise<LinkWithEntities[]> {
-        return this.linkRepository.getOutgoing(entityType, entityId);
+        return this.linkRepository.getOutgoing(entityType, entityId) as Promise<LinkWithEntities[]>;
     }
 
     async searchLinks(query: string, limit: number = 10): Promise<LinkWithEntities[]> {
-        return this.linkRepository.search(query, limit);
+        return this.linkRepository.search(query, limit) as Promise<LinkWithEntities[]>;
     }
 
     async getLinkGraph(params?: { entityType?: EntityType; maxDepth?: number }) {
@@ -76,7 +76,7 @@ export class LinkService {
 
     async createBidirectionalLink(data: CreateLinkData): Promise<{ forward: LinkWithEntities; reverse: LinkWithEntities }> {
         // Create forward link
-        const forwardLink = await this.linkRepository.create(data);
+        const forwardLink = await this.linkRepository.create(data) as LinkWithEntities;
         
         // Create reverse link
         const reverseData = {
@@ -87,7 +87,7 @@ export class LinkService {
             metadata: data.metadata,
         };
         
-        const reverseLink = await this.linkRepository.create(reverseData);
+        const reverseLink = await this.linkRepository.create(reverseData) as LinkWithEntities;
         
         return {
             forward: forwardLink,
@@ -97,8 +97,8 @@ export class LinkService {
 
     async getEntityConnections(entityType: EntityType, entityId: string) {
         const [backlinks, outgoing] = await Promise.all([
-            this.linkRepository.getBacklinks(entityType, entityId),
-            this.linkRepository.getOutgoing(entityType, entityId),
+            this.linkRepository.getBacklinks(entityType, entityId) as Promise<LinkWithEntities[]>,
+            this.linkRepository.getOutgoing(entityType, entityId) as Promise<LinkWithEntities[]>,
         ]);
 
         return {

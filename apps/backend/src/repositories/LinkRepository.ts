@@ -32,7 +32,15 @@ export class LinkRepository {
 
         return prisma.link.findMany({
             where,
-            include: {
+            select: {
+                id: true,
+                sourceType: true,
+                sourceId: true,
+                targetType: true,
+                targetId: true,
+                metadata: true,
+                createdAt: true,
+                updatedAt: true,
                 note: {
                     select: { id: true, title: true, type: true },
                 },
@@ -65,7 +73,15 @@ export class LinkRepository {
     async findById(id: string) {
         return prisma.link.findFirst({
             where: { id },
-            include: {
+            select: {
+                id: true,
+                sourceType: true,
+                sourceId: true,
+                targetType: true,
+                targetId: true,
+                metadata: true,
+                createdAt: true,
+                updatedAt: true,
                 note: {
                     select: { id: true, title: true, type: true },
                 },
@@ -108,7 +124,15 @@ export class LinkRepository {
                 targetType: entityType,
                 targetId: entityId,
             },
-            include: {
+            select: {
+                id: true,
+                sourceType: true,
+                sourceId: true,
+                targetType: true,
+                targetId: true,
+                metadata: true,
+                createdAt: true,
+                updatedAt: true,
                 note: {
                     select: { id: true, title: true, type: true },
                 },
@@ -142,7 +166,15 @@ export class LinkRepository {
                 sourceType: entityType,
                 sourceId: entityId,
             },
-            include: {
+            select: {
+                id: true,
+                sourceType: true,
+                sourceId: true,
+                targetType: true,
+                targetId: true,
+                metadata: true,
+                createdAt: true,
+                updatedAt: true,
                 note: {
                     select: { id: true, title: true, type: true },
                 },
@@ -177,7 +209,15 @@ export class LinkRepository {
                     { metadata: { contains: query } },
                 ],
             },
-            include: {
+            select: {
+                id: true,
+                sourceType: true,
+                sourceId: true,
+                targetType: true,
+                targetId: true,
+                metadata: true,
+                createdAt: true,
+                updatedAt: true,
                 note: {
                     select: { id: true, title: true, type: true },
                 },
