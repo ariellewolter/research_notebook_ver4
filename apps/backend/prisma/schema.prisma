@@ -84,6 +84,12 @@ model Note {
   date         DateTime?
   type         String
   createdAt    DateTime    @default(now())
+  // Cloud sync fields
+  cloudSynced  Boolean     @default(false)
+  cloudPath    String?
+  cloudService String?     // 'dropbox', 'google', 'onedrive', 'icloud'
+  lastSynced   DateTime?
+  syncStatus   String?     // 'pending', 'synced', 'error', 'conflict'
   links        Link[]      @relation("NoteLinks")
   experiment   Experiment? @relation(fields: [experimentId], references: [id])
   tasks        Task[]
@@ -92,6 +98,8 @@ model Note {
   @@index([date])
   @@index([createdAt])
   @@index([experimentId])
+  @@index([cloudSynced])
+  @@index([cloudService])
 }
 
 model DailyNote {

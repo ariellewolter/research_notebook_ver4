@@ -7,6 +7,7 @@
 
 import { Dropbox } from 'dropbox';
 import { google } from 'googleapis';
+import { PublicClientApplication, AuthenticationResult, AccountInfo } from '@azure/msal-browser';
 
 export type CloudServiceName = 'dropbox' | 'google' | 'apple' | 'onedrive';
 
@@ -88,6 +89,7 @@ export class CloudSyncService {
   private connectedServices: Set<CloudServiceName> = new Set();
   private dropboxClient: Dropbox | null = null;
   private googleDriveClient: any = null;
+  private msalInstance: PublicClientApplication | null = null;
   private eventListeners: Map<string, Function[]> = new Map();
 
   /**
@@ -115,6 +117,8 @@ export class CloudSyncService {
           this.initializeDropboxClient(existingToken);
         } else if (serviceName === 'google') {
           await this.initializeGoogleDriveClient(existingToken);
+        } else if (serviceName === 'onedrive') {
+          await this.initializeOneDriveClient(existingToken);
         }
         this.emit('serviceConnected', { serviceName });
         return true;
@@ -136,6 +140,11 @@ export class CloudSyncService {
    */
   async handleAuthCallback(serviceName: CloudServiceName, url: string): Promise<boolean> {
     try {
+      if (serviceName === 'onedrive') {
+        // OneDrive handles auth callback through MSAL popup
+        return true;
+      }
+
       const urlParams = new URLSearchParams(url.split('?')[1]);
       const code = urlParams.get('code');
       const state = urlParams.get('state');
@@ -160,6 +169,8 @@ export class CloudSyncService {
         this.initializeDropboxClient(tokenData.access_token);
       } else if (serviceName === 'google') {
         await this.initializeGoogleDriveClient(tokenData.access_token);
+      } else if (serviceName === 'onedrive') {
+        await this.initializeOneDriveClient(tokenData.access_token);
       }
 
       this.connectedServices.add(serviceName);
@@ -267,6 +278,11 @@ export class CloudSyncService {
       this.dropboxClient = null;
     } else if (serviceName === 'google') {
       this.googleDriveClient = null;
+    } else if (serviceName === 'onedrive') {
+      if (this.msalInstance) {
+        await this.msalInstance.logout();
+        this.msalInstance = null;
+      }
     }
     
     this.emit('serviceDisconnected', { serviceName });
@@ -354,14 +370,11 @@ export class CloudSyncService {
       return this.exchangeDropboxCodeForToken(code, config);
     } else if (serviceName === 'google') {
       return this.exchangeGoogleCodeForToken(code, config);
+    } else if (serviceName === 'onedrive') {
+      return this.exchangeOneDriveCodeForToken(code, config);
     }
-    
     // Placeholder for other providers
-    return {
-      access_token: 'mock_access_token',
-      refresh_token: 'mock_refresh_token',
-      expires_in: 3600
-    };
+    throw new Error(`Token exchange not implemented for ${serviceName}`);
   }
 
   private async exchangeDropboxCodeForToken(code: string, config: CloudSyncConfig): Promise<any> {
@@ -416,6 +429,36 @@ export class CloudSyncService {
     }
   }
 
+  private async exchangeOneDriveCodeForToken(code: string, config: CloudSyncConfig): Promise<any> {
+    try {
+      // For OneDrive, we use MSAL which handles token exchange internally
+      // The code is already exchanged during the MSAL authentication flow
+      const account = this.msalInstance?.getActiveAccount();
+      if (!account) {
+        throw new Error('No active OneDrive account found');
+      }
+
+      const silentRequest = {
+        scopes: config.scopes,
+        account: account
+      };
+
+      const response = await this.msalInstance?.acquireTokenSilent(silentRequest);
+      if (!response) {
+        throw new Error('Failed to acquire OneDrive token');
+      }
+
+      return {
+        access_token: response.accessToken,
+        refresh_token: response.refreshToken,
+        expires_in: response.expiresOn ? Math.floor((response.expiresOn.getTime() - Date.now()) / 1000) : undefined
+      };
+    } catch (error) {
+      console.error('OneDrive token exchange error:', error);
+      throw error;
+    }
+  }
+
   private async initializeGoogleDriveClient(accessToken: string): Promise<void> {
     try {
       const oauth2Client = new google.auth.OAuth2();
@@ -424,6 +467,27 @@ export class CloudSyncService {
       this.googleDriveClient = google.drive({ version: 'v3', auth: oauth2Client });
     } catch (error) {
       console.error('Failed to initialize Google Drive client:', error);
+      throw error;
+    }
+  }
+
+  private async initializeOneDriveClient(accessToken: string): Promise<void> {
+    try {
+      // OneDrive uses Microsoft Graph API directly with fetch
+      // No separate client initialization needed, we'll use fetch with the access token
+      this.msalInstance = new PublicClientApplication({
+        auth: {
+          clientId: process.env.REACT_APP_ONEDRIVE_CLIENT_ID || '',
+          authority: 'https://login.microsoftonline.com/common',
+          redirectUri: `${window.location.origin}/auth/onedrive/callback`
+        },
+        cache: {
+          cacheLocation: 'localStorage',
+          storeAuthStateInCookie: false
+        }
+      });
+    } catch (error) {
+      console.error('Failed to initialize OneDrive client:', error);
       throw error;
     }
   }
@@ -470,6 +534,8 @@ export class CloudSyncService {
       return this.dropboxListFiles(folderPath);
     } else if (serviceName === 'google') {
       return this.googleDriveListFiles(folderPath);
+    } else if (serviceName === 'onedrive') {
+      return this.oneDriveListFiles(folderPath);
     }
     throw new Error(`File listing not implemented for ${serviceName}`);
   }
@@ -522,6 +588,86 @@ export class CloudSyncService {
     }
   }
 
+  private async oneDriveListFiles(folderPath: string = '/'): Promise<CloudFile[]> {
+    if (!this.msalInstance) {
+      throw new Error('OneDrive client not initialized');
+    }
+
+    try {
+      const account = this.msalInstance.getActiveAccount();
+      if (!account) {
+        throw new Error('No active OneDrive account found');
+      }
+
+      const silentRequest = {
+        scopes: ['Files.ReadWrite', 'Files.ReadWrite.All'],
+        account: account
+      };
+
+      const response = await this.msalInstance.acquireTokenSilent(silentRequest);
+      if (!response) {
+        throw new Error('Failed to acquire OneDrive token');
+      }
+
+      let endpoint = 'https://graph.microsoft.com/v1.0/me/drive/root/children';
+      
+      // If not root, find the folder ID
+      if (folderPath !== '/') {
+        const pathParts = folderPath.split('/').filter(part => part.length > 0);
+        let currentPath = '';
+        
+        for (const part of pathParts) {
+          currentPath += `/${part}`;
+          const folderResponse = await fetch(
+            `https://graph.microsoft.com/v1.0/me/drive/root:${currentPath}:`,
+            {
+              headers: {
+                'Authorization': `Bearer ${response.accessToken}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+
+          if (!folderResponse.ok) {
+            throw new Error(`Folder not found: ${part}`);
+          }
+
+          const folderData = await folderResponse.json();
+          if (folderData.folder) {
+            endpoint = `https://graph.microsoft.com/v1.0/me/drive/items/${folderData.id}/children`;
+          }
+        }
+      }
+
+      const filesResponse = await fetch(endpoint, {
+        headers: {
+          'Authorization': `Bearer ${response.accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!filesResponse.ok) {
+        throw new Error('Failed to list OneDrive files');
+      }
+
+      const filesData = await filesResponse.json();
+      
+      return filesData.value?.map((file: any) => ({
+        id: file.id,
+        name: file.name,
+        path: folderPath === '/' ? `/${file.name}` : `${folderPath}/${file.name}`,
+        size: file.size || 0,
+        modifiedTime: file.lastModifiedDateTime || new Date().toISOString(),
+        isFolder: file.folder !== undefined,
+        mimeType: file.file?.mimeType,
+        parentId: file.parentReference?.id
+      })) || [];
+    } catch (error) {
+      console.error('OneDrive list files error:', error);
+      throw error;
+    }
+  }
+
   private async providerUploadFile(
     serviceName: CloudServiceName, 
     remotePath: string, 
@@ -531,6 +677,8 @@ export class CloudSyncService {
       return this.dropboxUploadFile(remotePath, fileContent);
     } else if (serviceName === 'google') {
       return this.googleDriveUploadFile(remotePath, fileContent);
+    } else if (serviceName === 'onedrive') {
+      return this.oneDriveUploadFile(remotePath, fileContent);
     }
     throw new Error(`File upload not implemented for ${serviceName}`);
   }
@@ -572,6 +720,58 @@ export class CloudSyncService {
     }
   }
 
+  private async oneDriveUploadFile(remotePath: string, fileContent?: File | Blob): Promise<boolean> {
+    if (!this.msalInstance) {
+      throw new Error('OneDrive client not initialized');
+    }
+
+    if (!fileContent) {
+      throw new Error('File content is required for upload');
+    }
+
+    try {
+      const account = this.msalInstance.getActiveAccount();
+      if (!account) {
+        throw new Error('No active OneDrive account found');
+      }
+
+      const silentRequest = {
+        scopes: ['Files.ReadWrite', 'Files.ReadWrite.All'],
+        account: account
+      };
+
+      const response = await this.msalInstance.acquireTokenSilent(silentRequest);
+      if (!response) {
+        throw new Error('Failed to acquire OneDrive token');
+      }
+
+      const fileName = remotePath.split('/').pop() || 'untitled';
+      const arrayBuffer = await fileContent.arrayBuffer();
+
+      // Upload to OneDrive using Microsoft Graph API
+      const uploadResponse = await fetch(
+        `https://graph.microsoft.com/v1.0/me/drive/root:/${fileName}:/content`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${response.accessToken}`,
+            'Content-Type': this.getMimeType(fileName)
+          },
+          body: arrayBuffer
+        }
+      );
+
+      if (!uploadResponse.ok) {
+        throw new Error(`OneDrive upload failed: ${uploadResponse.statusText}`);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('OneDrive upload error:', error);
+      throw error;
+    }
+  }
+
   private async providerDownloadFile(
     serviceName: CloudServiceName, 
     remotePath: string
@@ -580,6 +780,8 @@ export class CloudSyncService {
       return this.dropboxDownloadFile(remotePath);
     } else if (serviceName === 'google') {
       return this.googleDriveDownloadFile(remotePath);
+    } else if (serviceName === 'onedrive') {
+      return this.oneDriveDownloadFile(remotePath);
     }
     throw new Error(`File download not implemented for ${serviceName}`);
   }
@@ -620,6 +822,51 @@ export class CloudSyncService {
     }
   }
 
+  private async oneDriveDownloadFile(remotePath: string): Promise<Blob | null> {
+    if (!this.msalInstance) {
+      throw new Error('OneDrive client not initialized');
+    }
+
+    try {
+      const account = this.msalInstance.getActiveAccount();
+      if (!account) {
+        throw new Error('No active OneDrive account found');
+      }
+
+      const silentRequest = {
+        scopes: ['Files.ReadWrite', 'Files.ReadWrite.All'],
+        account: account
+      };
+
+      const response = await this.msalInstance.acquireTokenSilent(silentRequest);
+      if (!response) {
+        throw new Error('Failed to acquire OneDrive token');
+      }
+
+      const fileName = remotePath.split('/').pop() || '';
+      
+      // Download from OneDrive using Microsoft Graph API
+      const downloadResponse = await fetch(
+        `https://graph.microsoft.com/v1.0/me/drive/root:/${fileName}:/content`,
+        {
+          headers: {
+            'Authorization': `Bearer ${response.accessToken}`
+          }
+        }
+      );
+
+      if (!downloadResponse.ok) {
+        throw new Error(`OneDrive download failed: ${downloadResponse.statusText}`);
+      }
+
+      const blob = await downloadResponse.blob();
+      return blob;
+    } catch (error) {
+      console.error('OneDrive download error:', error);
+      throw error;
+    }
+  }
+
   // New method for Google Drive folder selection
   async selectGoogleDriveFolder(): Promise<{ id: string; name: string; path: string } | null> {
     if (!this.googleDriveClient) {
@@ -655,6 +902,69 @@ export class CloudSyncService {
       };
     } catch (error) {
       console.error('Error selecting Google Drive folder:', error);
+      throw error;
+    }
+  }
+
+  // New method for OneDrive folder selection
+  async selectOneDriveFolder(): Promise<{ id: string; name: string; path: string } | null> {
+    if (!this.msalInstance) {
+      throw new Error('OneDrive client not initialized');
+    }
+
+    try {
+      const account = this.msalInstance.getActiveAccount();
+      if (!account) {
+        throw new Error('No active OneDrive account found');
+      }
+
+      const silentRequest = {
+        scopes: ['Files.ReadWrite', 'Files.ReadWrite.All'],
+        account: account
+      };
+
+      const response = await this.msalInstance.acquireTokenSilent(silentRequest);
+      if (!response) {
+        throw new Error('Failed to acquire OneDrive token');
+      }
+
+      // Get all folders from OneDrive
+      const foldersResponse = await fetch(
+        'https://graph.microsoft.com/v1.0/me/drive/root/children?$filter=folder ne null',
+        {
+          headers: {
+            'Authorization': `Bearer ${response.accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (!foldersResponse.ok) {
+        throw new Error('Failed to list OneDrive folders');
+      }
+
+      const foldersData = await foldersResponse.json();
+      const folders = foldersData.value || [];
+      
+      // For now, return the first available folder or root
+      // In a real implementation, you'd show a folder picker UI
+      if (folders.length > 0) {
+        const folder = folders[0];
+        return {
+          id: folder.id,
+          name: folder.name,
+          path: `/${folder.name}`
+        };
+      }
+
+      // Return root folder if no other folders exist
+      return {
+        id: 'root',
+        name: 'OneDrive',
+        path: '/'
+      };
+    } catch (error) {
+      console.error('Error selecting OneDrive folder:', error);
       throw error;
     }
   }
