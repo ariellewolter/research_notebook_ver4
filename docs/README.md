@@ -10,6 +10,8 @@ Welcome to the comprehensive documentation for the Research Notebook application
 - **[Implementation Guide](implementation/README.md)** - Comprehensive implementation documentation
 
 ### 🛠️ Implementation Details
+- **[Inventory Management System](implementation/INVENTORY_MANAGEMENT_SYSTEM.md)** - Complete laboratory inventory management system
+- **[Inventory Quick Reference](implementation/INVENTORY_QUICK_REFERENCE.md)** - Fast reference for inventory features
 - **[iPad Testing & UX Enhancements](implementation/IPAD_TESTING_AND_UX_ENHANCEMENTS.md)** - Complete iPad testing system documentation
 - **[Frontend Deep Linking](implementation/FRONTEND_DEEP_LINKING_IMPLEMENTATION.md)** - Deep linking implementation
 - **[Drag & Drop Overlay](implementation/DRAG_DROP_OVERLAY_IMPLEMENTATION.md)** - File import system

@@ -96,6 +96,25 @@ This document provides an overview of the Electronic Lab Notebook implementation
 - Recipe tracking
 - Experimental variable management
 
+#### 11. **Inventory Management System** (Latest ✅)
+- **Entity Management**: Chemicals, genes, reagents, and equipment tracking
+- **Stock Tracking**: Real-time stock levels with usage history and automatic deduction
+- **Alert System**: Automated low stock, out of stock, and expiry notifications with priority levels
+- **Reorder Management**: Priority-based reorder lists with vendor management and auto-reorder
+- **Location & Vendor Management**: Hierarchical storage locations and comprehensive vendor tracking
+- **Export & Sync**: Multi-format exports (CSV, JSON, Excel) with cloud sync integration
+- **LIMS Integration**: Data prepared for laboratory information management systems
+- **Usage Tracking**: Detailed usage logs with experiment/task correlation
+- **Quick Actions**: One-click reorder actions and stock adjustments
+
+**Components Implemented:**
+- 11 React components for comprehensive inventory management
+- Service layer for data synchronization and export
+- Integration with existing cloud sync infrastructure
+- Complete API endpoints for all inventory operations
+
+**Documentation:** [INVENTORY_MANAGEMENT_SYSTEM.md](./INVENTORY_MANAGEMENT_SYSTEM.md)
+
 ### 6. **iPad Testing & UX Enhancement System**
 - ✅ **Comprehensive iPad Detection**: Automatic device and capability detection
 - ✅ **Apple Pencil Integration**: Pressure sensitivity, tilt detection, and hover effects
@@ -131,7 +150,17 @@ This document provides an overview of the Electronic Lab Notebook implementation
 
 ## Recent Updates
 
-### Cloud Sync Fixes (Latest)
+### Inventory Management System (Latest ✅)
+- ✅ **Complete System Implementation**: Full inventory management with 11 React components
+- ✅ **Database Schema**: Extended Prisma schema with Chemical, Gene, Reagent, Equipment, and UsageLog models
+- ✅ **Alert System**: Automated notifications with priority levels and customizable thresholds
+- ✅ **Reorder Management**: Priority-based reorder lists with vendor integration
+- ✅ **Export & Sync**: Multi-format export system with cloud sync integration
+- ✅ **LIMS Integration**: Data prepared for laboratory information management systems
+- ✅ **Usage Tracking**: Comprehensive usage logging with experiment/task correlation
+- ✅ **Location & Vendor Management**: Hierarchical storage and vendor information tracking
+
+### Cloud Sync Fixes (Previous)
 - ✅ **Database Schema**: Added cloud sync fields to all entity models
 - ✅ **Backend Routes**: Fixed routing conflicts and enabled all cloud sync endpoints
 - ✅ **API Integration**: Resolved response structure mismatches
@@ -327,6 +356,7 @@ tail -f logs/app.log
 - [Database Schema](./database/README.md)
 - [Frontend Components](./frontend/README.md)
 - [Cloud Sync Implementation](./CLOUD_SYNC_IMPLEMENTATION.md)
+- [Inventory Management System](./INVENTORY_MANAGEMENT_SYSTEM.md)
 
 ### Contact
 - GitHub Issues: For bug reports and feature requests
