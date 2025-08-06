@@ -43,6 +43,9 @@ import ElectronFeatureTest from './components/ElectronFeatureTest';
 import DeepLinkDemo from './components/DeepLinkDemo';
 import FreeformDrawingBlockTest from './pages/FreeformDrawingBlockTest';
 import BlockRendererTest from './pages/BlockRendererTest';
+import DrawingInsertionDemo from './pages/DrawingInsertionDemo';
+import EnhancedExportDemo from './pages/EnhancedExportDemo';
+import AnnotationDemo from './pages/AnnotationDemo';
 import IPadTestingSuite from './pages/IPadTestingSuite';
 
 // Protected route wrapper
@@ -120,8 +123,11 @@ const ProtectedRoutes: React.FC = () => {
                 <Route path="time-blocking" element={<TimeBlocking />} />
                 <Route path="electron-test" element={<ElectronFeatureTest />} />
                 <Route path="deep-link-demo" element={<DeepLinkDemo />} />
-                <Route path="drawing-block-test" element={<FreeformDrawingBlockTest />} />
-                <Route path="block-renderer-test" element={<BlockRendererTest />} />
+                        <Route path="drawing-block-test" element={<FreeformDrawingBlockTest />} />
+        <Route path="block-renderer-test" element={<BlockRendererTest />} />
+        <Route path="drawing-insertion-demo" element={<DrawingInsertionDemo />} />
+        <Route path="enhanced-export-demo" element={<EnhancedExportDemo />} />
+        <Route path="annotation-demo" element={<AnnotationDemo />} />
                 <Route path="ipad-testing-suite" element={<IPadTestingSuite />} />
 
                 {/* Catch-all route */}

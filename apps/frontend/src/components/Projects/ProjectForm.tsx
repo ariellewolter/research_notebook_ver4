@@ -18,6 +18,8 @@ import {
 import UniversalLinking from '../UniversalLinking/UniversalLinking';
 import { useProjectLinking } from '../../hooks/useProjectLinking';
 import { Project, ProjectStatus } from '../../types/project';
+import DrawingInsertionToolbar from '../DrawingInsertionToolbar';
+import { useDrawingInsertion } from '../../hooks/useDrawingInsertion';
 
 const PROJECT_STATUS_OPTIONS = [
     { value: 'active', label: 'Active' },
@@ -80,6 +82,14 @@ const ProjectForm: React.FC<ProjectFormProps> = ({
         handleCreatePDF,
     } = useProjectLinking(project?.id);
 
+    const { insertDrawing } = useDrawingInsertion({
+        entityId: project?.id || 'new',
+        entityType: 'project',
+        onContentUpdate: (newContent) => {
+            setProjectForm(prev => ({ ...prev, description: (prev.description || '') + newContent }));
+        }
+    });
+
     useEffect(() => {
         const today = new Date().toISOString();
         if (project) {
@@ -136,9 +146,18 @@ const ProjectForm: React.FC<ProjectFormProps> = ({
                             disabled={saving}
                         />
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Description
-                            </label>
+                            <div className="flex items-center justify-between mb-1">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    Description
+                                </label>
+                                <DrawingInsertionToolbar
+                                    entityId={project?.id || 'new'}
+                                    entityType="project"
+                                    onInsertDrawing={insertDrawing}
+                                    variant="button"
+                                    size="small"
+                                />
+                            </div>
                             <UniversalLinking
                                 value={projectForm.description || ''}
                                 onChange={(value) => setProjectForm({ ...projectForm, description: value })}

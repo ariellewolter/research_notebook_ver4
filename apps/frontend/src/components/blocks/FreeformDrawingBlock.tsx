@@ -15,6 +15,8 @@ import {
   Alert,
   CircularProgress
 } from '@mui/material';
+import { useDrawingSync } from '../../hooks/useDrawingSync';
+import DrawingSaveIndicator from './DrawingSaveIndicator';
 import {
   Edit as EditIcon,
   Clear as ClearIcon,
@@ -27,7 +29,9 @@ import {
   MoreVert as MoreVertIcon,
   Check as CheckIcon,
   Image as ImageIcon,
-  Code as CodeIcon
+  Code as CodeIcon,
+  TextFields as TextFieldsIcon,
+  Delete as DeleteIcon
 } from '@mui/icons-material';
 
 export interface DrawingPoint {
@@ -45,8 +49,25 @@ export interface DrawingStroke {
   opacity: number;
 }
 
+export interface DrawingAnnotation {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  fontSize: number;
+  color: string;
+  backgroundColor?: string;
+  borderColor?: string;
+  borderWidth?: number;
+  padding: number;
+  borderRadius: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface DrawingData {
   strokes: DrawingStroke[];
+  annotations: DrawingAnnotation[];
   svgPath: string;
   pngThumbnail: string;
   width: number;
@@ -65,6 +86,10 @@ export interface FreeformDrawingBlockProps {
   className?: string;
   width?: number;
   height?: number;
+  autoSaveDelay?: number;
+  enableCloudSync?: boolean;
+  showSaveIndicator?: boolean;
+  saveIndicatorPosition?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left';
 }
 
 const FreeformDrawingBlock: React.FC<FreeformDrawingBlockProps> = ({
@@ -76,7 +101,11 @@ const FreeformDrawingBlock: React.FC<FreeformDrawingBlockProps> = ({
   readOnly = false,
   className = '',
   width = 600,
-  height = 400
+  height = 400,
+  autoSaveDelay = 2000,
+  enableCloudSync = true,
+  showSaveIndicator = true,
+  saveIndicatorPosition = 'top-right'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -93,8 +122,42 @@ const FreeformDrawingBlock: React.FC<FreeformDrawingBlockProps> = ({
   });
   const [colorMenuAnchor, setColorMenuAnchor] = useState<null | HTMLElement>(null);
   const [brushMenuAnchor, setBrushMenuAnchor] = useState<null | HTMLElement>(null);
+  const [annotationMenuAnchor, setAnnotationMenuAnchor] = useState<null | HTMLElement>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Annotation state
+  const [annotations, setAnnotations] = useState<DrawingAnnotation[]>(initialData?.annotations || []);
+  const [isAnnotationMode, setIsAnnotationMode] = useState(false);
+  const [selectedAnnotation, setSelectedAnnotation] = useState<string | null>(null);
+  const [draggedAnnotation, setDraggedAnnotation] = useState<string | null>(null);
+  const [annotationSettings, setAnnotationSettings] = useState({
+    fontSize: 14,
+    color: '#000000',
+    backgroundColor: '#ffffff',
+    borderColor: '#cccccc',
+    borderWidth: 1,
+    padding: 4,
+    borderRadius: 4
+  });
+
+  // Initialize sync hook
+  const [syncState, syncActions] = useDrawingSync({
+    blockId,
+    entityId,
+    entityType,
+    autoSaveDelay,
+    enableCloudSync,
+    onSaveSuccess: (result) => {
+      console.log('Drawing saved successfully:', result);
+    },
+    onSaveError: (error) => {
+      console.error('Drawing save failed:', error);
+    },
+    onSyncStatusChange: (status) => {
+      console.log('Sync status changed:', status);
+    }
+  });
 
   const colors = [
     '#000000', '#FF0000', '#00FF00', '#0000FF', '#FFFF00', 
@@ -316,13 +379,13 @@ const FreeformDrawingBlock: React.FC<FreeformDrawingBlockProps> = ({
   const handleSave = async () => {
     if (readOnly) return;
 
-    setIsSaving(true);
     try {
       const svgPath = generateSVGPath(strokes);
       const pngThumbnail = await generatePNGThumbnail();
       
       const drawingData: DrawingData = {
         strokes,
+        annotations: initialData?.annotations || [],
         svgPath,
         pngThumbnail,
         width: canvasSize.width,
@@ -331,14 +394,50 @@ const FreeformDrawingBlock: React.FC<FreeformDrawingBlockProps> = ({
         updatedAt: new Date().toISOString()
       };
 
-      await onSave(drawingData);
-      setHasUnsavedChanges(false);
+      // Use sync service for saving
+      const result = await syncActions.saveDrawing(drawingData);
+      
+      if (result.success) {
+        // Call the original onSave callback
+        await onSave(drawingData);
+        setHasUnsavedChanges(false);
+      } else {
+        throw new Error(result.error || 'Save failed');
+      }
     } catch (error) {
       console.error('Failed to save drawing:', error);
-    } finally {
-      setIsSaving(false);
+      throw error;
     }
   };
+
+  // Auto-save when strokes or annotations change
+  useEffect(() => {
+    if ((strokes.length > 0 || annotations.length > 0) && !readOnly) {
+      const autoSave = async () => {
+        try {
+          const svgPath = generateSVGPath(strokes);
+          const pngThumbnail = await generatePNGThumbnail();
+          
+          const drawingData: DrawingData = {
+            strokes,
+            annotations,
+            svgPath,
+            pngThumbnail,
+            width: canvasSize.width,
+            height: canvasSize.height,
+            createdAt: initialData?.createdAt || new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+
+          await syncActions.saveDrawing(drawingData);
+        } catch (error) {
+          console.error('Auto-save failed:', error);
+        }
+      };
+
+      autoSave();
+    }
+  }, [strokes, annotations, canvasSize, readOnly, initialData?.createdAt]);
 
   const downloadSVG = () => {
     const svgPath = generateSVGPath(strokes);
@@ -368,8 +467,106 @@ const FreeformDrawingBlock: React.FC<FreeformDrawingBlockProps> = ({
     document.body.removeChild(a);
   };
 
+  // Annotation management functions
+  const addAnnotation = (text: string, x: number, y: number) => {
+    const newAnnotation: DrawingAnnotation = {
+      id: `annotation-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      text,
+      x,
+      y,
+      fontSize: annotationSettings.fontSize,
+      color: annotationSettings.color,
+      backgroundColor: annotationSettings.backgroundColor,
+      borderColor: annotationSettings.borderColor,
+      borderWidth: annotationSettings.borderWidth,
+      padding: annotationSettings.padding,
+      borderRadius: annotationSettings.borderRadius,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    setAnnotations(prev => [...prev, newAnnotation]);
+    setSelectedAnnotation(newAnnotation.id);
+  };
+
+  const updateAnnotation = (id: string, updates: Partial<DrawingAnnotation>) => {
+    setAnnotations(prev => prev.map(annotation => 
+      annotation.id === id 
+        ? { ...annotation, ...updates, updatedAt: new Date().toISOString() }
+        : annotation
+    ));
+  };
+
+  const deleteAnnotation = (id: string) => {
+    setAnnotations(prev => prev.filter(annotation => annotation.id !== id));
+    setSelectedAnnotation(null);
+  };
+
+  const handleAnnotationDragStart = (e: React.DragEvent, annotationId: string) => {
+    setDraggedAnnotation(annotationId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleAnnotationDragEnd = () => {
+    setDraggedAnnotation(null);
+  };
+
+  const handleCanvasDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if (draggedAnnotation) {
+      // Move existing annotation
+      updateAnnotation(draggedAnnotation, { x, y });
+    } else {
+      // Add new annotation from external drop
+      const text = e.dataTransfer.getData('text/plain') || 'New Annotation';
+      addAnnotation(text, x, y);
+    }
+  };
+
+  const handleCanvasDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleAnnotationClick = (annotationId: string) => {
+    if (isAnnotationMode) {
+      setSelectedAnnotation(annotationId);
+    }
+  };
+
+  const handleAnnotationDoubleClick = (annotationId: string) => {
+    const annotation = annotations.find(a => a.id === annotationId);
+    if (annotation) {
+      const newText = prompt('Edit annotation text:', annotation.text);
+      if (newText !== null && newText !== annotation.text) {
+        updateAnnotation(annotationId, { text: newText });
+      }
+    }
+  };
+
   // Mouse event handlers
-  const handleMouseDown = (event: React.MouseEvent) => startDrawing(event);
+  const handleMouseDown = (event: React.MouseEvent) => {
+    if (isAnnotationMode) {
+      // Create annotation on click in annotation mode
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (rect) {
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        const text = prompt('Enter annotation text:') || 'New Annotation';
+        if (text.trim()) {
+          addAnnotation(text, x, y);
+        }
+      }
+    } else {
+      startDrawing(event);
+    }
+  };
   const handleMouseMove = (event: React.MouseEvent) => draw(event);
   const handleMouseUp = () => stopDrawing();
   const handleMouseLeave = () => stopDrawing();
@@ -394,11 +591,27 @@ const FreeformDrawingBlock: React.FC<FreeformDrawingBlockProps> = ({
               color="secondary" 
               variant="outlined"
             />
-            {hasUnsavedChanges && (
+            {syncState.hasUnsavedChanges && (
               <Chip 
                 label="Unsaved" 
                 size="small" 
                 color="warning" 
+                variant="outlined"
+              />
+            )}
+            {syncState.syncStatus === 'synced' && syncState.cloudSynced && (
+              <Chip 
+                label="Cloud Synced" 
+                size="small" 
+                color="success" 
+                variant="outlined"
+              />
+            )}
+            {syncState.syncStatus === 'offline' && (
+              <Chip 
+                label="Offline" 
+                size="small" 
+                color="default" 
                 variant="outlined"
               />
             )}
@@ -434,6 +647,18 @@ const FreeformDrawingBlock: React.FC<FreeformDrawingBlockProps> = ({
             </Tooltip>
             <Divider orientation="vertical" flexItem />
             
+            {/* Annotation Mode Toggle */}
+            <Tooltip title={isAnnotationMode ? "Exit Annotation Mode" : "Enter Annotation Mode"}>
+              <IconButton 
+                size="small" 
+                onClick={() => setIsAnnotationMode(!isAnnotationMode)}
+                disabled={readOnly}
+                color={isAnnotationMode ? "primary" : "default"}
+              >
+                <TextFieldsIcon />
+              </IconButton>
+            </Tooltip>
+            
             {/* Color Picker */}
             <Tooltip title="Color">
               <IconButton 
@@ -456,6 +681,17 @@ const FreeformDrawingBlock: React.FC<FreeformDrawingBlockProps> = ({
               </IconButton>
             </Tooltip>
             
+            {/* Annotation Settings */}
+            <Tooltip title="Annotation Settings">
+              <IconButton 
+                size="small" 
+                onClick={(e) => setAnnotationMenuAnchor(e.currentTarget)}
+                disabled={readOnly}
+              >
+                <MoreVertIcon />
+              </IconButton>
+            </Tooltip>
+
             <Divider orientation="vertical" flexItem />
             
             {/* Save Button */}
@@ -464,9 +700,9 @@ const FreeformDrawingBlock: React.FC<FreeformDrawingBlockProps> = ({
                 size="small" 
                 color="primary" 
                 onClick={handleSave}
-                disabled={readOnly || isSaving}
+                disabled={readOnly || syncState.isSaving}
               >
-                {isSaving ? <CircularProgress size={16} /> : <SaveIcon />}
+                {syncState.isSaving ? <CircularProgress size={16} /> : <SaveIcon />}
               </IconButton>
             </Tooltip>
             
@@ -504,6 +740,8 @@ const FreeformDrawingBlock: React.FC<FreeformDrawingBlockProps> = ({
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
+            onDrop={handleCanvasDrop}
+            onDragOver={handleCanvasDragOver}
             style={{
               display: 'block',
               backgroundColor: '#fff',
@@ -549,6 +787,87 @@ const FreeformDrawingBlock: React.FC<FreeformDrawingBlockProps> = ({
               Read Only
             </Box>
           )}
+
+          {/* Save Indicator */}
+          {showSaveIndicator && !readOnly && (
+            <DrawingSaveIndicator
+              state={syncState}
+              onRetry={() => syncActions.forceSync()}
+              onDismissError={() => syncActions.clearError()}
+              position={saveIndicatorPosition}
+              size="small"
+            />
+          )}
+
+          {/* Annotations Overlay */}
+          {annotations.map((annotation) => (
+            <Box
+              key={annotation.id}
+              draggable={!readOnly}
+              onDragStart={(e) => handleAnnotationDragStart(e, annotation.id)}
+              onDragEnd={handleAnnotationDragEnd}
+              onClick={() => handleAnnotationClick(annotation.id)}
+              onDoubleClick={() => handleAnnotationDoubleClick(annotation.id)}
+              sx={{
+                position: 'absolute',
+                left: annotation.x,
+                top: annotation.y,
+                transform: 'translate(-50%, -50%)',
+                cursor: isAnnotationMode ? 'pointer' : 'default',
+                zIndex: selectedAnnotation === annotation.id ? 10 : 5,
+                '&:hover': {
+                  zIndex: 15
+                }
+              }}
+            >
+              <Box
+                sx={{
+                  fontSize: annotation.fontSize,
+                  color: annotation.color,
+                  backgroundColor: annotation.backgroundColor,
+                  border: `${annotation.borderWidth}px solid ${annotation.borderColor}`,
+                  borderRadius: `${annotation.borderRadius}px`,
+                  padding: `${annotation.padding}px`,
+                  whiteSpace: 'nowrap',
+                  userSelect: 'none',
+                  boxShadow: selectedAnnotation === annotation.id ? '0 0 0 2px #1976d2' : '0 2px 4px rgba(0,0,0,0.1)',
+                  transition: 'all 0.2s ease',
+                  opacity: draggedAnnotation === annotation.id ? 0.5 : 1,
+                  '&:hover': {
+                    boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+                    transform: 'translate(-50%, -50%) scale(1.05)'
+                  }
+                }}
+              >
+                {annotation.text}
+              </Box>
+              
+              {/* Delete button for selected annotation */}
+              {selectedAnnotation === annotation.id && isAnnotationMode && !readOnly && (
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteAnnotation(annotation.id);
+                  }}
+                  sx={{
+                    position: 'absolute',
+                    top: -8,
+                    right: -8,
+                    backgroundColor: '#f44336',
+                    color: 'white',
+                    width: 20,
+                    height: 20,
+                    '&:hover': {
+                      backgroundColor: '#d32f2f'
+                    }
+                  }}
+                >
+                  <DeleteIcon sx={{ fontSize: 12 }} />
+                </IconButton>
+              )}
+            </Box>
+          ))}
         </Box>
 
         {/* Color Menu */}
@@ -624,6 +943,122 @@ const FreeformDrawingBlock: React.FC<FreeformDrawingBlockProps> = ({
               />
             </MenuItem>
           ))}
+        </Menu>
+
+        {/* Annotation Settings Menu */}
+        <Menu
+          anchorEl={annotationMenuAnchor}
+          open={Boolean(annotationMenuAnchor)}
+          onClose={() => setAnnotationMenuAnchor(null)}
+          PaperProps={{
+            sx: { minWidth: 200 }
+          }}
+        >
+          <MenuItem onClick={() => {
+            const newFontSize = prompt('Enter new font size:', annotationSettings.fontSize.toString());
+            if (newFontSize !== null) {
+              const size = parseInt(newFontSize, 10);
+              if (!isNaN(size) && size > 0) {
+                setAnnotationSettings(prev => ({ ...prev, fontSize: size }));
+              }
+            }
+            setAnnotationMenuAnchor(null);
+          }}>
+            <ListItemIcon>
+              <TextFieldsIcon />
+            </ListItemIcon>
+            <ListItemText primary="Font Size" secondary={`${annotationSettings.fontSize}px`} />
+          </MenuItem>
+          <MenuItem onClick={() => {
+            const newColor = prompt('Enter new color (e.g., #000000):', annotationSettings.color);
+            if (newColor !== null) {
+              const color = newColor.startsWith('#') ? newColor : `#${newColor}`;
+              if (color.length === 7) { // #RRGGBB
+                setAnnotationSettings(prev => ({ ...prev, color }));
+              }
+            }
+            setAnnotationMenuAnchor(null);
+          }}>
+            <ListItemIcon>
+              <PaletteIcon />
+            </ListItemIcon>
+            <ListItemText primary="Color" secondary={annotationSettings.color} />
+          </MenuItem>
+          <MenuItem onClick={() => {
+            const newBackgroundColor = prompt('Enter new background color (e.g., #ffffff):', annotationSettings.backgroundColor);
+            if (newBackgroundColor !== null) {
+              const color = newBackgroundColor.startsWith('#') ? newBackgroundColor : `#${newBackgroundColor}`;
+              if (color.length === 7) { // #RRGGBB
+                setAnnotationSettings(prev => ({ ...prev, backgroundColor: color }));
+              }
+            }
+            setAnnotationMenuAnchor(null);
+          }}>
+            <ListItemIcon>
+              <PaletteIcon />
+            </ListItemIcon>
+            <ListItemText primary="Background Color" secondary={annotationSettings.backgroundColor} />
+          </MenuItem>
+          <MenuItem onClick={() => {
+            const newBorderColor = prompt('Enter new border color (e.g., #cccccc):', annotationSettings.borderColor);
+            if (newBorderColor !== null) {
+              const color = newBorderColor.startsWith('#') ? newBorderColor : `#${newBorderColor}`;
+              if (color.length === 7) { // #RRGGBB
+                setAnnotationSettings(prev => ({ ...prev, borderColor: color }));
+              }
+            }
+            setAnnotationMenuAnchor(null);
+          }}>
+            <ListItemIcon>
+              <PaletteIcon />
+            </ListItemIcon>
+            <ListItemText primary="Border Color" secondary={annotationSettings.borderColor} />
+          </MenuItem>
+          <MenuItem onClick={() => {
+            const newBorderWidth = prompt('Enter new border width (e.g., 1):', annotationSettings.borderWidth.toString());
+            if (newBorderWidth !== null) {
+              const width = parseInt(newBorderWidth, 10);
+              if (!isNaN(width) && width >= 0) {
+                setAnnotationSettings(prev => ({ ...prev, borderWidth: width }));
+              }
+            }
+            setAnnotationMenuAnchor(null);
+          }}>
+            <ListItemIcon>
+              <TextFieldsIcon />
+            </ListItemIcon>
+            <ListItemText primary="Border Width" secondary={`${annotationSettings.borderWidth}px`} />
+          </MenuItem>
+          <MenuItem onClick={() => {
+            const newPadding = prompt('Enter new padding (e.g., 4):', annotationSettings.padding.toString());
+            if (newPadding !== null) {
+              const padding = parseInt(newPadding, 10);
+              if (!isNaN(padding) && padding >= 0) {
+                setAnnotationSettings(prev => ({ ...prev, padding: padding }));
+              }
+            }
+            setAnnotationMenuAnchor(null);
+          }}>
+            <ListItemIcon>
+              <TextFieldsIcon />
+            </ListItemIcon>
+            <ListItemText primary="Padding" secondary={`${annotationSettings.padding}px`} />
+          </MenuItem>
+          <MenuItem onClick={() => {
+            const newBorderRadius = prompt('Enter new border radius (e.g., 4):', annotationSettings.borderRadius.toString());
+            if (newBorderRadius !== null) {
+              const radius = parseInt(newBorderRadius, 10);
+              if (!isNaN(radius) && radius >= 0) {
+                setAnnotationSettings(prev => ({ ...prev, borderRadius: radius }));
+              }
+            }
+            setAnnotationMenuAnchor(null);
+          }}>
+            <ListItemIcon>
+              <TextFieldsIcon />
+            </ListItemIcon>
+            <ListItemText primary="Border Radius" secondary={`${annotationSettings.borderRadius}px`} />
+          </MenuItem>
         </Menu>
 
         {/* Download Menu */}

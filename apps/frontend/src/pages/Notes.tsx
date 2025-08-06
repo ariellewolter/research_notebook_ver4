@@ -17,6 +17,8 @@ import { Button, Card, Input, PanelLayout, SidebarNav } from '../components/UI/i
 import UniversalLinking from '../components/UniversalLinking/UniversalLinking';
 import LinkRenderer from '../components/UniversalLinking/LinkRenderer';
 import NotesPaginationMode from '../components/Notes/NotesPaginationMode';
+import DrawingInsertionToolbar from '../components/DrawingInsertionToolbar';
+import { useDrawingInsertion } from '../hooks/useDrawingInsertion';
 
 // Import existing services and utilities
 import { notesApi, linksApi, databaseApi, projectsApi } from '../services/api';
@@ -390,6 +392,14 @@ const NoteEditor = ({ note, onSave, onCancel }) => {
         date: note?.date || new Date().toISOString().split('T')[0]
     });
 
+    const { insertDrawing } = useDrawingInsertion({
+        entityId: note?.id || 'new',
+        entityType: 'note',
+        onContentUpdate: (newContent) => {
+            setFormData(prev => ({ ...prev, content: prev.content + newContent }));
+        }
+    });
+
     const handleSubmit = (e) => {
         e.preventDefault();
         onSave(formData);
@@ -447,9 +457,18 @@ const NoteEditor = ({ note, onSave, onCancel }) => {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Content
-                        </label>
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="block text-sm font-medium text-gray-700">
+                                Content
+                            </label>
+                            <DrawingInsertionToolbar
+                                entityId={note?.id || 'new'}
+                                entityType="note"
+                                onInsertDrawing={insertDrawing}
+                                variant="button"
+                                size="small"
+                            />
+                        </div>
                         <UniversalLinking
                             value={formData.content}
                             onChange={(value) => setFormData({ ...formData, content: value })}

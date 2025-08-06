@@ -1,6 +1,7 @@
 import { Application } from 'express';
 import { apiRoutes } from './api';
 import authRoutes from './auth';
+import adminRoutes from './admin';
 import { integrationRoutes } from './integration';
 
 export function setupRoutes(app: Application): void {
@@ -11,6 +12,7 @@ export function setupRoutes(app: Application): void {
 
     // Route groups
     app.use('/api/auth', authRoutes);
+    app.use('/api/admin', adminRoutes);
     app.use('/api', apiRoutes);
     app.use('/api/integration', integrationRoutes);
     

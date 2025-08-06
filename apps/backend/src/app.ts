@@ -1,4 +1,5 @@
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import { corsConfig } from './config/cors';
 import { setupMiddleware } from './middleware';
 import { setupRoutes } from './routes';
@@ -10,6 +11,7 @@ export function createApp(): express.Application {
     // Basic middleware
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
+    app.use(cookieParser());
     
     // CORS configuration
     app.use(corsConfig);

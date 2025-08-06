@@ -76,6 +76,8 @@ import { useWorkspaceTabs } from './WorkspaceTabsContext'; // adjust import path
 import ProtocolDashboard from './ProtocolDashboard';
 import Autocomplete from '@mui/material/Autocomplete';
 import EntityLinksSidebar from '../components/EntityLinksSidebar';
+import DrawingInsertionToolbar from '../components/DrawingInsertionToolbar';
+import { useDrawingInsertion } from '../hooks/useDrawingInsertion';
 
 interface ProtocolStep {
     id: string;
@@ -294,6 +296,14 @@ const Protocols: React.FC<ProtocolsProps> = ({ onOpenProtocolTab, openTabs }) =>
     const [creatingNote, setCreatingNote] = useState(false);
     const [creatingDatabaseEntry, setCreatingDatabaseEntry] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(true);
+
+    const { insertDrawing } = useDrawingInsertion({
+        entityId: editingProtocol?.id || 'new',
+        entityType: 'protocol',
+        onContentUpdate: (newContent) => {
+            setProtocolFormData(prev => ({ ...prev, description: (prev.description || '') + newContent }));
+        }
+    });
 
     // Filter protocols when search query or category filter changes
     useEffect(() => {
@@ -1064,16 +1074,29 @@ const Protocols: React.FC<ProtocolsProps> = ({ onOpenProtocolTab, openTabs }) =>
                             </Grid>
                         </Grid>
 
-                        <TextField
-                            fullWidth
-                            label="Description"
-                            multiline
-                            rows={3}
-                            value={protocolFormData.description}
-                            onChange={(e) => setProtocolFormData({ ...protocolFormData, description: e.target.value })}
-                            sx={{ mb: 2 }}
-                            disabled={saving}
-                        />
+                        <Box sx={{ mb: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                                <Typography variant="subtitle2" color="text.secondary">
+                                    Description
+                                </Typography>
+                                <DrawingInsertionToolbar
+                                    entityId={editingProtocol?.id || 'new'}
+                                    entityType="protocol"
+                                    onInsertDrawing={insertDrawing}
+                                    variant="button"
+                                    size="small"
+                                />
+                            </Box>
+                            <TextField
+                                fullWidth
+                                label="Description"
+                                multiline
+                                rows={3}
+                                value={protocolFormData.description}
+                                onChange={(e) => setProtocolFormData({ ...protocolFormData, description: e.target.value })}
+                                disabled={saving}
+                            />
+                        </Box>
 
                         <Grid container spacing={2} sx={{ mb: 2 }}>
                             <Grid item xs={12} md={4}>

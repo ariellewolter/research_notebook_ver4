@@ -12,6 +12,7 @@ model User {
   username            String             @unique
   email               String             @unique
   password            String
+  role                String             @default("member") // "admin" or "member"
   createdAt           DateTime           @default(now())
   googleClientId      String?
   googleClientSecret  String?
@@ -183,7 +184,7 @@ model DatabaseEntry {
   catalogNumber   String?
   concentration   String?
   duration        String?
-  equipment       String?
+  // equipment field removed - now using relation
   function        String?
   molecularWeight Float?
   organism        String?

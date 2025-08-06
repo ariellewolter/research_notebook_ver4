@@ -38,6 +38,8 @@ import {
     Visibility as ViewIcon
 } from '@mui/icons-material';
 import { databaseApi } from '../services/api';
+import DrawingInsertionToolbar from '../components/DrawingInsertionToolbar';
+import { useDrawingInsertion } from '../hooks/useDrawingInsertion';
 
 interface DatabaseEntry {
     id: string;
@@ -82,6 +84,14 @@ const Database: React.FC = () => {
             notes: ''
         },
         relatedResearch: ''
+    });
+
+    const { insertDrawing } = useDrawingInsertion({
+        entityId: editingEntry?.id || 'new',
+        entityType: 'database',
+        onContentUpdate: (newContent) => {
+            setFormData(prev => ({ ...prev, description: (prev.description || '') + newContent }));
+        }
     });
 
     const loadEntries = async () => {
@@ -380,16 +390,29 @@ const Database: React.FC = () => {
                             disabled={saving}
                         />
 
-                        <TextField
-                            fullWidth
-                            label="Description"
-                            multiline
-                            rows={3}
-                            value={formData.description}
-                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                            sx={{ mb: 2 }}
-                            disabled={saving}
-                        />
+                        <Box sx={{ mb: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                                <Typography variant="subtitle2" color="text.secondary">
+                                    Description
+                                </Typography>
+                                <DrawingInsertionToolbar
+                                    entityId={editingEntry?.id || 'new'}
+                                    entityType="database"
+                                    onInsertDrawing={insertDrawing}
+                                    variant="button"
+                                    size="small"
+                                />
+                            </Box>
+                            <TextField
+                                fullWidth
+                                label="Description"
+                                multiline
+                                rows={3}
+                                value={formData.description}
+                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                disabled={saving}
+                            />
+                        </Box>
 
                         <TextField
                             fullWidth

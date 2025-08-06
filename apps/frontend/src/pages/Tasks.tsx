@@ -18,6 +18,8 @@ import * as chrono from 'chrono-node';
 import TaskDependencies from '../components/Tasks/TaskDependencies';
 import CriticalPathAnalysis from '../components/Tasks/CriticalPathAnalysis';
 import TaskFlowManagement from '../components/Tasks/TaskFlowManagement';
+import DrawingInsertionToolbar from '../components/DrawingInsertionToolbar';
+import { useDrawingInsertion } from '../hooks/useDrawingInsertion';
 
 // Enhanced natural language parsing
 const parseNaturalLanguage = (text: string) => {
@@ -415,6 +417,14 @@ const Tasks: React.FC = () => {
     category: 'General',
     variables: '{}',
     isPublic: false,
+  });
+
+  const { insertDrawing } = useDrawingInsertion({
+    entityId: selectedTask?.id || 'new',
+    entityType: 'task',
+    onContentUpdate: (newContent) => {
+      setNewTask(prev => ({ ...prev, description: (prev.description || '') + newContent }));
+    }
   });
 
   // Load task data when editing
@@ -1982,6 +1992,18 @@ const Tasks: React.FC = () => {
               />
             </Grid>
             <Grid item xs={12}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Description
+                </Typography>
+                <DrawingInsertionToolbar
+                  entityId={selectedTask?.id || 'new'}
+                  entityType="task"
+                  onInsertDrawing={insertDrawing}
+                  variant="button"
+                  size="small"
+                />
+              </Box>
               <TextField
                 fullWidth
                 multiline

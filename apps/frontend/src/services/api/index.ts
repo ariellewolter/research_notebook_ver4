@@ -21,6 +21,7 @@ export { advancedReportingApi } from './advancedReportingApi';
 export { searchApi } from './searchApi';
 export { cloudSyncApi } from './cloudSyncApi';
 export { entityCloudSyncApi } from './entityCloudSyncApi';
+export { blocksApi } from './blocksApi';
 
 // Re-export types
 export * from '../../types/api.types'; 

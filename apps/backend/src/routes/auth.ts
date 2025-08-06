@@ -2,12 +2,22 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
+import { requireAdmin } from '../middleware/roleAuth';
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
 // JWT secret (in production, this should be in environment variables)
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+// Cookie options for secure session management
+const COOKIE_OPTIONS = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production', // Only use secure cookies in production
+    sameSite: 'strict' as const,
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    path: '/'
+};
 
 // Register endpoint
 router.post('/register', async (req, res) => {
@@ -36,24 +46,29 @@ router.post('/register', async (req, res) => {
             data: {
                 username,
                 email,
-                password: hashedPassword
+                password: hashedPassword,
+                role: 'member' // Default role for new users
             }
         });
 
         // Generate JWT token
         const token = jwt.sign(
-            { userId: user.id, username: user.username },
+            { userId: user.id, username: user.username, role: user.role },
             JWT_SECRET,
             { expiresIn: '24h' }
         );
 
+        // Set secure HTTP-only cookie
+        res.cookie('authToken', token, COOKIE_OPTIONS);
+
         res.status(201).json({
             message: 'User created successfully',
-            token,
+            token, // Also return token for client-side storage (offline mode)
             user: {
                 id: user.id,
                 username: user.username,
-                email: user.email
+                email: user.email,
+                role: user.role
             }
         });
     } catch (error) {
@@ -90,18 +105,22 @@ router.post('/login', async (req, res) => {
 
         // Generate JWT token
         const token = jwt.sign(
-            { userId: user.id, username: user.username },
+            { userId: user.id, username: user.username, role: user.role },
             JWT_SECRET,
             { expiresIn: '24h' }
         );
 
+        // Set secure HTTP-only cookie
+        res.cookie('authToken', token, COOKIE_OPTIONS);
+
         res.json({
             message: 'Login successful',
-            token,
+            token, // Also return token for client-side storage (offline mode)
             user: {
                 id: user.id,
                 username: user.username,
-                email: user.email
+                email: user.email,
+                role: user.role
             }
         });
     } catch (error) {
@@ -110,10 +129,16 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// Verify token middleware
+// Verify token middleware - supports both cookie and header-based authentication
 export const authenticateToken = (req: any, res: any, next: any) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+    // Check for token in cookie first (preferred for web clients)
+    let token = req.cookies?.authToken;
+    
+    // Fallback to Authorization header (for mobile/offline clients)
+    if (!token) {
+        const authHeader = req.headers['authorization'];
+        token = authHeader && authHeader.split(' ')[1];
+    }
 
     if (!token) {
         return res.status(401).json({ error: 'Access token required' });
@@ -207,6 +232,7 @@ router.get('/me', authenticateToken, async (req: any, res) => {
                 id: true,
                 username: true,
                 email: true,
+                role: true,
                 createdAt: true
             }
         });
@@ -218,6 +244,60 @@ router.get('/me', authenticateToken, async (req: any, res) => {
         res.json({ user });
     } catch (error) {
         console.error('Get user error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Logout endpoint
+router.post('/logout', (req, res) => {
+    // Clear the auth cookie
+    res.clearCookie('authToken', { path: '/' });
+    res.json({ message: 'Logged out successfully' });
+});
+
+// Admin-only: Get all users (for user management)
+router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const users = await prisma.user.findMany({
+            select: {
+                id: true,
+                username: true,
+                email: true,
+                role: true,
+                createdAt: true
+            }
+        });
+        res.json({ users });
+    } catch (error) {
+        console.error('Get users error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin-only: Update user role
+router.patch('/users/:userId/role', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { role } = req.body;
+
+        if (!['admin', 'member'].includes(role)) {
+            return res.status(400).json({ error: 'Invalid role. Must be "admin" or "member"' });
+        }
+
+        const user = await prisma.user.update({
+            where: { id: userId },
+            data: { role },
+            select: {
+                id: true,
+                username: true,
+                email: true,
+                role: true
+            }
+        });
+
+        res.json({ message: 'User role updated successfully', user });
+    } catch (error) {
+        console.error('Update user role error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
