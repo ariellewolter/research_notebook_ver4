@@ -139,7 +139,7 @@ router.post('/usage/bulk', asyncHandler(async (req, res) => {
       const result = await entityService.logUsage(usage);
       results.push({ success: true, data: result });
     } catch (error) {
-      results.push({ success: false, error: error.message });
+      results.push({ success: false, error: (error as Error).message });
     }
   }
   
