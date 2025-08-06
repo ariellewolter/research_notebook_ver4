@@ -122,6 +122,62 @@ const DeepLinkRouter: React.FC<DeepLinkRouterProps> = ({ children }) => {
     const location = useLocation();
     const isInitialized = useRef(false);
     const pendingDeepLinks = useRef<DeepLinkEntity[]>([]);
+    const [windowContext, setWindowContext] = useRef<WindowContext | null>(null);
+
+    // Consolidated initialization effect to prevent race conditions
+    useEffect(() => {
+        const initializeDeepLinkRouter = async () => {
+            if (isInitialized.current) return;
+            
+            try {
+                console.log('Initializing deep link router...');
+                
+                // Initialize electron API if available
+                if (typeof window !== 'undefined' && (window as any).electronAPI) {
+                    const electronAPI = (window as any).electronAPI;
+                    
+                    // Set up deep link entity listener
+                    electronAPI.setDeepLinkEntityListener((entityData: any) => {
+                        console.log('Received deep link entity:', entityData);
+                        processDeepLinkEntity(entityData);
+                    }).catch((error: any) => {
+                        console.warn('Failed to set deep link entity listener:', error);
+                    });
+
+                    // Get window context for deep linking
+                    electronAPI.getWindowContext().then((context: any) => {
+                        console.log('Window context:', context);
+                        setWindowContext(context);
+                    }).catch((error: any) => {
+                        console.warn('Failed to get window context:', error);
+                    });
+                }
+                
+                // Mark as initialized
+                isInitialized.current = true;
+                console.log('Deep link router initialized');
+                
+                // Process any pending deep links after a short delay
+                setTimeout(() => {
+                    processPendingDeepLinks();
+                }, 100);
+                
+            } catch (error) {
+                console.error('Error initializing deep link router:', error);
+                // Mark as initialized even on error to prevent infinite retries
+                isInitialized.current = true;
+            }
+        };
+
+        initializeDeepLinkRouter();
+        
+        // Cleanup function
+        return () => {
+            if (typeof window !== 'undefined' && (window as any).electronAPI) {
+                (window as any).electronAPI.removeDeepLinkEntityListener();
+            }
+        };
+    }, []); // Only run once on mount
 
     // Function to handle deep link navigation
     const handleDeepLinkNavigation = (entity: DeepLinkEntity) => {
@@ -164,133 +220,24 @@ const DeepLinkRouter: React.FC<DeepLinkRouterProps> = ({ children }) => {
         }
     };
 
-    // Initialize deep link listeners
-    useEffect(() => {
-        // Check if we're in Electron environment
-        if (typeof window !== 'undefined' && (window as any).electronAPI) {
-            const electronAPI = (window as any).electronAPI;
-            
-            // Listen for deep link entity events from main process
-            const handleDeepLinkEntity = (event: any, entity: DeepLinkEntity) => {
-                console.log('Received deep link entity event:', entity);
-                
-                if (!isInitialized.current) {
-                    // Store for later processing
-                    pendingDeepLinks.current.push(entity);
-                    console.log('App not initialized, storing deep link for later');
-                    return;
-                }
-                
-                // Process immediately
-                handleDeepLinkNavigation(entity);
-            };
-            
-            // Set up the listener
-            electronAPI.onDeepLinkEntity(handleDeepLinkEntity);
-            
-            // Get window context to check if we're in a specific window
-            electronAPI.getDeepLinkContext().then((context: WindowContext) => {
-                console.log('Window context:', context);
-                
-                // If we have specific window parameters, handle them
-                if (context.params && Object.keys(context.params).length > 0) {
-                    const { windowType, ...params } = context.params;
-                    
-                    // Handle specific window types
-                    if (windowType) {
-                        switch (windowType) {
-                            case 'note-editor':
-                                if (params.noteId) {
-                                    handleDeepLinkNavigation({
-                                        entityType: 'note',
-                                        entityId: params.noteId,
-                                        params
-                                    });
-                                }
-                                break;
-                            case 'project-dashboard':
-                                if (params.projectId) {
-                                    handleDeepLinkNavigation({
-                                        entityType: 'project',
-                                        entityId: params.projectId,
-                                        params
-                                    });
-                                }
-                                break;
-                            case 'pdf-viewer':
-                                if (params.pdfId || params.filePath) {
-                                    handleDeepLinkNavigation({
-                                        entityType: 'pdf',
-                                        entityId: params.pdfId || params.filePath,
-                                        params
-                                    });
-                                }
-                                break;
-                            case 'protocol-viewer':
-                                if (params.protocolId) {
-                                    handleDeepLinkNavigation({
-                                        entityType: 'protocol',
-                                        entityId: params.protocolId,
-                                        params
-                                    });
-                                }
-                                break;
-                            case 'recipe-viewer':
-                                if (params.recipeId) {
-                                    handleDeepLinkNavigation({
-                                        entityType: 'recipe',
-                                        entityId: params.recipeId,
-                                        params
-                                    });
-                                }
-                                break;
-                            case 'task-editor':
-                                if (params.taskId) {
-                                    handleDeepLinkNavigation({
-                                        entityType: 'task',
-                                        entityId: params.taskId,
-                                        params
-                                    });
-                                }
-                                break;
-                            case 'search':
-                                handleDeepLinkNavigation({
-                                    entityType: 'search',
-                                    params
-                                });
-                                break;
-                            case 'dashboard':
-                                handleDeepLinkNavigation({
-                                    entityType: 'dashboard',
-                                    params
-                                });
-                                break;
-                        }
-                    }
-                }
-            }).catch((error: any) => {
-                console.warn('Failed to get window context:', error);
-            });
-            
-            // Cleanup function
-            return () => {
-                electronAPI.removeDeepLinkEntityListener();
-            };
-        }
-    }, []);
+    // Function to process a single deep link entity
+    const processDeepLinkEntity = (entityData: any) => {
+        const entity: DeepLinkEntity = {
+            entityType: entityData.entityType,
+            entityId: entityData.entityId,
+            params: entityData.params || {}
+        };
 
-    // Mark as initialized and process pending deep links
-    useEffect(() => {
         if (!isInitialized.current) {
-            isInitialized.current = true;
-            console.log('Deep link router initialized');
-            
-            // Process any pending deep links
-            setTimeout(() => {
-                processPendingDeepLinks();
-            }, 100);
+            // Store for later processing
+            pendingDeepLinks.current.push(entity);
+            console.log('App not initialized, storing deep link for later');
+            return;
         }
-    }, [location.pathname]);
+
+        // Process immediately
+        handleDeepLinkNavigation(entity);
+    };
 
     // Debug logging for development
     useEffect(() => {

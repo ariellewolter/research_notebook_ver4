@@ -266,45 +266,73 @@ router.post('/workflows/:id/execute', async (req, res) => {
             }
         });
 
-        // Start execution in background (simulated)
-        setTimeout(async () => {
+        // Execute workflow asynchronously without blocking the response
+        const executeWorkflowAsync = async () => {
             try {
-                // Simulate workflow execution
-                const metadata = JSON.parse(workflow.metadata || '{}');
-                const nodes = metadata.nodes || [];
+                // Update execution status to running
+                await prisma.taskWorkflowExecution.update({
+                    where: { id: execution.id },
+                    data: {
+                        status: 'running',
+                        startTime: new Date(),
+                        logs: JSON.stringify([
+                            {
+                                timestamp: new Date().toISOString(),
+                                level: 'info',
+                                message: 'Workflow execution started'
+                            }
+                        ])
+                    }
+                });
 
-                for (let i = 0; i < nodes.length; i++) {
-                    const node = nodes[i];
-
-                    // Update progress
-                    const progress = ((i + 1) / nodes.length) * 100;
+                // Execute workflow steps
+                for (const step of workflow.steps) {
+                    // Update step status
                     await prisma.taskWorkflowExecution.update({
                         where: { id: execution.id },
                         data: {
-                            progress,
-                            currentNode: node.id,
                             logs: JSON.stringify([
                                 {
                                     timestamp: new Date().toISOString(),
                                     level: 'info',
-                                    message: `Processing node: ${node.data.label}`,
-                                    nodeId: node.id
+                                    message: `Executing step: ${step.name}`
                                 }
                             ])
                         }
                     });
 
-                    // Simulate processing time
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    // Execute step logic here
+                    // This is where you would implement the actual step execution
+                    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate step execution
+
+                    // Update step completion
+                    await prisma.taskWorkflowExecution.update({
+                        where: { id: execution.id },
+                        data: {
+                            logs: JSON.stringify([
+                                {
+                                    timestamp: new Date().toISOString(),
+                                    level: 'info',
+                                    message: `Step completed: ${step.name}`
+                                }
+                            ])
+                        }
+                    });
                 }
 
-                // Mark as completed
+                // Mark execution as completed
                 await prisma.taskWorkflowExecution.update({
                     where: { id: execution.id },
                     data: {
                         status: 'completed',
                         endTime: new Date(),
-                        progress: 100
+                        logs: JSON.stringify([
+                            {
+                                timestamp: new Date().toISOString(),
+                                level: 'info',
+                                message: 'Workflow execution completed successfully'
+                            }
+                        ])
                     }
                 });
             } catch (error) {
@@ -318,13 +346,18 @@ router.post('/workflows/:id/execute', async (req, res) => {
                             {
                                 timestamp: new Date().toISOString(),
                                 level: 'error',
-                                message: 'Workflow execution failed'
+                                message: `Workflow execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`
                             }
                         ])
                     }
                 });
             }
-        }, 100);
+        };
+
+        // Start workflow execution without blocking
+        executeWorkflowAsync().catch(error => {
+            console.error('Unhandled error in workflow execution:', error);
+        });
 
         res.json({
             success: true,

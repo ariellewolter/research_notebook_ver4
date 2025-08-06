@@ -148,18 +148,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 if (savedToken && savedUser) {
                     try {
                         const userData = JSON.parse(savedUser);
-                        setToken(savedToken);
-                        setUser(userData);
-
-                        // Temporarily skip token verification to test app loading
-                        console.log('Skipping token verification for testing');
-                        // const isValid = await verifyToken(savedToken);
-                        // if (!isValid) {
-                        //     console.log('Saved token is invalid, clearing auth state');
-                        //     logout();
-                        // }
+                        
+                        // Verify token is still valid
+                        const isValid = await verifyToken(savedToken);
+                        if (isValid) {
+                            setToken(savedToken);
+                            setUser(userData);
+                        } else {
+                            console.log('Saved token is invalid, clearing auth state');
+                            logout();
+                        }
                     } catch (error) {
-                        console.error('Error parsing saved user data:', error);
+                        console.error('Error parsing saved user data or token verification failed:', error);
                         logout();
                     }
                 }
@@ -172,7 +172,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         };
 
         initializeAuth();
-    }, [verifyToken]);
+    }, [verifyToken, logout]);
 
     // Auto-refresh token every 14 minutes (assuming 15-minute token expiry)
     useEffect(() => {
