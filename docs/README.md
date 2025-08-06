@@ -21,6 +21,8 @@ Welcome to the comprehensive documentation for the Research Notebook application
 - **[Electron Integration](electron/ELECTRON_INTEGRATION_SUMMARY.md)** - Desktop app integration
 - **[API Extensions](electron/ELECTRON_API_EXTENSION_SUMMARY.md)** - Electron API extensions
 - **[Builder Configuration](electron/ELECTRON_BUILDER_ICON_CONFIG.md)** - Build configuration
+- **[Security & Compatibility](implementation/ELECTRON_SECURITY_GUIDE.md)** - Security vulnerabilities and fixes
+- **[Security Quick Reference](implementation/ELECTRON_SECURITY_QUICK_REFERENCE.md)** - Quick security fixes guide
 
 ### 🧪 Testing & Quality
 - **[Testing Guide](testing/README.md)** - Testing procedures and tools
